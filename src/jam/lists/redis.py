@@ -16,10 +16,10 @@ except ImportError:
     )
 
 from jam.exceptions.jose import JamRedisListConfigurationError
-from jam.jose.lists.__base__ import BaseJWTList
+from jam.lists.__base__ import BaseList
 
 
-class RedisList(BaseJWTList):
+class RedisList(BaseList):
     """Redis-based JWT black/white list.
 
     Most optimal for production use with TTL support.

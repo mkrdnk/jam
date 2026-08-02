@@ -2,11 +2,11 @@
 
 from typing import Literal
 
-from jam.jose.lists.__base__ import BaseJWTList
+from jam.lists.__base__ import BaseList
 from jam.logger import BaseLogger
 
 
-class MemoryList(BaseJWTList):
+class MemoryList(BaseList):
     """In-memory JWT black/white list.
 
     Suitable for development, testing, or when external storage is not needed.

@@ -15,10 +15,10 @@ except ImportError:
         """
     )
 
-from jam.jose.lists.__base__ import BaseJWTList
+from jam.lists.__base__ import BaseList
 
 
-class JSONList(BaseJWTList):
+class JSONList(BaseList):
     """JSON file-based JWT black/white list.
 
     Not recommended for blacklists - no TTL support, user must manage token lifetime.
