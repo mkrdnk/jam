@@ -12,5 +12,11 @@ from jam.instance import Jam
 from jam.subject import BaseSubject
 
 
-__version__ = "3.3.0.post0"
-__all__ = ["Jam", "BaseJam"]
+__version__ = "4.0.0a0.dev0"
+__all__ = [
+    "Jam",
+    "BaseJam",
+    "BaseSubject",
+    "BasePolicy",
+    "Policy",
+]
