@@ -4,7 +4,7 @@
 import hashlib
 import hmac
 import secrets
-from typing import Any, Literal
+from typing import Any
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
@@ -23,7 +23,7 @@ from jam.exceptions import (
     JamPASETOInvalidSymmetricKey,
     JamPASETOInvalidTokenFormat,
 )
-from jam.paseto.__base__ import PASETO, BasePASETO
+from jam.paseto.__base__ import BasePASETO
 from jam.paseto.utils import (
     __gen_hash__,
     __pae__,
@@ -38,24 +38,13 @@ class PASETOv3(BasePASETO):
 
     _VERSION = "v3"
 
-    @classmethod
-    def key(
-        cls: type[PASETO],
-        purpose: Literal["local", "public"],
-        secret_key: str | bytes,
-        public_key: str | bytes | None = None,
-    ) -> PASETO:
-        """Create PASETOv3 instance.
+    def _set_key(self, secret_key: str | bytes) -> None:
+        """Process the key.
 
         Args:
-            purpose (str): "local" or "public"
-            secret_key (str | bytes):  Private PEM
-            public_key (str | bytes | None): Public PEM
+            secret_key (str | bytes): Private PEM or secret key.
         """
-        inst = cls()
-        inst._purpose = purpose
-
-        if purpose == "local":
+        if self._purpose == "local":
             if isinstance(secret_key, str):
                 secret_key = __key_loader__(secret_key)
                 try:
@@ -70,10 +59,10 @@ class PASETOv3(BasePASETO):
                 raise JamPASETOInvalidSymmetricKey(
                     "v3.local requires a 32-byte secret key"
                 )
-            inst._secret = bytes(raw)
-            return inst
+            self._secret = bytes(raw)
+            return
 
-        elif purpose == "public":
+        elif self._purpose == "public":
             if isinstance(secret_key, str):
                 secret_key = __key_loader__(secret_key)
             if hasattr(secret_key, "sign") and isinstance(
@@ -83,9 +72,9 @@ class PASETOv3(BasePASETO):
                     raise JamPASETOInvalidSecp384r1Key(
                         "PASETOv3.public requires P-384 (secp384r1) keys"
                     )
-                inst._secret = secret_key
-                inst._public_key = secret_key.public_key()
-                return inst
+                self._secret = secret_key
+                self._public_key = secret_key.public_key()
+                return
 
             if hasattr(secret_key, "verify") and isinstance(
                 secret_key, ec.EllipticCurvePublicKey
@@ -94,9 +83,9 @@ class PASETOv3(BasePASETO):
                     raise JamPASETOInvalidSecp384r1Key(
                         "PASETOv3.public requires P-384 (secp384r1) keys"
                     )
-                inst._secret = None
-                inst._public_key = secret_key
-                return inst
+                self._secret = None
+                self._public_key = secret_key
+                return
 
             # bytes / PEM string -> try load PEM/DER
             if isinstance(secret_key, str):
@@ -116,9 +105,9 @@ class PASETOv3(BasePASETO):
                     raise JamPASETOInvalidSecp384r1Key(
                         message="Invalid ECDSA key type"
                     )
-                inst._secret = priv
-                inst._public_key = priv.public_key()
-                return inst
+                self._secret = priv
+                self._public_key = priv.public_key()
+                return
             except Exception:
                 try:
                     priv = serialization.load_der_private_key(
@@ -128,9 +117,9 @@ class PASETOv3(BasePASETO):
                         isinstance(priv, ec.EllipticCurvePrivateKey)
                         and priv.curve.name == "secp384r1"
                     ):
-                        inst._secret = priv
-                        inst._public_key = priv.public_key()
-                        return inst
+                        self._secret = priv
+                        self._public_key = priv.public_key()
+                        return
                 except Exception:
                     pass
 
@@ -143,9 +132,9 @@ class PASETOv3(BasePASETO):
                     raise JamPASETOInvalidSecp384r1Key(
                         message="Invalid ECDSA public key type"
                     )
-                inst._secret = None
-                inst._public_key = pub
-                return inst
+                self._secret = None
+                self._public_key = pub
+                return
             except Exception:
                 try:
                     pub = serialization.load_der_public_key(key_bytes)
@@ -153,17 +142,15 @@ class PASETOv3(BasePASETO):
                         isinstance(pub, ec.EllipticCurvePublicKey)
                         and pub.curve.name == "secp384r1"
                     ):
-                        inst._secret = None
-                        inst._public_key = pub
-                        return inst
+                        self._secret = None
+                        self._public_key = pub
+                        return
                 except Exception:
                     pass
 
             raise JamPASETOInvalidSecp384r1Key(
                 message="Invalid EC key for v3.public (expect P-384 PEM/DER or key object)"
             )
-        else:
-            raise ValueError("Purpose must be 'local' or 'public'")
 
     def encode(
         self,
@@ -194,15 +181,18 @@ class PASETOv3(BasePASETO):
             footer_bytes = b""
 
         if self._purpose == "local":
-            return self._encode_local(
+            token = self._encode_local(
                 header, payload_bytes, footer_bytes
             ).decode("utf-8")
         elif self._purpose == "public":
-            return self._encode_public(
+            token = self._encode_public(
                 header, payload_bytes, footer_bytes
             ).decode("utf-8")
         else:
             raise JamPASETOInvalidPurpose
+
+        self._list_add(token)
+        return token
 
     def decode(
         self,
@@ -218,6 +208,7 @@ class PASETOv3(BasePASETO):
         Returns:
             Payload and dict
         """
+        self._list_check(token)
         if token.startswith(f"{self._VERSION}.local."):
             return self._decode_local(token, serializer)
         elif token.startswith(f"{self._VERSION}.public."):

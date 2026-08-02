@@ -4,7 +4,7 @@
 import hashlib
 import hmac
 import secrets
-from typing import Any, Literal
+from typing import Any
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -22,7 +22,7 @@ from jam.exceptions import (
     JamPASTOKeyVerificationError,
 )
 from jam.exceptions.paseto import JamPASETOInvalidPurpose
-from jam.paseto.__base__ import PASETO, BasePASETO
+from jam.paseto.__base__ import BasePASETO
 from jam.paseto.utils import (
     __gen_hash__,
     __pae__,
@@ -37,28 +37,18 @@ class PASETOv1(BasePASETO):
 
     _VERSION = "v1"
 
-    @classmethod
-    def key(
-        cls: type[PASETO],
-        purpose: Literal["local", "public"],
-        secret_key: str | bytes | None | RSAPrivateKey | RSAPublicKey,
-    ) -> PASETO:
-        """Return PASETO instance.
+    def _set_key(
+        self, secret_key: str | bytes | None | RSAPrivateKey | RSAPublicKey
+    ) -> None:
+        """Process the key.
 
         Args:
-            purpose (Literal["local", "public"]): Paseto purpose
             secret_key (str | bytes): PEM or secret key
 
         Raises:
             JamPASETOInvalidRSAKey: If the key is invalid.
-
-        Returns:
-            PASETO: Paseto instance
         """
-        inst = cls()
-        inst._purpose = purpose
-
-        if purpose == "local":
+        if self._purpose == "local":
             if isinstance(secret_key, str):
                 secret_key = __key_loader__(secret_key)
                 raw = base64url_decode(secret_key.encode("utf-8"))
@@ -73,20 +63,20 @@ class PASETOv1(BasePASETO):
                         "key": secret_key,
                     },
                 )
-            inst._secret = bytes(raw)
-            return inst
+            self._secret = bytes(raw)
+            return
 
-        elif purpose == "public":
+        elif self._purpose == "public":
             if isinstance(secret_key, str):
                 secret_key = __key_loader__(secret_key)
             if isinstance(secret_key, RSAPrivateKey):
-                inst._secret = secret_key
-                inst._public_key = secret_key.public_key()
-                return inst
+                self._secret = secret_key
+                self._public_key = secret_key.public_key()
+                return
             if isinstance(secret_key, RSAPublicKey):
-                inst._secret = None
-                inst._public_key = secret_key
-                return inst
+                self._secret = None
+                self._public_key = secret_key
+                return
 
             key_bytes = (
                 secret_key.encode("utf-8")
@@ -99,9 +89,9 @@ class PASETOv1(BasePASETO):
                     password=None,
                 )
                 if isinstance(priv, RSAPrivateKey):
-                    inst._secret = priv
-                    inst._public_key = priv.public_key()
-                    return inst
+                    self._secret = priv
+                    self._public_key = priv.public_key()
+                    return
             except Exception:
                 pass
             try:
@@ -110,33 +100,31 @@ class PASETOv1(BasePASETO):
                     password=None,
                 )
                 if isinstance(priv, RSAPrivateKey):
-                    inst._secret = priv
-                    inst._public_key = priv.public_key()
-                    return inst
+                    self._secret = priv
+                    self._public_key = priv.public_key()
+                    return
             except Exception:
                 pass
             try:
                 pub = serialization.load_pem_public_key(key_bytes)  # type: ignore[arg-type]
                 if isinstance(pub, RSAPublicKey):
-                    inst._secret = None
-                    inst._public_key = pub
-                    return inst
+                    self._secret = None
+                    self._public_key = pub
+                    return
             except Exception:
                 pass
             try:
                 pub = serialization.load_der_public_key(key_bytes)  # type: ignore[arg-type]
                 if isinstance(pub, RSAPublicKey):
-                    inst._secret = None
-                    inst._public_key = pub
-                    return inst
+                    self._secret = None
+                    self._public_key = pub
+                    return
             except Exception:
                 pass
 
             raise JamPASETOInvalidRSAKey(
                 message="Invalid RSA key for v1.public"
             )
-        else:
-            raise ValueError("Purpose must be 'local' or 'public'")
 
     def _encode_local(
         self,
@@ -338,11 +326,14 @@ class PASETOv1(BasePASETO):
         footer = serializer.dumps(footer) if footer else b""
 
         if self._purpose == "local":
-            return self._encode_local(header, payload, footer).decode("utf-8")
+            token = self._encode_local(header, payload, footer).decode("utf-8")
         elif self._purpose == "public":
-            return self._encode_public(header, payload, footer).decode("utf-8")
+            token = self._encode_public(header, payload, footer).decode("utf-8")
         else:
             raise JamPASETOInvalidPurpose
+
+        self._list_add(token)
+        return token
 
     def decode(
         self,
@@ -355,6 +346,7 @@ class PASETOv1(BasePASETO):
             token (str): PASETO
             serializer (BaseEncoder): Json serializer
         """
+        self._list_check(token)
         if token.startswith(f"{self._VERSION}.local"):
             return self._decode_local(token, serializer)
         elif token.startswith(f"{self._VERSION}.public"):

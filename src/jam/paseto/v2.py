@@ -3,7 +3,7 @@
 
 import base64
 import secrets
-from typing import Any, Literal
+from typing import Any
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
@@ -17,7 +17,7 @@ from jam.exceptions import (
     JamPASETOInvalidPurpose,
     JamPASETOInvalidTokenFormat,
 )
-from jam.paseto.__base__ import PASETO, BasePASETO
+from jam.paseto.__base__ import BasePASETO
 from jam.paseto.utils import __pae__, base64url_decode, base64url_encode
 from jam.utils.config_maker import __key_loader__
 from jam.utils.xchacha20poly1305 import (
@@ -31,37 +31,36 @@ class PASETOv2(BasePASETO):
 
     _VERSION = "v2"
 
-    @classmethod
-    def key(
-        cls: type[PASETO],
-        purpose: Literal["local", "public"],
+    def _set_key(
+        self,
         secret_key: str | bytes | Ed25519PrivateKey | Ed25519PublicKey,
-    ) -> PASETO:
-        """Create PASETOv2 instance from provided key."""
-        k = cls()
-        k._purpose = purpose
+    ) -> None:
+        """Process the key.
 
-        if purpose == "local":
+        Args:
+            secret_key (str | bytes): Secret or Ed25519 key.
+        """
+        if self._purpose == "local":
             if isinstance(secret_key, str):
                 secret_key = __key_loader__(secret_key)
                 secret_key = base64.urlsafe_b64decode(secret_key + "==")
             if not isinstance(secret_key, bytes) or len(secret_key) != 32:
                 raise ValueError("v2.local key must be 32 bytes")
-            k._secret = secret_key
-            return k
+            self._secret = secret_key
+            return
 
-        elif purpose == "public":
+        elif self._purpose == "public":
             if isinstance(secret_key, str):
                 secret_key = __key_loader__(secret_key)
             if isinstance(secret_key, Ed25519PrivateKey):
-                k._secret = secret_key
-                k._public_key = secret_key.public_key()
-                return k
+                self._secret = secret_key
+                self._public_key = secret_key.public_key()
+                return
 
             if isinstance(secret_key, Ed25519PublicKey):
-                k._secret = None
-                k._public_key = secret_key
-                return k
+                self._secret = None
+                self._public_key = secret_key
+                return
 
             if isinstance(secret_key, str):
                 secret_key = secret_key.encode()
@@ -72,9 +71,9 @@ class PASETOv2(BasePASETO):
                 )
                 if not isinstance(private_key, Ed25519PrivateKey):
                     raise ValueError("Expected Ed25519 private key")
-                k._secret = private_key
-                k._public_key = private_key.public_key()
-                return k
+                self._secret = private_key
+                self._public_key = private_key.public_key()
+                return
             except Exception:
                 try:
                     public_key = serialization.load_pem_public_key(secret_key)
@@ -83,14 +82,11 @@ class PASETOv2(BasePASETO):
                             message="Expected Ed25519 public key",
                             error_code="paseto.config.expected_ed25519_public_key",
                         )
-                    k._secret = None
-                    k._public_key = public_key
-                    return k
+                    self._secret = None
+                    self._public_key = public_key
+                    return
                 except Exception:
                     raise JamPASETOInvalidED25519Key
-
-        else:
-            raise ValueError("Purpose must be 'local' or 'public'")
 
     def _encode_local(
         self,
@@ -243,11 +239,14 @@ class PASETOv2(BasePASETO):
         payload = serializer.dumps(payload)
         footer = serializer.dumps(footer) if footer else None
         if self._purpose == "local":
-            return self._encode_local(header, payload, footer).decode("utf-8")
+            token = self._encode_local(header, payload, footer).decode("utf-8")
         elif self._purpose == "public":
-            return self._encode_public(header, payload, footer).decode("utf-8")
+            token = self._encode_public(header, payload, footer).decode("utf-8")
         else:
             raise JamPASETOInvalidPurpose
+
+        self._list_add(token)
+        return token
 
     def decode(
         self,
@@ -255,6 +254,7 @@ class PASETOv2(BasePASETO):
         serializer: type[BaseEncoder] | BaseEncoder = JsonEncoder,
     ) -> tuple[dict[str, Any], dict[str, Any] | None]:
         """Decode."""
+        self._list_check(token)
         if token.startswith(f"{self._VERSION}.local"):
             return self._decode_local(token, serializer)
         elif token.startswith(f"{self._VERSION}.public"):
