@@ -7,7 +7,9 @@ Documentation: https://jam.makridenko.ru
 """
 
 from jam.__base__ import BaseJam
+from jam.authz import BasePolicy, Policy
 from jam.instance import Jam
+from jam.subject import BaseSubject
 
 
 __version__ = "3.3.0.post0"
