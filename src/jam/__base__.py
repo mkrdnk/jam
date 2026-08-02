@@ -3,31 +3,37 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-import gc
-import os
 from typing import Any, Literal
 
 from jam.__base_encoder__ import BaseEncoder
+from jam.authz import BasePolicy, Policy
 from jam.encoders import JsonEncoder
 from jam.exceptions import JamConfigurationError
-from jam.jose.__base__ import BaseJWE, BaseJWS, BaseJWT
 from jam.logger import BaseLogger, JamLogger
-from jam.oauth2.__base__ import BaseOAuth2Client
-from jam.otp.__base__ import BaseOTP, OTPConfig
-from jam.paseto.__base__ import BasePASETO
 from jam.plugins.__base__ import BasePlugin
-from jam.sessions.__base__ import BaseSessionModule
+from jam.subject import BaseSubject
 from jam.utils.config_maker import __config_maker__, __module_loader__
 
 
 class BaseJam(ABC):
     """Base jam instance."""
 
-    MODULES: dict[str, str | dict[str, str]] = {}
+    subject: type[BaseSubject] = BaseSubject
+    config: dict[str, Any] = {}
+
+    jwt: Any = None
+    jws: Any = None
+    jwe: Any = None
+    jose: dict[str, Any] | None = None
+    session: Any = None
+    oauth2: dict[str, Any] | None = None
+    otp: Any = None
+    paseto: Any = None
+    _policy: BasePolicy | None = None
 
     def __init__(
         self,
-        config: str | dict[str, Any] = "pyproject.toml",
+        config: str | dict[str, Any] | None = None,
         pointer: str = "jam",
         *,
         logger: type[BaseLogger] = JamLogger,
@@ -35,21 +41,23 @@ class BaseJam(ABC):
             "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
         ] = "INFO",
         serializer: BaseEncoder | type[BaseEncoder] = JsonEncoder,
+        subject: type[BaseSubject] | None = None,
         plugins: list[type[BasePlugin]] = [],
     ) -> None:
         """Initialize instance.
 
         Args:
-            config (Union[str, dict[str, Any]]): Configuration
-            pointer (str): Pointer
-            logger (BaseLogger): Logger
-            log_level (Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]): Log level
-            serializer (Union[BaseEncoder, type[BaseBrowser]]): Serializer
-            plugins (list[type[BasePlugin]]): List of plugins
-
-        Returns:
-                None
+            config (Union[str, dict[str, Any], None]): Configuration dict or
+                file path. Defaults to the class attribute.
+            pointer (str): Config pointer. Defaults to "jam".
+            logger (BaseLogger): Logger.
+            log_level (Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]): Log level.
+            serializer (Union[BaseEncoder, type[BaseEncoder]]): Serializer.
+            subject (type[BaseSubject] | None): Subject class override.
+            plugins (list[type[BasePlugin]]): List of plugins.
         """
+        if config is None:
+            config = self.config or {}
         config = __config_maker__(config, pointer)
         main_config = self.__build_main_config(
             config, logger, log_level, serializer
@@ -59,34 +67,32 @@ class BaseJam(ABC):
         log_level = main_config["log_level"]
         serializer = main_config["serializer"]
 
+        self.config = config
         self._logger = logger(log_level)
         self._serializer = serializer
         self._plugins = []
 
-        self.jwt: BaseJWT | None = None
-        self.jws: BaseJWS | None = None
-        self.jwe: BaseJWE | None = None
+        if subject is not None:
+            self.subject = subject
+
+        self.jwt = None
+        self.jws = None
+        self.jwe = None
         self.jose: dict[str, Any] | None = None
-        self.session: BaseSessionModule | None = None
-        self.oauth2: dict[str, BaseOAuth2Client] | None = None
-        self.otp: OTPConfig | None = None
-        self.paseto: BasePASETO | None = None
+        self.session = None
+        self.oauth2: dict[str, Any] | None = None
+        self.otp = None
+        self.paseto = None
+        self._policy: BasePolicy | None = None
 
         self._logger.debug(
             f"Initializing BaseJam with log_level={log_level}, serializer={serializer}"
         )
         self.__build_instance(config)
-        self._otp: type[BaseOTP] | None = self.__otp(
-            self.otp.type if self.otp else None
-        )
         self._logger.debug(
             "BaseJam initialization complete. Modules loaded:\n"
-            f" jwt={self.jwt is not None}, jose={self.jose is not None}, session={self.session is not None}, oauth2={self.oauth2 is not None}"
+            f" jwt={self.jwt is not None}, jws={self.jws is not None}, jwe={self.jwe is not None}, session={self.session is not None}, oauth2={self.oauth2 is not None}, paseto={self.paseto is not None}, otp={self.otp is not None}"
         )
-        if os.getenv("JAM_ENABLE_PLUGINS", "0") == "1":
-            self._logger.warning("Experimental plugins are enabled!")
-            self.__setup_plugins(plugins)
-        gc.collect()
 
     def __build_main_config(
         self,
@@ -151,122 +157,181 @@ class BaseJam(ABC):
         }
 
     def __build_instance(self, config: dict[str, Any]) -> None:
-        """Build instance.
-
-        Load modules from configuration and initialize them.
-        Supports both flat modules (name -> path) and nested modules (name -> {subname -> path}).
+        """Build module instances from configuration.
 
         Args:
             config (dict[str, Any]): Configuration
+        """
+        from jam.jose import JWE, JWS, JWT
+        from jam.oauth2 import build_clients
+        from jam.paseto import REGISTRY as PASETO_REGISTRY
+        from jam.sessions import REGISTRY as SESSION_REGISTRY
+
+        jose_cfg = config.get("jose") or {}
+        if not isinstance(jose_cfg, dict):
+            jose_cfg = {}
+        self.jose = {}
+
+        jwt_cfg = jose_cfg.get("jwt")
+        if jwt_cfg is not None:
+            self.jwt = JWT(config=jwt_cfg)
+            self.jose["jwt"] = self.jwt
+
+        jws_cfg = jose_cfg.get("jws")
+        if jws_cfg is not None:
+            self.jws = JWS(config=jws_cfg)
+            self.jose["jws"] = self.jws
+
+        jwe_cfg = jose_cfg.get("jwe")
+        if jwe_cfg is not None:
+            self.jwe = JWE(config=jwe_cfg)
+            self.jose["jwe"] = self.jwe
+
+        if not self.jose:
+            self.jose = None
+
+        session_cfg = config.get("session")
+        if isinstance(session_cfg, dict):
+            cfg = session_cfg.copy()
+            session_type = cfg.pop("type", None)
+            if session_type not in SESSION_REGISTRY:
+                raise JamConfigurationError(
+                    message=(
+                        f"Unknown session type: {session_type}. "
+                        f"Available: {list(SESSION_REGISTRY)}"
+                    ),
+                    error_code="configuration.session.unknown_type",
+                )
+            module_cls = SESSION_REGISTRY[session_type]
+            self.session = module_cls(config=cfg, session_type=session_type)
+
+        oauth2_cfg = config.get("oauth2")
+        if isinstance(oauth2_cfg, dict) and oauth2_cfg:
+            self.oauth2 = build_clients(oauth2_cfg, serializer=self._serializer)
+
+        paseto_cfg = config.get("paseto")
+        if isinstance(paseto_cfg, dict):
+            cfg = paseto_cfg.copy()
+            version = cfg.pop("version", None)
+            if version not in PASETO_REGISTRY:
+                raise JamConfigurationError(
+                    message=(
+                        f"Unknown PASETO version: {version}. "
+                        f"Available: {list(PASETO_REGISTRY)}"
+                    ),
+                    error_code="configuration.paseto.unknown_version",
+                )
+            module_cls = PASETO_REGISTRY[version]
+            self.paseto = module_cls(config=cfg)
+
+        otp_cfg = config.get("otp")
+        if isinstance(otp_cfg, dict):
+            from jam.otp import create_instance as create_otp
+
+            otp_type = otp_cfg.get("type")
+            if otp_type not in ("hotp", "totp"):
+                raise JamConfigurationError(
+                    message=(
+                        f"Unknown OTP type: {otp_type}. Available: hotp, totp"
+                    ),
+                    error_code="configuration.otp.unknown_type",
+                )
+            self.otp = create_otp(**otp_cfg)
+
+        authz_cfg = config.get("authz")
+        if isinstance(authz_cfg, dict):
+            module = authz_cfg.get("module")
+            if module is not None:
+                policy_cls = __module_loader__(module)
+                self._policy = policy_cls(authz_cfg.get("rules") or {})
+            else:
+                self._policy = Policy(rules=authz_cfg.get("rules") or {})
+
+    def _subject_from_payload(self, payload: dict[str, Any]) -> Any:
+        """Build a subject from a token/session payload.
+
+        Args:
+            payload (dict[str, Any]): Decoded payload.
 
         Returns:
-            None
+            Any: Subject instance or dict if no subject class is configured.
         """
-        for name, path in self.MODULES.items():
-            if name not in config:
-                self._logger.debug(f"Missing configuration for module {name}")
-                continue
+        import dataclasses
 
-            if isinstance(path, dict):
-                subconfig = config.get(name, {})
-                if not isinstance(subconfig, dict):
-                    subconfig = {}
+        if not dataclasses.is_dataclass(self.subject):
+            return payload
+        field_names = {f.name for f in dataclasses.fields(self.subject)}
+        data = {k: v for k, v in payload.items() if k in field_names}
+        return self.subject.from_dict(data)
 
-                for subname, subpath in path.items():
-                    if subname not in subconfig:
-                        self._logger.debug(
-                            f"Missing configuration for module {name}.{subname}"
-                        )
-                        continue
+    @abstractmethod
+    def authorize(self, subject: BaseSubject, permission: str) -> bool:
+        """Check whether a subject is allowed to perform a permission.
 
-                    try:
-                        module_cls = __module_loader__(subpath)
-                        self._logger.debug(
-                            f"Loading module {name}.{subname} from {subpath}"
-                        )
-                        params = subconfig.get(subname, {})
-                        self._logger.debug(
-                            f"Module {name}.{subname} config params: {list(params.keys())}"
-                        )
-                        module_instance = module_cls(**params)
+        Args:
+            subject (BaseSubject): Subject instance.
+            permission (str): Permission name.
 
-                        if self.jose is None:
-                            self.jose = {}
-                        self.jose[subname] = module_instance
+        Returns:
+            bool: True if allowed, False otherwise.
+        """
+        raise NotImplementedError
 
-                        if subname == "jwt":
-                            self.jwt = module_instance
-                        elif subname == "jws":
-                            self.jws = module_instance
-                        elif subname == "jwe":
-                            self.jwe = module_instance
+    @abstractmethod
+    def issue(
+        self,
+        subject: BaseSubject,
+        via: str | None = None,
+        exp: int | None = None,
+        iss: str | None = None,
+        aud: str | None = None,
+        nbf: int | None = None,
+        jti: str | None = None,
+        **claims: Any,
+    ) -> str:
+        """Issue a token or session for a subject.
 
-                        self._logger.debug(
-                            f"Module {name}.{subname} initialized successfully"
-                        )
+        Args:
+            subject (BaseSubject): Subject instance.
+            via (str | None): Token type: "jwt", "paseto", "session" or None
+                for auto-detect.
+            exp (int | None): Expiration in seconds.
+            iss (str | None): Issuer.
+            aud (str | None): Audience.
+            nbf (int | None): Not-before in seconds.
+            jti (str | None): Token ID.
+            **claims: Extra payload claims.
 
-                    except Exception as e:
-                        self._logger.error(
-                            f"Failed to load module {name}.{subname} from {subpath}: {e}",
-                            exc_info=True,
-                        )
-            else:
-                try:
-                    module_cls = __module_loader__(path)
-                    self._logger.debug(f"Loading module {name} from {path}")
-                    params = config.get(name, {})
-                    self._logger.debug(
-                        f"Module {name} config params: {list(params.keys())}"
-                    )
-                    module_instance = module_cls(**params)
-                    self.__setattr__(name, module_instance)
-                    self._logger.debug(
-                        f"Module {name} initialized successfully"
-                    )
+        Returns:
+            str: Issued token or session ID.
+        """
+        raise NotImplementedError
 
-                except Exception as e:
-                    self._logger.error(
-                        f"Failed to load module {name} from {path}: {e}",
-                        exc_info=True,
-                    )
+    @abstractmethod
+    def authenticate(
+        self, token: str, via: str | None = None
+    ) -> BaseSubject | dict[str, Any]:
+        """Authenticate a token or session and return a subject.
 
-    def __otp(
-        self, type: Literal["totp", "hotp"] | None = None
-    ) -> type[BaseOTP] | None:
-        """Get OTP type."""
-        match type:
-            case "hotp":
-                from jam.otp.hotp import HOTP
+        Args:
+            token (str): Token or session ID.
+            via (str | None): Token type: "jwt", "paseto", "session" or None
+                for auto-detect.
 
-                return HOTP
-            case "totp":
-                from jam.otp.totp import TOTP
+        Returns:
+            BaseSubject | dict[str, Any]: Subject instance or raw payload dict.
+        """
+        raise NotImplementedError
 
-                return TOTP
-            case None:
-                return None
-            case _:
-                raise JamConfigurationError(message="Unknown OTP type.")
-
-    def __setup_plugins(self, plugins: list[type[BasePlugin]]) -> None:
-        """Setup plugins."""
-        for plugin in plugins:
-            self._logger.debug(f"Setup plugin: {plugin.name}")
-            from jam.utils.version_check import __is_compatible__
-
-            if not __is_compatible__(None, plugin.jam_requires):
-                continue
-
-            _plugin = plugin(self)
-            _plugin.setup()
-            self._plugins.append(_plugin)
-
-    def emit(self, event: str, **kwargs) -> Any:
+    def emit(self, event: str, **kwargs: Any) -> dict[str, Any]:
         """Emit event.
 
         Args:
             event (str): Event name,
             **kwargs: Event data
+
+        Returns:
+            dict[str, Any]: Updated event data.
         """
         for plugin in self._plugins:
             handler = getattr(plugin, f"on_{event}", None)
@@ -281,364 +346,3 @@ class BaseJam(ABC):
                     self._logger.error(f"Plugin:{plugin.name} | error: {e}")
 
         return kwargs
-
-    @abstractmethod
-    def jwt_encode(
-        self,
-        iss: str | None = None,
-        sub: str | None = None,
-        aud: str | None = None,
-        exp: int | None = None,
-        nbf: int | None = None,
-        jti: str | None = None,
-        *,
-        payload: dict[str, Any] | None = None,
-        header: dict[str, Any] | None = None,
-    ) -> str:
-        """Encode the JWT with the given expire, header, and payload.
-
-        Args:
-            exp (int | None): The expiration time in seconds.
-            nbf (int | None): The not-before time in seconds.
-            iss (str | None): The issuer.
-            sub (str | None): The subject.
-            aud (str | None): The audience.
-            jti (str | None): The JWT ID. If none use the JTI fabric function.
-            header (dict[str, Any] | None): The header to include in the JWT.
-            payload (dict[str, Any] | None): The payload to include in the JWT.
-
-        Returns:
-            str: The encoded JWT.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def jwt_decode(
-        self,
-        token: str,
-        check_exp: bool = True,
-        check_list: bool = True,
-        check_nbf: bool = False,
-        include_headers: bool = False,
-    ) -> dict[str, Any]:
-        """Verify and decode JWT token.
-
-        Args:
-            token (str): JWT token
-            check_exp (bool): Check expire
-            check_list (bool): Check white/black list. Docs: https://jam.makridenko.ru/jwt/lists/what/
-            check_nbf (bool): Check not-before time
-            include_headers (bool): Include headers in the decoded payload
-
-        Returns:
-            dict[str, Any]: Decoded payload
-
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def jws_sign(
-        self,
-        data: dict[str, Any] | str,
-        header: dict[str, Any] | None = None,
-    ) -> str:
-        """Sign data using JWS.
-
-        Args:
-            data: Data to sign. If dict, will be JSON encoded.
-            header: JWS header.
-
-        Returns:
-            str: JWS token.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def jws_verify(self, token: str) -> dict[str, Any]:
-        """Verify JWS token.
-
-        Args:
-            token: JWS token.
-
-        Returns:
-            dict[str, Any]: Decoded payload.
-
-        Raises:
-            JamJWSVerificationError: If verification fails.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def jwe_encrypt(
-        self,
-        data: dict[str, Any] | str,
-        header: dict[str, Any] | None = None,
-    ) -> str:
-        """Encrypt data using JWE.
-
-        Args:
-            data: Data to encrypt. If dict, will be JSON encoded.
-            header: JWE header.
-
-        Returns:
-            str: JWE token.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def jwe_decrypt(self, token: str) -> bytes:
-        """Decrypt JWE token.
-
-        Args:
-            token: JWE token.
-
-        Returns:
-            bytes: Decrypted data.
-
-        Raises:
-            JamJWEDecryptionError: If decryption fails.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def session_create(self, session_key: str, data: dict[str, Any]) -> str:
-        """Create new session.
-
-        Args:
-            session_key (str): Key for session
-            data (dict[str, Any]): Session data
-
-        Returns:
-            str: New session ID
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def session_get(self, session_id: str) -> dict[str, Any] | None:
-        """Get data from session.
-
-        Args:
-            session_id (str): Session ID
-
-        Returns:
-            dict[str, Any] | None: Session data if exist
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def session_delete(self, session_id: str) -> None:
-        """Delete session.
-
-        Args:
-            session_id (str): Session ID
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def session_update(self, session_id: str, data: dict[str, Any]) -> None:
-        """Update session data.
-
-        Args:
-            session_id (str): Session ID
-            data (dict[str, Any]): New data
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def session_clear(self, session_key: str) -> None:
-        """Delete all sessions by key.
-
-        Args:
-            session_key (str): Key of session
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def session_rework(self, old_session_id: str) -> str:
-        """Rework session.
-
-        Args:
-            old_session_id (str): Old session id
-
-        Returns:
-            str: New session id
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def otp_code(self, secret: str | bytes, factor: int | None = None) -> str:
-        """Generates an OTP.
-
-        Args:
-            secret (str | bytes): User secret key.
-            factor (int | None, optional): Unixtime for TOTP(if none, use now time) / Counter for HOTP.
-
-        Returns:
-            str: OTP code (fixed-length string).
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def otp_uri(
-        self,
-        secret: str,
-        name: str,
-        issuer: str,
-        counter: int | None = None,
-    ) -> str:
-        """Generates an otpauth:// URI for Google Authenticator.
-
-        Args:
-            secret (str): User secret key.
-            name (str): Account name (e.g., email).
-            issuer (str): Service name (e.g., "GitHub").
-            counter (int | None, optional): Counter (for HOTP). Default is None.
-
-        Returns:
-            str: A string of the form "otpauth://..."
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def otp_verify_code(
-        self,
-        secret: str | bytes,
-        code: str,
-        factor: int | None = None,
-        look_ahead: int | None = 1,
-    ) -> bool:
-        """Checks the OTP code, taking into account the acceptable window.
-
-        Args:
-            secret (str | bytes): User secret key.
-            code (str): The code entered.
-            factor (int | None, optional): Unixtime for TOTP(if none, use now time) / Counter for HOTP.
-            look_ahead (int, optional): Acceptable deviation in intervals (±window(totp) / ±look ahead(hotp)). Default is 1.
-
-        Returns:
-            bool: True if the code matches, otherwise False.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def oauth2_get_authorized_url(
-        self, provider: str, scope: list[str], **extra_params: Any
-    ) -> str:
-        """Generate full OAuth2 authorization URL.
-
-        Args:
-            provider (str): Provider name
-            scope (list[str]): Auth scope
-            extra_params (Any): Extra ath params
-
-        Returns:
-            str: Authorization url
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def oauth2_fetch_token(
-        self,
-        provider: str,
-        code: str,
-        grant_type: str = "authorization_code",
-        **extra_params: Any,
-    ) -> dict[str, Any]:
-        """Exchange authorization code for access token.
-
-        Args:
-            provider (str): Provider name
-            code (str): OAuth2 code
-            grant_type (str): Type of oauth2 grant
-            extra_params (Any): Extra auth params if needed
-
-        Returns:
-            dict: OAuth2 token
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def oauth2_refresh_token(
-        self,
-        provider: str,
-        refresh_token: str,
-        grant_type: str = "refresh_token",
-        **extra_params: Any,
-    ) -> dict[str, Any]:
-        """Use refresh token to obtain a new access token.
-
-        Args:
-            provider (str): Provider name
-            refresh_token (str): Refresh token
-            grant_type (str): Grant type
-            extra_params (Any): Extra auth params if needed
-
-        Returns:
-            dict: Refresh token
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def oauth2_client_credentials_flow(
-        self,
-        provider: str,
-        scope: list[str] | None = None,
-        **extra_params: Any,
-    ) -> dict[str, Any]:
-        """Obtain access token using client credentials flow (no user interaction).
-
-        Args:
-            provider (str): Provider name
-            scope (list[str] | None): Auth scope
-            extra_params (Any): Extra auth params if needed
-
-        Returns:
-            dict: JSON with access token
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def paseto_make_payload(
-        self, exp: int | None = None, **data: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Generate payload for PASETO.
-
-        Args:
-            exp (int | None): Custom expire if needed
-            data (dict[str, Any]): Data in payload
-
-        Returns:
-            dict[str, Any]: New payload
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def paseto_create(
-        self,
-        payload: dict[str, Any],
-        footer: dict[str, Any] | str | None,
-    ) -> str:
-        """Create new PASETO.
-
-        Args:
-            payload (dict[str, Any]): Payload
-            footer (dict[str, Any] | str | None): Payload if needed
-
-        Returns:
-            str: PASETO
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def paseto_decode(
-        self, token: str
-    ) -> dict[str, dict[str, Any] | str | None]:
-        """Decode PASETO and return payload and footer.
-
-        Args:
-            token (str): PASETO
-
-        Returns:
-            dict: {"payload": PAYLOAD, "footer": FOOTER}
-        """
-        raise NotImplementedError
