@@ -1,581 +1,243 @@
 # -*- coding: utf-8 -*-
 
+import re
 import time
 from typing import Any
-import uuid
 
 from jam.__base__ import BaseJam
-from jam.__deprecated__ import deprecated
 from jam.exceptions import (
     JamConfigurationError,
-    JamJWTExpired,
-    JamJWTInBlackList,
-    JamJWTNotInWhiteList,
-    JamJWTNotYetValid,
+    JamSessionNotFound,
 )
+from jam.subject import BaseSubject
 
 
 class Jam(BaseJam):
     """Main instance."""
 
-    MODULES: dict[str, str | dict[str, str]] = {
-        "jose": {
-            "jwt": "jam.jose.create_jwt_instance",
-            "jws": "jam.jose.create_jws_instance",
-            "jwe": "jam.jose.create_jwe_instance",
-        },
-        "session": "jam.sessions.create_instance",
-        "oauth2": "jam.oauth2.create_instance",
-        "paseto": "jam.paseto.create_instance",
-        "otp": "jam.otp.__base__.OTPConfig",
-    }
+    def authorize(self, subject: BaseSubject, permission: str) -> bool:
+        """Check whether a subject is allowed to perform a permission.
 
-    @deprecated(
-        "This method is deprecated; the JWT payload is generated automatically in accordance with the specification."
-    )
-    def jwt_make_payload(
-        self, exp: int | None, data: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Make JWT-specific payload.
-
-        !!! Deprecated
-                This method is deprecated; the JWT payload is generated automatically in accordance with the specification.
+        Uses the policy configured under ``[jam.authz]``. Deny by default.
 
         Args:
-            exp (int | None): Token expire
-            data (dict[str, Any]): Data to payload
+            subject (BaseSubject): Subject instance.
+            permission (str): Permission name, e.g. ``"post:edit"``.
 
         Returns:
-            dict[str, Any]: Payload
+            bool: True if allowed, False otherwise.
+
+        Raises:
+            JamConfigurationError: If no authz policy is configured.
         """
-        now = time.time()
-        payload = {
-            "iat": now,
-            "exp": (now + exp) if exp else None,
-            "jti": str(uuid.uuid4()),
-        }
-        payload = payload | data
-        return payload
+        if self._policy is None:
+            raise JamConfigurationError(
+                message=(
+                    "Authz policy is not configured. Add a [jam.authz] "
+                    "section to your config."
+                ),
+                error_code="authz.not_configured",
+            )
+        return self._policy.check(subject, permission)
 
-    @deprecated("Use jam.jwt_encode")
-    def jwt_create(self, payload: dict[str, Any]) -> str:
-        """Create JWT token.
-
-        !!! Deprecated
-                Use Jam.jwt_encode
-
-        Args:
-            payload (dict[str, Any]): Data payload
-
-        Returns:
-            str: New token
-        """
-        assert self.jwt is not None
-        self._logger.debug(
-            f"Creating JWT token with payload keys: {list(payload.keys())}"
-        )
-        token = self.jwt.encode(payload=payload)
-        self._logger.debug(
-            f"JWT token created successfully, length: {len(token)} characters"
-        )
-
-        # white list checker
-        if self.jwt.list and self.jwt.list.__list_type__ == "white":
-            self.jwt.list.add(token)
-
-        return token
-
-    def jwt_encode(
+    def issue(
         self,
-        iss: str | None = None,
-        sub: str | None = None,
-        aud: str | None = None,
+        subject: BaseSubject,
+        via: str | None = None,
         exp: int | None = None,
+        iss: str | None = None,
+        aud: str | None = None,
         nbf: int | None = None,
         jti: str | None = None,
-        *,
-        payload: dict[str, Any] | None = None,
-        header: dict[str, Any] | None = None,
+        **claims: Any,
     ) -> str:
-        """Encode the JWT with the given expire, header, and payload.
+        """Issue a token or session for a subject.
 
         Args:
-            exp (int | None): The expiration time in seconds.
-            nbf (int | None): The not-before time in seconds.
-            iss (str | None): The issuer.
-            sub (str | None): The subject.
-            aud (str | None): The audience.
-            jti (str | None): The JWT ID. If none use the JTI fabric function.
-            header (dict[str, Any] | None): The header to include in the JWT.
-            payload (dict[str, Any] | None): The payload to include in the JWT.
+            subject (BaseSubject): Subject instance or dict with an "id".
+            via (str | None): Token type: "jwt", "paseto", "session" or None
+                for auto-detect (jwt first, then paseto).
+            exp (int | None): Expiration in seconds.
+            iss (str | None): Issuer.
+            aud (str | None): Audience.
+            nbf (int | None): Not-before in seconds.
+            jti (str | None): Token ID.
+            **claims: Extra payload claims.
 
         Returns:
-            str: The encoded JWT.
-        """
-        assert self.jwt is not None
-        if not jti:
-            jti = self.jwt.jti
-        token = self.jwt.encode(
-            iss=iss,
-            sub=sub,
-            aud=aud,
-            exp=exp,
-            nbf=nbf,
-            jti=jti,
-            payload=payload,
-            header=header,
-        )
-        if self.jwt.list and self.jwt.list.__list_type__ == "white":
-            self.jwt.list.add(token)
-        return token
-
-    def jwt_decode(
-        self,
-        token: str,
-        check_exp: bool = True,
-        check_list: bool = True,
-        check_nbf: bool = False,
-        include_headers: bool = False,
-    ) -> dict[str, Any]:
-        """Verify and decode JWT token.
-
-        Args:
-            token (str): JWT token
-            check_exp (bool): Check expire
-            check_list (bool): Check white/black list. Docs: https://jam.makridenko.ru/jwt/lists/what/
-            check_nbf (bool): Check not-before time
-            include_headers (bool): Include headers in the decoded payload
-
-        Returns:
-            dict[str, Any]: Decoded payload
+            str: Issued token or session ID.
 
         Raises:
-            JamJWTExpired: If token is expired
-            JamJWTNotYetValid: If token is not yet valid (nbf claim)
-            JamConfigurationError: If JWT list is not connected
-            JamJWTNotInWhiteList: If token is not in white list
-            JamJWTInBlackList: If token is in black list
+            JamConfigurationError: If no matching module is configured.
         """
-        self._logger.debug(
-            f"Verifying JWT token (length: {len(token)} chars), check_exp={check_exp}, check_list={check_list}, check_nbf={check_nbf}"
-        )
-        assert self.jwt is not None
-        data = self.jwt.decode(token)
-        payload = data["payload"]
-
-        if check_exp and "exp" in payload:
-            if payload["exp"] < time.time():
-                raise JamJWTExpired
-
-        if check_nbf and "nbf" in payload:
-            if payload["nbf"] > time.time():
-                raise JamJWTNotYetValid
-
-        self._logger.debug(
-            f"JWT token verified successfully, payload keys: {list(payload.keys())}"
-        )
-
-        if check_list:
-            if not self.jwt.list:
-                raise JamConfigurationError(
-                    message="JWT list is not connected.",
-                    error_code="configuration.jwt.list_not_connected",
-                )
-            else:
-                match self.jwt.list.__list_type__:
-                    case "white":
-                        if not (self.jwt.list.check(token)):
-                            raise JamJWTNotInWhiteList
-                    case "black":
-                        if self.jwt.list.check(token):
-                            raise JamJWTInBlackList
-                    case _:
-                        raise JamConfigurationError(
-                            message="Invalid JWT list type",
-                            error_code="configuration.jwt.unknown_list_type",
-                        )
-
-        if include_headers:
-            return data
-        return payload
-
-    def jws_sign(
-        self,
-        data: dict[str, Any] | str,
-        header: dict[str, Any] | None = None,
-    ) -> str:
-        """Sign data using JWS.
-
-        Args:
-            data: Data to sign. If dict, will be JSON encoded.
-            header: JWS header.
-
-        Returns:
-            str: JWS token.
-        """
-        assert self.jws is not None
-        self._logger.debug(f"Signing data with JWS, header: {header}")
-        token = self.jws.sign(header or {}, data)
-        self._logger.debug(f"JWS token created, length: {len(token)}")
-        return token
-
-    def jws_verify(self, token: str) -> dict[str, Any]:
-        """Verify JWS token.
-
-        Args:
-            token: JWS token.
-
-        Returns:
-            dict[str, Any]: Decoded payload.
-        """
-        assert self.jws is not None
-        self._logger.debug(f"Verifying JWS token, length: {len(token)}")
-        result = self.jws.verify(token)
-        self._logger.debug("JWS token verified successfully")
-        return result
-
-    def jwe_encrypt(
-        self,
-        data: dict[str, Any] | str,
-        header: dict[str, Any] | None = None,
-    ) -> str:
-        """Encrypt data using JWE.
-
-        Args:
-            data: Data to encrypt. If dict, will be JSON encoded.
-            header: JWE header.
-
-        Returns:
-            str: JWE token.
-        """
-        assert self.jwe is not None
-        self._logger.debug(f"Encrypting data with JWE, header: {header}")
-        token = self.jwe.encrypt(
-            self._serializer.dumps(data) if isinstance(data, dict) else data,
-            header,
-        )
-        self._logger.debug(f"JWE token created, length: {len(token)}")
-        return token
-
-    def jwe_decrypt(self, token: str) -> bytes:
-        """Decrypt JWE token.
-
-        Args:
-            token: JWE token.
-
-        Returns:
-            bytes: Decrypted data.
-        """
-        assert self.jwe is not None
-        self._logger.debug(f"Decrypting JWE token, length: {len(token)}")
-        result = self.jwe.decrypt(token)
-        self._logger.debug("JWE token decrypted successfully")
-        return result
-
-    def session_create(self, session_key: str, data: dict[str, Any]) -> str:
-        """Create new session.
-
-        Args:
-            session_key (str): Key for session
-            data (dict[str, Any]): Session data
-
-        Returns:
-            str: New session ID
-        """
-        assert self.session is not None
-        self._logger.debug(
-            f"Creating session with key: {session_key}, data keys: {list(data.keys())}"
-        )
-        session_id = self.session.create(session_key, data)
-        self._logger.debug(
-            f"Session created successfully, session_id: {session_id}"
-        )
-        return session_id
-
-    def session_get(self, session_id: str) -> dict[str, Any] | None:
-        """Get data from session.
-
-        Args:
-            session_id (str): Session ID
-
-        Returns:
-            dict[str, Any] | None: Session data if exist
-        """
-        assert self.session is not None
-        self._logger.debug(f"Getting session data for session_id: {session_id}")
-        data = self.session.get(session_id)
-        if data:
-            self._logger.debug(
-                f"Session data retrieved, keys: {list(data.keys())}"
-            )
+        if isinstance(subject, dict):
+            subject_id = subject.get("id")
+            payload: dict[str, Any] = dict(subject)
         else:
-            self._logger.debug(f"Session {session_id} not found")
-        return data
+            subject_id = subject.id
+            payload = subject.to_dict()
 
-    def session_delete(self, session_id: str) -> None:
-        """Delete session.
+        if subject_id is not None:
+            payload["sub"] = subject_id
+        payload.update(claims)
 
-        Args:
-            session_id (str): Session ID
-        """
-        assert self.session is not None
-        return self.session.delete(session_id)
-
-    def session_update(self, session_id: str, data: dict[str, Any]) -> None:
-        """Update session data.
-
-        Args:
-            session_id (str): Session ID
-            data (dict[str, Any]): New data
-
-        Raises:
-            JamSessionNotFound: If session with given ID does not exist.
-        """
-        assert self.session is not None
-        return self.session.update(session_id, data)
-
-    def session_clear(self, session_key: str) -> None:
-        """Delete all sessions by key.
-
-        Args:
-            session_key (str): Key of session
-        """
-        assert self.session is not None
-        return self.session.clear(session_key)
-
-    def session_rework(self, old_session_id: str) -> str:
-        """Rework session.
-
-        Args:
-            old_session_id (str): Old session id
-
-        Raises:
-            JamSessionNotFound: If session with given ID does not exist.
-
-        Returns:
-            str: New session id
-        """
-        assert self.session is not None
-        return self.session.rework(old_session_id)
-
-    def otp_code(self, secret: str | bytes, factor: int | None = None) -> str:
-        """Generates an OTP.
-
-        Args:
-            secret (str | bytes): User secret key.
-            factor (int | None, optional): Unixtime for TOTP(if none, use now time) / Counter for HOTP.
-
-        Returns:
-            str: OTP code (fixed-length string).
-        """
-        assert self.otp is not None
-        assert self._otp is not None
-        return self._otp(
-            secret=secret, digits=self.otp.digits, digest=self.otp.digest
-        ).at(factor)
-
-    def otp_uri(
-        self,
-        secret: str,
-        name: str,
-        issuer: str,
-        counter: int | None = None,
-    ) -> str:
-        """Generates an otpauth:// URI for Google Authenticator.
-
-        Args:
-            secret (str): User secret key.
-            name (str): Account name (e.g., email).
-            issuer (str): Service name (e.g., "GitHub").
-            counter (int | None, optional): Counter (for HOTP). Default is None.
-
-        Returns:
-            str: A string of the form "otpauth://..."
-        """
-        assert self.otp is not None
-        assert self._otp is not None
-        return self._otp(
-            secret=secret, digits=self.otp.digits, digest=self.otp.digest
-        ).provisioning_uri(name=name, issuer=issuer, counter=counter)
-
-    def otp_verify_code(
-        self,
-        secret: str | bytes,
-        code: str,
-        factor: int | None = None,
-        look_ahead: int | None = 1,
-    ) -> bool:
-        """Checks the OTP code, taking into account the acceptable window.
-
-        Args:
-            secret (str | bytes): User secret key.
-            code (str): The code entered.
-            factor (int | None, optional): Unixtime for TOTP(if none, use now time) / Counter for HOTP.
-            look_ahead (int, optional): Acceptable deviation in intervals (±window(totp) / ±look ahead(hotp)). Default is 1.
-
-        Returns:
-            bool: True if the code matches, otherwise False.
-        """
-        assert self.otp is not None
-        assert self._otp is not None
-        return self._otp(
-            secret=secret, digits=self.otp.digits, digest=self.otp.digest
-        ).verify(code=code, factor=factor, look_ahead=look_ahead or 1)
-
-    def oauth2_get_authorized_url(
-        self, provider: str, scope: list[str], **extra_params: Any
-    ) -> str:
-        """Generate full OAuth2 authorization URL.
-
-        Args:
-            provider (str): Provider name
-            scope (list[str]): Auth scope
-            extra_params (Any): Extra ath params
-
-        Returns:
-            str: Authorization url
-        """
-        from jam.exceptions import JamConfigurationError
-
-        assert self.oauth2 is not None
-        if provider not in self.oauth2:
+        if via is None:
+            if self.jwt is not None:
+                return self.jwt.encode(
+                    payload=payload,
+                    exp=exp,
+                    iss=iss,
+                    aud=aud,
+                    nbf=nbf,
+                    jti=jti,
+                )
+            if self.paseto is not None:
+                return self.__issue_paseto(payload, exp, iss, aud, jti)
             raise JamConfigurationError(
-                message=f"Provider {provider} not configured",
-                error_code="oauth2.configuration.provider_not_configured",
+                message=(
+                    "Cannot issue a token: no jwt or paseto module configured. "
+                    "Pass 'via' explicitly or configure a module."
+                ),
+                error_code="configuration.issue_not_configured",
             )
-        return self.oauth2[provider].get_authorization_url(
-            scope, **extra_params
-        )
 
-    def oauth2_fetch_token(
-        self,
-        provider: str,
-        code: str,
-        grant_type: str = "authorization_code",
-        **extra_params: Any,
-    ) -> dict[str, Any]:
-        """Exchange authorization code for access token.
+        match via:
+            case "jwt":
+                if self.jwt is None:
+                    raise JamConfigurationError(
+                        message="JWT module is not configured.",
+                        error_code="configuration.jwt.not_configured",
+                    )
+                return self.jwt.encode(
+                    payload=payload,
+                    exp=exp,
+                    iss=iss,
+                    aud=aud,
+                    nbf=nbf,
+                    jti=jti,
+                )
+            case "paseto":
+                if self.paseto is None:
+                    raise JamConfigurationError(
+                        message="PASETO module is not configured.",
+                        error_code="configuration.paseto.not_configured",
+                    )
+                return self.__issue_paseto(payload, exp, iss, aud, jti)
+            case "session":
+                if self.session is None:
+                    raise JamConfigurationError(
+                        message="Session module is not configured.",
+                        error_code="configuration.session.not_configured",
+                    )
+                session_key = self.config.get("session", {}).get(
+                    "session_key", "auth"
+                )
+                return self.session.create(session_key, payload)
+            case _:
+                raise JamConfigurationError(
+                    message=f"Unknown 'via' type: {via}. "
+                    "Available: jwt, paseto, session",
+                    error_code="configuration.issue_unknown_via",
+                )
+
+    def authenticate(
+        self, token: str, via: str | None = None
+    ) -> BaseSubject | dict[str, Any]:
+        """Authenticate a token or session and return a subject.
 
         Args:
-            provider (str): Provider name
-            code (str): OAuth2 code
-            grant_type (str): Type of oauth2 grant
-            extra_params (Any): Extra auth params if needed
+            token (str): Token or session ID.
+            via (str | None): Token type: "jwt", "paseto", "session" or None
+                for auto-detect.
 
         Returns:
-            dict: OAuth2 token
-        """
-        from jam.exceptions import JamOAuth2ProviderNotConfigured
-
-        assert self.oauth2 is not None
-        if provider not in self.oauth2:
-            raise JamOAuth2ProviderNotConfigured(details={"provider": provider})
-        return self.oauth2[provider].fetch_token(
-            code, grant_type, **extra_params
-        )
-
-    def oauth2_refresh_token(
-        self,
-        provider: str,
-        refresh_token: str,
-        grant_type: str = "refresh_token",
-        **extra_params: Any,
-    ) -> dict[str, Any]:
-        """Use refresh token to obtain a new access token.
-
-        Args:
-            provider (str): Provider name
-            refresh_token (str): Refresh token
-            grant_type (str): Grant type
-            extra_params (Any): Extra auth params if needed
-
-        Returns:
-            dict: Refresh token
-        """
-        from jam.exceptions import JamOAuth2ProviderNotConfigured
-
-        assert self.oauth2 is not None
-        if provider not in self.oauth2:
-            raise JamOAuth2ProviderNotConfigured(details={"provider": provider})
-        return self.oauth2[provider].refresh_token(
-            refresh_token, grant_type, **extra_params
-        )
-
-    def oauth2_client_credentials_flow(
-        self,
-        provider: str,
-        scope: list[str] | None = None,
-        **extra_params: Any,
-    ) -> dict[str, Any]:
-        """Obtain access token using client credentials flow (no user interaction).
-
-        Args:
-            provider (str): OAuth2 provider
-            scope (list[str] | None): Auth scope
-            extra_params (Any): Extra auth params if needed
+            BaseSubject | dict[str, Any]: Subject instance if a subject class
+                is configured, otherwise the raw payload dict.
 
         Raises:
-            JamOAuth2EmptyRaw: If response is empty
-            JamOAuth2Error: HTTP error
-
-        Returns:
-            dict: JSON with access token
+            JamConfigurationError: If no matching module is configured.
+            JamSessionNotFound: If a session does not exist.
         """
-        from jam.exceptions import JamOAuth2ProviderNotConfigured
+        if via is None:
+            via = self.__detect(token)
 
-        assert self.oauth2 is not None
-        if provider not in self.oauth2:
-            raise JamOAuth2ProviderNotConfigured(details={"provider": provider})
-        return self.oauth2[provider].client_credentials_flow(
-            scope, **extra_params
-        )
+        match via:
+            case "jwt":
+                if self.jwt is None:
+                    raise JamConfigurationError(
+                        message="JWT module is not configured.",
+                        error_code="configuration.jwt.not_configured",
+                    )
+                payload = self.jwt.decode(token)["payload"]
+            case "paseto":
+                if self.paseto is None:
+                    raise JamConfigurationError(
+                        message="PASETO module is not configured.",
+                        error_code="configuration.paseto.not_configured",
+                    )
+                payload, _footer = self.paseto.decode(token)
+            case "session":
+                if self.session is None:
+                    raise JamConfigurationError(
+                        message="Session module is not configured.",
+                        error_code="configuration.session.not_configured",
+                    )
+                data = self.session.get(token)
+                if data is None:
+                    raise JamSessionNotFound(details={"session_id": token})
+                payload = data
+            case _:
+                raise JamConfigurationError(
+                    message=f"Unknown 'via' type: {via}. "
+                    "Available: jwt, paseto, session",
+                    error_code="configuration.authenticate_unknown_via",
+                )
 
-    def paseto_make_payload(
-        self, exp: int | None = None, **data: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Generate payload for PASETO.
+        return self._subject_from_payload(payload)
+
+    @staticmethod
+    def __detect(token: str) -> str:
+        """Detect the token type from its format.
 
         Args:
-            exp (int | None): Token expire
-            data (dict[str, Any]): Custom data
+            token (str): Token or session ID.
 
         Returns:
-            dict: Payload
+            str: "paseto", "jwt" or "session".
         """
-        from jam.paseto.utils import payload_maker as pm
+        if re.match(r"^v[1-4]\.(local|public)\.", token):
+            return "paseto"
+        if token.count(".") == 2:
+            return "jwt"
+        return "session"
 
-        return pm(expire=exp, data=data)
-
-    def paseto_create(
+    def __issue_paseto(
         self,
         payload: dict[str, Any],
-        footer: dict[str, Any] | str | None,
+        exp: int | None,
+        iss: str | None,
+        aud: str | None,
+        jti: str | None,
     ) -> str:
-        """Create new PASETO.
+        """Encode a payload with the configured PASETO module.
 
         Args:
-            payload (dict[str, Any]): Payload
-            footer (dict | str  | None): Footer
+            payload (dict[str, Any]): Payload.
+            exp (int | None): Expiration in seconds.
+            iss (str | None): Issuer.
+            aud (str | None): Audience.
+            jti (str | None): Token ID.
 
         Returns:
-            str: New token
+            str: PASETO token.
         """
-        assert self.paseto is not None
-        return self.paseto.encode(payload=payload, footer=footer)
-
-    def paseto_decode(
-        self, token: str, check_exp: bool = True, check_list: bool = True
-    ) -> dict[str, dict[str, Any] | str | None]:
-        """Decode PASETO.
-
-        Args:
-            token (str): Token
-            check_exp (bool): Check exp in payload
-            check_list (bool): Check token in list
-
-        Returns:
-            dict: {'payload' PAYLOAD, 'footer': FOOTER}
-        """
-        assert self.paseto is not None
-        payload, footer = self.paseto.decode(token)
-        return {"payload": payload, "footer": footer}
+        data = dict(payload)
+        if exp is not None:
+            data["exp"] = int(time.time()) + exp
+        if iss is not None:
+            data["iss"] = iss
+        if aud is not None:
+            data["aud"] = aud
+        if jti is not None:
+            data["jti"] = jti
+        return self.paseto.encode(payload=data)
