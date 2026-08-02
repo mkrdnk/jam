@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 import os
+from typing import Any
 from uuid import uuid4
 
 
@@ -24,8 +25,12 @@ from jam.sessions.__base__ import BaseSessionModule
 class JSONSessions(BaseSessionModule):
     """Session management module for JSON storage."""
 
+    _SESSION_TYPE = "json"
+
     def __init__(
         self,
+        session_type: str | None = None,
+        sessions_type: str | None = None,
         json_path: str = "sessions.json",
         is_session_crypt: bool = False,
         session_aes_secret: bytes | str | None = os.getenv(
@@ -34,20 +39,28 @@ class JSONSessions(BaseSessionModule):
         id_factory: Callable[[], str] = lambda: str(uuid4()),
         serializer: BaseEncoder | type[BaseEncoder] = JsonEncoder,
         logger: BaseLogger | None = None,
+        config: str | dict[str, Any] | None = None,
+        pointer: str | None = None,
     ) -> None:
         """Initialize the JSON session management module.
 
         Args:
+            session_type (str | None): Session type for validation.
+            sessions_type (str | None): Deprecated alias for session_type.
             json_path (str): Path to the JSON file where sessions will be stored.
             is_session_crypt (bool): If True, session keys will be encoded.
             session_aes_secret (Optional[bytes]): AES secret for encoding session keys. Required if `is_session_crypt` is True.
             id_factory (Callable[[], str], optional): A callable that generates unique IDs. Defaults to a UUID factory.
             serializer (Union[BaseEncoder, type[BaseEncoder]], optional): JSON encoder/decoder. Defaults to JsonEncoder.
             logger (Optional[BaseLogger], optional): Logger instance. Defaults to None.
+            config (str | dict[str, Any] | None): Configuration dict or file path.
+            pointer (str | None): Config pointer. Defaults to "jam.session".
 
         Raises:
             JamSessionEmptyAESKey: If 'is_session_crypt' is True and 'session_aes_secret' is not provided.
+            ValueError: If the session type does not match the module type.
         """
+        self._resolve_session_type(session_type, sessions_type)
         super().__init__(
             is_session_crypt=is_session_crypt,
             session_aes_secret=session_aes_secret,

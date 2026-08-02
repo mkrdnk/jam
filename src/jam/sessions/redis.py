@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 import os
+from typing import Any
 from uuid import uuid4
 
 
@@ -21,10 +22,13 @@ from jam.sessions.__base__ import BaseSessionModule
 class RedisSessions(BaseSessionModule):
     """Redis session management module."""
 
+    _SESSION_TYPE = "redis"
     _redis: Redis
 
     def __init__(
         self,
+        session_type: str | None = None,
+        sessions_type: str | None = None,
         redis_uri: str | Redis = "redis://localhost:6379/0",
         redis_sessions_key: str = "sessions",
         ttl: int | None = 3600,
@@ -35,10 +39,14 @@ class RedisSessions(BaseSessionModule):
         id_factory: Callable[[], str] = lambda: str(uuid4()),
         serializer: BaseEncoder | type[BaseEncoder] = JsonEncoder,
         logger: BaseLogger | None = None,
+        config: str | dict[str, Any] | None = None,
+        pointer: str | None = None,
     ) -> None:
         """Initialize the Redis session management module.
 
         Args:
+            session_type (str | None): Session type for validation.
+            sessions_type (str | None): Deprecated alias for session_type.
             redis_uri (str | Redis): The URI for the Redis server.
             redis_sessions_key (str): The key under which sessions are stored in Redis.
             ttl (Optional[int]): Default time-to-live for sessions in seconds. Defaults to 3600 seconds (1 hour).
@@ -47,10 +55,14 @@ class RedisSessions(BaseSessionModule):
             id_factory (Callable[[], str], optional): A callable that generates unique IDs. Defaults to a UUID factory.
             serializer (Union[BaseEncoder, type[BaseEncoder]], optional): JSON encoder/decoder. Defaults to JsonEncoder.
             logger (Optional[BaseLogger], optional): Logger instance. Defaults to None.
+            config (str | dict[str, Any] | None): Configuration dict or file path.
+            pointer (str | None): Config pointer. Defaults to "jam.session".
 
         Raises:
             JamSessionEmptyAESKey: If 'is_session_crypt' is True and 'session_aes_secret' is not provided.
+            ValueError: If the session type does not match the module type.
         """
+        self._resolve_session_type(session_type, sessions_type)
         super().__init__(
             id_factory=id_factory,
             is_session_crypt=is_session_crypt,
