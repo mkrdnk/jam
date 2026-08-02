@@ -6,7 +6,6 @@ import os
 import re
 import sys
 from typing import Any
-import warnings
 
 from jam.encoders import BaseEncoder, JsonEncoder
 from jam.exceptions import JamConfigurationError
@@ -369,31 +368,7 @@ def __config_maker__(
     else:
         result = config.copy()
 
-    result = __apply_jwt_config_migration__(result)
     return result
-
-
-# TODO: Delete this after deleting jam.jwt
-def __apply_jwt_config_migration__(config: dict) -> dict:
-    """Backward compatibility: copy jam.jwt -> jam.jose.jwt with deprecation warning.
-
-    Args:
-        config: Parsed configuration dict
-
-    Returns:
-        dict: Updated config with migration applied
-    """
-    if "jwt" in config and "jose" not in config:
-        warnings.warn(
-            "[jam.jwt] is deprecated. Use [jam.jose.jwt] instead. See: https://jam.makridenko.ru/usage/jose",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        config["jose"] = {"jwt": config["jwt"]}
-    elif "jwt" in config and "jose" in config:
-        if "jwt" not in config.get("jose", {}):
-            config["jose"]["jwt"] = config["jwt"]
-    return config
 
 
 def __module_loader__(path: str) -> Callable:
