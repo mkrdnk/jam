@@ -6,10 +6,13 @@ from secrets import token_urlsafe
 from typing import Any
 
 from jam.encoders import BaseEncoder, JsonEncoder
+from jam.utils.config_meta import ConfigMeta
 
 
-class BaseOAuth2Client(ABC):
+class BaseOAuth2Client(ABC, metaclass=ConfigMeta):
     """Base OAuth2 client instance."""
+
+    _CONFIG_POINTER: str = "jam.oauth2"
 
     def __init__(
         self,
@@ -19,6 +22,8 @@ class BaseOAuth2Client(ABC):
         token_url: str,
         redirect_url: str,
         serializer: BaseEncoder | type[BaseEncoder] = JsonEncoder,
+        config: str | dict[str, Any] | None = None,
+        pointer: str | None = None,
     ) -> None:
         """Constructor.
 
@@ -29,6 +34,8 @@ class BaseOAuth2Client(ABC):
             token_url (str): App token url
             redirect_url (str): Your app url
             serializer (Union[BaseEncoder, type[BaseEncoder]], optional): JSON encoder/decoder. Defaults to JsonEncoder.
+            config (str | dict[str, Any] | None): Configuration dict or file path.
+            pointer (str | None): Config pointer. Defaults to "jam.oauth2".
         """
         self.client_id = client_id
         self._client_secret = client_secret

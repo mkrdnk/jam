@@ -11,6 +11,8 @@ from jam.encoders import JsonEncoder
 from jam.exceptions import (
     JamConfigurationError,
     JamJWTExpired,
+    JamJWTInBlackList,
+    JamJWTNotInWhiteList,
     JamJWTNotYetValid,
     JamJWTUnsupportedAlgorithm,
 )
@@ -28,21 +30,23 @@ from jam.jose.__algorithms__ import (
 from jam.jose.__base__ import BaseJWT
 from jam.jose.jwe import JWE
 from jam.jose.jws import JWS
-from jam.jose.lists import BaseJWTList
+from jam.lists import BaseList
 from jam.logger import BaseLogger, logger
 from jam.utils.config_maker import __key_loader__
+from jam.utils.config_meta import ConfigMeta
 
 
 if TYPE_CHECKING:
     from jam.jose.jwk import JWK
 
 
-class JWT(BaseJWT):
+class JWT(BaseJWT, metaclass=ConfigMeta):
     """JWT (JSON Web Token) implementation - RFC 7519.
 
     Supports JWS (signed), JWE (encrypted), and JWS+JWE (sign then encrypt) tokens.
     """
 
+    _CONFIG_POINTER = "jam.jose.jwt"
     JWS = JWS
     JWE = JWE
     _SUPPORTED_ALGORITHMS = SUPPORTED_ALGORITHMS
@@ -53,11 +57,13 @@ class JWT(BaseJWT):
         enc: str | None = None,
         secret_key: str | bytes | KeyLike | "JWK" | None = None,
         password: str | bytes | None = None,
-        list: dict[str, Any] | None = None,
+        list: dict[str, Any] | BaseList | None = None,
         serializer: BaseEncoder | type[BaseEncoder] = JsonEncoder,
         logger: BaseLogger = logger,
         jws: JWS | None = None,
         jwe: JWE | None = None,
+        config: str | dict[str, Any] | None = None,
+        pointer: str | None = None,
     ) -> None:
         """Initialize JWT instance.
 
@@ -66,11 +72,13 @@ class JWT(BaseJWT):
             enc (str | None): JWE content encryption algorithm. If provided, creates encrypted JWT.
             secret_key (str | bytes | KeyLike | JWK | None): Key for signing/encryption.
             password (str | bytes | None): Password for encrypted private keys.
-            list (dict[str, Any] | None): List config for token storage.
+            list (dict[str, Any] | BaseList | None): List config or list instance for token storage.
             serializer (BaseEncoder | type[BaseEncoder]): JSON encoder/decoder.
             logger (BaseLogger): Logger instance.
             jws (JWS | None): Pre-built JWS instance. If provided, alg is ignored.
             jwe (JWE | None): Pre-built JWE instance. If provided, enc and secret_key are ignored.
+            config (str | dict[str, Any] | None): Configuration dict or file path.
+            pointer (str | None): Config pointer. Defaults to "jam.jose.jwt".
 
         Raises:
             ValueError: If neither alg/enc provided and no jws/jwe provided.
@@ -311,32 +319,44 @@ class JWT(BaseJWT):
             info=b"encryption-key",
         ).derive(signing_key)
 
-    def _list_built(self, list_config: dict[str, Any]) -> BaseJWTList:
-        """Builder list."""
+    def _list_built(self, list_config: dict[str, Any] | BaseList) -> BaseList:
+        """Builder list.
+
+        Args:
+            list_config (dict[str, Any] | BaseList): List config or list instance.
+
+        Returns:
+            BaseList: Built list instance.
+        """
+        if isinstance(list_config, BaseList):
+            return list_config
         match list_config["backend"]:
             case "redis":
-                from jam.jose.lists.redis import RedisList
+                from jam.lists.redis import RedisList
 
                 return RedisList(
                     type=list_config.get("type", "black"),
                     prefix=list_config.get("prefix", "jwt_list"),
                     redis_uri=list_config.get("redis_uri"),
                     ttl=list_config.get("ttl"),
+                    logger=self._logger,
                 )
             case "json":
-                from jam.jose.lists.json import JSONList
+                from jam.lists.json import JSONList
 
                 return JSONList(
                     type=list_config.get("type", "black"),
                     prefix=list_config.get("prefix", "jwt_list"),
                     json_path=list_config.get("json_path", "whitelist.json"),
+                    logger=self._logger,
                 )
             case "memory":
-                from jam.jose.lists.memory import MemoryList
+                from jam.lists.memory import MemoryList
 
                 return MemoryList(
                     type=list_config.get("type", "black"),
                     prefix=list_config.get("prefix", "jwt_list"),
+                    logger=self._logger,
                 )
             case _:
                 raise JamConfigurationError(
@@ -455,18 +475,26 @@ class JWT(BaseJWT):
         if header:
             _base_header.update(header)
         _payload = self._make_payload(iss, sub, aud, exp, nbf, jti, payload)
-        return self.jws.sign(header=_base_header, data=_payload)
+        token = self.jws.sign(header=_base_header, data=_payload)
+
+        if self.list and self.list.__list_type__ == "white":
+            self.list.add(token)
+
+        return token
 
     def decode(
         self,
         token: str,
         validate_claims: bool = True,
+        check_list: bool = True,
     ) -> dict[str, Any]:
         """Decode the JWT and return the header and payload.
 
         Args:
             token: JWT token.
             validate_claims: Whether to validate exp/nbf claims. Defaults to True.
+            check_list: Whether to check the token in the white/black list.
+                Defaults to True.
 
         Returns:
             dict with 'header' and 'payload' keys (both dicts).
@@ -476,11 +504,27 @@ class JWT(BaseJWT):
             JamJWSVerificationError: If token has invalid type.
             JamJWTExpired: If token is expired.
             JamJWTNotYetValid: If token is not yet valid.
+            JamJWTNotInWhiteList: If token is not in the white list.
+            JamJWTInBlackList: If token is in the black list.
         """
         if not self.jws:
             raise JamConfigurationError(
                 message="JWS not configured. Provide 'alg' parameter."
             )
+
+        if check_list and self.list:
+            match self.list.__list_type__:
+                case "white":
+                    if not self.list.check(token):
+                        raise JamJWTNotInWhiteList
+                case "black":
+                    if self.list.check(token):
+                        raise JamJWTInBlackList
+                case _:
+                    raise JamConfigurationError(
+                        message="Invalid JWT list type",
+                        error_code="configuration.jwt.unknown_list_type",
+                    )
 
         data = self.jws.verify(token, True)
         header = data["header"]

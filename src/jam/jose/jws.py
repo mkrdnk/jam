@@ -16,15 +16,17 @@ from jam.jose.__base__ import BaseJWS
 from jam.jose.utils import __base64url_decode__, __base64url_encode__
 from jam.logger import BaseLogger, logger
 from jam.utils.config_maker import __key_loader__
+from jam.utils.config_meta import ConfigMeta
 
 
 if TYPE_CHECKING:
     from jam.jose.jwk import JWK
 
 
-class JWS(BaseJWS):
+class JWS(BaseJWS, metaclass=ConfigMeta):
     """JWS (JSON Web Signature) implementation - RFC 7515."""
 
+    _CONFIG_POINTER = "jam.jose.jws"
     _SUPPORTED_ALGORITHMS = SUPPORTED_ALGORITHMS
 
     def __init__(
@@ -33,6 +35,8 @@ class JWS(BaseJWS):
         key: KeyLike | "JWK",
         password: bytes | None = None,
         logger: BaseLogger = logger,
+        config: str | dict[str, Any] | None = None,
+        pointer: str | None = None,
     ) -> None:
         """Initialize the JWS object.
 
@@ -41,6 +45,8 @@ class JWS(BaseJWS):
             key (KeyLike | JWK): Key to use for signing/verifying
             password (bytes | None): Password for encrypted private keys
             logger (BaseLogger): Logger instance
+            config (str | dict[str, Any] | None): Configuration dict or file path.
+            pointer (str | None): Config pointer. Defaults to "jam.jose.jws".
         """
         from jam.jose.jwk import JWK as JWKClass
 

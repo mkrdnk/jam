@@ -21,6 +21,7 @@ from jam.jose.__algorithms__ import (
     create_key_algorithm,
 )
 from jam.jose.__base__ import BaseJWE
+from jam.utils.config_meta import ConfigMeta
 
 
 if TYPE_CHECKING:
@@ -29,7 +30,7 @@ from jam.jose.utils import __base64url_decode__, __base64url_encode__
 from jam.logger import BaseLogger, logger
 
 
-class JWE(BaseJWE):
+class JWE(BaseJWE, metaclass=ConfigMeta):
     """JWE (JSON Web Encryption) implementation - RFC 7516.
 
     Provides encryption and decryption of data using JWK keys.
@@ -43,6 +44,8 @@ class JWE(BaseJWE):
         ```
     """
 
+    _CONFIG_POINTER = "jam.jose.jwe"
+
     def __init__(
         self,
         alg: str,
@@ -51,6 +54,8 @@ class JWE(BaseJWE):
         password: bytes | None = None,
         serializer: BaseEncoder | type[BaseEncoder] = JsonEncoder,
         logger: BaseLogger = logger,
+        config: str | dict[str, Any] | None = None,
+        pointer: str | None = None,
     ) -> None:
         """Initialize JWE.
 
@@ -61,6 +66,8 @@ class JWE(BaseJWE):
             password: Password for encrypted private keys.
             serializer: Encoder for serializing/deserializing JSON data.
             logger: Logger instance.
+            config (str | dict[str, Any] | None): Configuration dict or file path.
+            pointer (str | None): Config pointer. Defaults to "jam.jose.jwe".
         """
         from jam.jose.jwk import JWK as JWKClass
 

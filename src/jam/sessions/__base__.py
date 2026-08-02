@@ -12,9 +12,10 @@ from jam.encoders import JsonEncoder
 from jam.exceptions import JamSessionEmptyAESKey
 from jam.logger import BaseLogger
 from jam.utils.config_maker import __key_loader__
+from jam.utils.config_meta import ConfigMeta
 
 
-class BaseSessionModule(ABC):
+class BaseSessionModule(ABC, metaclass=ConfigMeta):
     """Abstract base class for session management modules.
 
     You can create your own module for sessions. For example:
@@ -50,26 +51,66 @@ class BaseSessionModule(ABC):
     ```
     """
 
+    _SESSION_TYPE: str
+    _CONFIG_POINTER: str = "jam.session"
+
+    @classmethod
+    def _resolve_session_type(
+        cls, session_type: str | None, sessions_type: str | None
+    ) -> str | None:
+        """Resolve and validate the session type.
+
+        `sessions_type` is kept as a deprecated alias for `session_type`.
+
+        Args:
+            session_type (str | None): Session type.
+            sessions_type (str | None): Deprecated alias.
+
+        Raises:
+            ValueError: If the resolved type does not match the module type.
+
+        Returns:
+            str | None: The resolved session type.
+        """
+        if session_type is None and sessions_type is not None:
+            session_type = sessions_type
+        if session_type is not None and session_type != cls._SESSION_TYPE:
+            raise ValueError(
+                f"Unknown session_type: {session_type}. "
+                f"{cls.__name__} expects '{cls._SESSION_TYPE}'."
+            )
+        return session_type
+
     def __init__(
         self,
+        session_type: str | None = None,
+        sessions_type: str | None = None,
         id_factory: Callable[[], str] = lambda: str(uuid4()),
         is_session_crypt: bool = False,
         session_aes_secret: bytes | str | None = None,
         serializer: type[BaseEncoder] | BaseEncoder = JsonEncoder,
         logger: BaseLogger | None = None,
+        config: str | dict[str, Any] | None = None,
+        pointer: str | None = None,
     ) -> None:
         """Class constructor.
 
         Args:
+            session_type (str | None): Session type for validation.
+            sessions_type (str | None): Deprecated alias for session_type.
             id_factory (Callable[str], optional): A callable that generates unique IDs. Defaults to a UUID factory.
             is_session_crypt (bool, optional): If True, session keys will be encoded. Defaults to False.
             session_aes_secret (Optional[bytes, str], optional): AES secret for encoding session keys.
             serializer (Union[BaseEncoder, type[BaseEncoder]], optional): JSON encoder/decoder. Defaults to JsonEncoder.
             logger (Optional[BaseLogger], optional): Logger instance. Defaults to None.
+            config (str | dict[str, Any] | None): Configuration dict or file path.
+            pointer (str | None): Config pointer. Defaults to "jam.session".
 
         Raises:
             JamSessionEmptyAESKey: If 'is_session_crypt' is True and 'session_aes_secret' is not provided.
+            ValueError: If the session type does not match the module type.
         """
+        self._resolve_session_type(session_type, sessions_type)
         self._id = id_factory
         self._sk_mark_symbol = "J$_"
         self._serializer = serializer

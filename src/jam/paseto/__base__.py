@@ -9,20 +9,56 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from jam.__base_encoder__ import BaseEncoder
 from jam.encoders import JsonEncoder
-from jam.exceptions import JamPASETOInvalidRSAKey
+from jam.exceptions import (
+    JamConfigurationError,
+    JamJWTInBlackList,
+    JamJWTNotInWhiteList,
+    JamPASETOInvalidPurpose,
+    JamPASETOInvalidRSAKey,
+)
+from jam.lists import BaseList
+from jam.logger import BaseLogger, logger
+from jam.utils.config_meta import ConfigMeta
 
 
 PASETO = TypeVar("PASETO", bound="BasePASETO")
 RSAKeyLike = str | bytes | rsa.RSAPrivateKey | rsa.RSAPublicKey
 
 
-class BasePASETO(ABC):
+class BasePASETO(ABC, metaclass=ConfigMeta):
     """Base PASETO instance."""
 
     _VERSION: str
+    _CONFIG_POINTER: str = "jam.paseto"
 
-    def __init__(self):
-        """Constructor."""
+    def __init__(
+        self,
+        purpose: Literal["local", "public"],
+        secret_key: str | bytes | Any,
+        list: dict[str, Any] | BaseList | None = None,
+        logger: BaseLogger = logger,
+        config: str | dict[str, Any] | None = None,
+        pointer: str | None = None,
+    ) -> None:
+        """Initialize PASETO instance.
+
+        Args:
+            purpose (Literal["local", "public"]): 'local' (symmetric encryption)
+                or 'public' (asymmetric signing).
+            secret_key (str | bytes | Any): Raw bytes or PEM text depending on
+                purpose. Can be a path to a key file.
+            list (dict[str, Any] | BaseList | None): List config or list
+                instance for token storage.
+            logger (BaseLogger): Logger instance.
+            config (str | dict[str, Any] | None): Configuration dict or file path.
+            pointer (str | None): Config pointer. Defaults to "jam.paseto".
+
+        Raises:
+            JamPASETOInvalidPurpose: If purpose is not "local" or "public".
+        """
+        if purpose not in ("local", "public"):
+            raise JamPASETOInvalidPurpose(details={"purpose": purpose})
+
         self._secret: Any | None = None
         self._public_key: (
             rsa.RSAPublicKey
@@ -30,7 +66,118 @@ class BasePASETO(ABC):
             | ec.EllipticCurvePublicKey
             | None
         ) = None
-        self._purpose: Literal["local", "public"] | None = None
+        self._purpose: Literal["local", "public"] = purpose
+        self._logger = logger
+        self.list: BaseList | None = self._list_built(list) if list else None
+        self._set_key(secret_key)
+
+    def _set_key(self, secret_key: str | bytes | Any) -> None:
+        """Process the key for the given purpose.
+
+        Args:
+            secret_key (str | bytes | Any): Secret or asymmetric key.
+
+        Raises:
+            NotImplementedError: If not implemented by the version class.
+        """
+        raise NotImplementedError
+
+    @classmethod
+    def key(
+        cls: type[PASETO],
+        purpose: Literal["local", "public"],
+        secret_key: str | bytes | Any,
+        **kwargs: Any,
+    ) -> PASETO:
+        """Create a PASETO instance (alias for ``cls(purpose, secret_key)``).
+
+        Args:
+            purpose (Literal["local", "public"]): PASETO purpose.
+            secret_key (str | bytes | Any): Secret or asymmetric key.
+            **kwargs: Additional arguments passed to the constructor.
+
+        Returns:
+            PASETO: Configured PASETO instance.
+        """
+        return cls(purpose=purpose, secret_key=secret_key, **kwargs)
+
+    def _list_add(self, token: str) -> None:
+        """Add a token to the white list if configured.
+
+        Args:
+            token (str): PASETO token.
+        """
+        if self.list and self.list.__list_type__ == "white":
+            self.list.add(token)
+
+    def _list_check(self, token: str) -> None:
+        """Check the token in the white/black list if configured.
+
+        Args:
+            token (str): PASETO token.
+
+        Raises:
+            JamJWTNotInWhiteList: If token is not in the white list.
+            JamJWTInBlackList: If token is in the black list.
+        """
+        if not self.list:
+            return
+        match self.list.__list_type__:
+            case "white":
+                if not self.list.check(token):
+                    raise JamJWTNotInWhiteList
+            case "black":
+                if self.list.check(token):
+                    raise JamJWTInBlackList
+            case _:
+                raise JamConfigurationError(
+                    message="Invalid PASETO list type",
+                    error_code="configuration.paseto.unknown_list_type",
+                )
+
+    def _list_built(self, list_config: dict[str, Any] | BaseList) -> BaseList:
+        """Build a list instance from config or return it as-is.
+
+        Args:
+            list_config (dict[str, Any] | BaseList): List config or list instance.
+
+        Returns:
+            BaseList: Built list instance.
+        """
+        if isinstance(list_config, BaseList):
+            return list_config
+        match list_config["backend"]:
+            case "redis":
+                from jam.lists.redis import RedisList
+
+                return RedisList(
+                    type=list_config.get("type", "black"),
+                    prefix=list_config.get("prefix", "jwt_list"),
+                    redis_uri=list_config.get("redis_uri"),
+                    ttl=list_config.get("ttl"),
+                    logger=self._logger,
+                )
+            case "json":
+                from jam.lists.json import JSONList
+
+                return JSONList(
+                    type=list_config.get("type", "black"),
+                    prefix=list_config.get("prefix", "jwt_list"),
+                    json_path=list_config.get("json_path", "whitelist.json"),
+                    logger=self._logger,
+                )
+            case "memory":
+                from jam.lists.memory import MemoryList
+
+                return MemoryList(
+                    type=list_config.get("type", "black"),
+                    prefix=list_config.get("prefix", "jwt_list"),
+                    logger=self._logger,
+                )
+            case _:
+                raise JamConfigurationError(
+                    message=f"Unknown list backend: {list_config['backend']}"
+                )
 
     @property
     def purpose(self) -> Literal["local", "public"] | None:
@@ -119,24 +266,6 @@ class BasePASETO(ABC):
             return plaintext
         except Exception as e:
             raise ValueError(f"Failed to decrypt: {e}")
-
-    @classmethod
-    @abstractmethod
-    def key(
-        cls: type[PASETO],
-        purpose: Literal["local", "public"],
-        secret_key: str | bytes,
-    ) -> PASETO:
-        """Create a PASETO instance with the given key.
-
-        Args:
-            purpose: 'local' (symmetric encryption) or 'public' (asymmetric signing)
-            secret_key: raw bytes or PEM text depending on purpose
-
-        Returns:
-            PASETO: configured PASETO instance for encoding/decoding tokens.
-        """
-        raise NotImplementedError
 
     @abstractmethod
     def encode(
