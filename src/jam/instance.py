@@ -7,6 +7,7 @@ from typing import Any
 from jam.__base__ import BaseJam
 from jam.exceptions import (
     JamConfigurationError,
+    JamJWSVerificationError,
     JamSessionNotFound,
 )
 from jam.subject import BaseSubject
@@ -169,6 +170,18 @@ class Jam(BaseJam):
                         error_code="configuration.jwt.not_configured",
                     )
                 payload = self.jwt.decode(token)["payload"]
+            case "jwe":
+                if self.jwt is None or self.jwt.jwe is None:
+                    raise JamConfigurationError(
+                        message="JWE module is not configured.",
+                        error_code="configuration.jwe.not_configured",
+                    )
+                decrypted = self.jwt.decrypt(token)
+                if not isinstance(decrypted, dict):
+                    raise JamJWSVerificationError(
+                        message="JWE payload is not a serialized object.",
+                    )
+                payload = decrypted
             case "paseto":
                 if self.paseto is None:
                     raise JamConfigurationError(
@@ -203,10 +216,12 @@ class Jam(BaseJam):
             token (str): Token or session ID.
 
         Returns:
-            str: "paseto", "jwt" or "session".
+            str: "paseto", "jwe", "jwt" or "session".
         """
         if re.match(r"^v[1-4]\.(local|public)\.", token):
             return "paseto"
+        if token.count(".") == 4:
+            return "jwe"
         if token.count(".") == 2:
             return "jwt"
         return "session"
