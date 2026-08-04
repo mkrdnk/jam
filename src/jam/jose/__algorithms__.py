@@ -204,7 +204,7 @@ class HSAlgorithm(BaseAlgorithm):
         Returns:
             str: Base64url encoded signature
         """
-        self._logger.debug(f"Signing with {self.alg}")
+        self._logger.debug("Signing with %s", self.alg)
         key = (
             self._secret.encode()
             if isinstance(self._secret, str)
@@ -230,7 +230,7 @@ class HSAlgorithm(BaseAlgorithm):
         Raises:
             JamJWSVerificationError: If signature is invalid
         """
-        self._logger.debug(f"Verifying {self.alg} signature")
+        self._logger.debug("Verifying %s signature", self.alg)
         k = key.encode() if isinstance(key, str) else key
         if not isinstance(k, bytes):
             raise JamInvalidKeyTypeError(
@@ -272,7 +272,7 @@ class RSAlgorithm(BaseAlgorithm):
         Returns:
             str: Base64url encoded signature
         """
-        self._logger.debug(f"Signing with {self.alg}")
+        self._logger.debug("Signing with %s", self.alg)
         try:
             private_key = self._get_private_key()
             hash_alg = getattr(hashes, f"SHA{self.alg[2:]}")()
@@ -296,7 +296,7 @@ class RSAlgorithm(BaseAlgorithm):
         Raises:
             JamJWSVerificationError: If signature is invalid
         """
-        self._logger.debug(f"Verifying {self.alg} signature")
+        self._logger.debug("Verifying %s signature", self.alg)
         try:
             pub_key = self._load_public_key_auto(key)
             hash_alg = getattr(hashes, f"SHA{self.alg[2:]}")()
@@ -345,7 +345,7 @@ class ESAlgorithm(BaseAlgorithm):
         Returns:
             str: Base64url encoded signature
         """
-        self._logger.debug(f"Signing with {self.alg}")
+        self._logger.debug("Signing with %s", self.alg)
         try:
             private_key = self._get_private_key()
             _, hash_alg = self._CURVE_MAP[self.alg]
@@ -372,7 +372,7 @@ class ESAlgorithm(BaseAlgorithm):
         Raises:
             JamJWSVerificationError: If signature is invalid
         """
-        self._logger.debug(f"Verifying {self.alg} signature")
+        self._logger.debug("Verifying %s signature", self.alg)
         try:
             pub_key = self._load_public_key_auto(key)
             _, hash_alg = self._CURVE_MAP[self.alg]
@@ -427,7 +427,7 @@ class PSAlgorithm(BaseAlgorithm):
         Returns:
             str: Base64url encoded signature
         """
-        self._logger.debug(f"Signing with {self.alg}")
+        self._logger.debug("Signing with %s", self.alg)
         try:
             private_key = self._get_private_key()
             hash_alg = getattr(hashes, f"SHA{self.alg[2:]}")()
@@ -458,7 +458,7 @@ class PSAlgorithm(BaseAlgorithm):
         Raises:
             JamJWSVerificationError: If signature is invalid
         """
-        self._logger.debug(f"Verifying {self.alg} signature")
+        self._logger.debug("Verifying %s signature", self.alg)
         try:
             pub_key = self._load_public_key_auto(key)
             hash_alg = getattr(hashes, f"SHA{self.alg[2:]}")()
@@ -653,7 +653,7 @@ class RSAKeyAlgorithm(BaseKeyAlgorithm):
 
     def wrap_key(self, cek: bytes) -> tuple[bytes, dict[str, Any]]:
         """Wrap CEK using RSA."""
-        self._logger.debug(f"Wrapping key with {self.alg}")
+        self._logger.debug("Wrapping key with %s", self.alg)
         public_key = self._load_public_key()
         padding = self._PADDING_MAP.get(self.alg)
         if not padding:
@@ -666,7 +666,7 @@ class RSAKeyAlgorithm(BaseKeyAlgorithm):
 
     def unwrap_key(self, encrypted_key: bytes, header: dict[str, Any]) -> bytes:
         """Unwrap CEK using RSA."""
-        self._logger.debug(f"Unwrapping key with {self.alg}")
+        self._logger.debug("Unwrapping key with %s", self.alg)
         private_key = self._load_private_key()
         padding = self._PADDING_MAP.get(self.alg)
         if not padding:
@@ -684,7 +684,7 @@ class AESKeyWrapAlgorithm(BaseKeyAlgorithm):
 
     def wrap_key(self, cek: bytes) -> tuple[bytes, dict[str, Any]]:
         """Wrap CEK using AES Key Wrap."""
-        self._logger.debug(f"Wrapping key with {self.alg}")
+        self._logger.debug("Wrapping key with %s", self.alg)
         key_size = self._KEY_SIZES.get(self.alg, 16)
 
         if isinstance(self._key, str):
@@ -701,7 +701,7 @@ class AESKeyWrapAlgorithm(BaseKeyAlgorithm):
 
     def unwrap_key(self, encrypted_key: bytes, header: dict[str, Any]) -> bytes:
         """Unwrap CEK using AES Key Wrap."""
-        self._logger.debug(f"Unwrapping key with {self.alg}")
+        self._logger.debug("Unwrapping key with %s", self.alg)
         key_size = self._KEY_SIZES.get(self.alg, 16)
 
         if isinstance(self._key, str):
@@ -723,7 +723,7 @@ class ECDHKeyAlgorithm(BaseKeyAlgorithm):
 
     def wrap_key(self, cek: bytes) -> tuple[bytes, dict[str, Any]]:
         """Wrap CEK using ECDH."""
-        self._logger.debug(f"Wrapping key with {self.alg}")
+        self._logger.debug("Wrapping key with %s", self.alg)
 
         if self.alg in ("ECDH-ES", "ECDH-ES+A128KW"):
             curve = ec.SECP256R1()
@@ -795,7 +795,7 @@ class ECDHKeyAlgorithm(BaseKeyAlgorithm):
 
     def unwrap_key(self, encrypted_key: bytes, header: dict[str, Any]) -> bytes:
         """Unwrap CEK using ECDH."""
-        self._logger.debug(f"Unwrapping key with {self.alg}")
+        self._logger.debug("Unwrapping key with %s", self.alg)
 
         private_key = self._load_private_key()
         epk = header.get("epk", {})
@@ -847,7 +847,7 @@ class AESGCMKeyAlgorithm(BaseKeyAlgorithm):
 
     def wrap_key(self, cek: bytes) -> tuple[bytes, dict[str, Any]]:
         """Wrap CEK using AES-GCM."""
-        self._logger.debug(f"Wrapping key with {self.alg}")
+        self._logger.debug("Wrapping key with %s", self.alg)
         key_size = self._KEY_SIZES.get(self.alg, 16)
         iv = os.urandom(12)
 
@@ -867,7 +867,7 @@ class AESGCMKeyAlgorithm(BaseKeyAlgorithm):
 
     def unwrap_key(self, encrypted_key: bytes, header: dict[str, Any]) -> bytes:
         """Unwrap CEK using AES-GCM."""
-        self._logger.debug(f"Unwrapping key with {self.alg}")
+        self._logger.debug("Unwrapping key with %s", self.alg)
         key_size = self._KEY_SIZES.get(self.alg, 16)
         iv = __base64url_decode__(header.get("iv", ""))
 
@@ -898,7 +898,7 @@ class PBES2KeyAlgorithm(BaseKeyAlgorithm):
 
     def wrap_key(self, cek: bytes) -> tuple[bytes, dict[str, Any]]:
         """Wrap CEK using PBES2."""
-        self._logger.debug(f"Wrapping key with {self.alg}")
+        self._logger.debug("Wrapping key with %s", self.alg)
 
         hash_alg, key_size, kw_alg = self._ALG_MAP.get(
             self.alg, (hashes.SHA256(), 16, "A128KW")
@@ -930,7 +930,7 @@ class PBES2KeyAlgorithm(BaseKeyAlgorithm):
 
     def unwrap_key(self, encrypted_key: bytes, header: dict[str, Any]) -> bytes:
         """Unwrap CEK using PBES2."""
-        self._logger.debug(f"Unwrapping key with {self.alg}")
+        self._logger.debug("Unwrapping key with %s", self.alg)
 
         hash_alg, key_size, kw_alg = self._ALG_MAP.get(
             self.alg, (hashes.SHA256(), 16, "A128KW")
@@ -1033,7 +1033,7 @@ class AESGCMEncAlgorithm(BaseEncAlgorithm):
         self, plaintext: bytes, iv: bytes, aad: bytes, key: bytes
     ) -> tuple[bytes, bytes]:
         """Encrypt using AES-GCM."""
-        self._logger.debug(f"Encrypting with {self.enc}")
+        self._logger.debug("Encrypting with %s", self.enc)
         aesgcm = AESGCM(key)
         ciphertext = aesgcm.encrypt(iv, plaintext, aad)
         return ciphertext[:-16], ciphertext[-16:]
@@ -1042,7 +1042,7 @@ class AESGCMEncAlgorithm(BaseEncAlgorithm):
         self, ciphertext: bytes, iv: bytes, tag: bytes, aad: bytes, key: bytes
     ) -> bytes:
         """Decrypt using AES-GCM."""
-        self._logger.debug(f"Decrypting with {self.enc}")
+        self._logger.debug("Decrypting with %s", self.enc)
         aesgcm = AESGCM(key)
         return aesgcm.decrypt(iv, ciphertext + tag, aad)
 
@@ -1073,7 +1073,7 @@ class AESCBCEncAlgorithm(BaseEncAlgorithm):
         self, plaintext: bytes, iv: bytes, aad: bytes, key: bytes
     ) -> tuple[bytes, bytes]:
         """Encrypt using AES-CBC + HMAC."""
-        self._logger.debug(f"Encrypting with {self.enc}")
+        self._logger.debug("Encrypting with %s", self.enc)
 
         mac_key_len = self.get_key_length() // 2
 
@@ -1100,7 +1100,7 @@ class AESCBCEncAlgorithm(BaseEncAlgorithm):
         self, ciphertext: bytes, iv: bytes, tag: bytes, aad: bytes, key: bytes
     ) -> bytes:
         """Decrypt using AES-CBC + HMAC."""
-        self._logger.debug(f"Decrypting with {self.enc}")
+        self._logger.debug("Decrypting with %s", self.enc)
 
         mac_key_len = self.get_key_length() // 2
         enc_key_len = self.get_key_length() // 2  # noqa

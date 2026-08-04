@@ -153,7 +153,7 @@ class JWE(BaseJWE, metaclass=ConfigMeta):
                 f"{iv_b64}.{ciphertext_b64}.{tag_b64}"
             )
         except Exception as e:
-            self._logger.error(f"JWE encryption failed: {e}", exc_info=True)
+            self._logger.error("JWE encryption failed: %s", e, exc_info=True)
             raise JamJWEEncryptionError(
                 message=f"JWE encryption failed: {e}"
             ) from e
@@ -207,7 +207,7 @@ class JWE(BaseJWE, metaclass=ConfigMeta):
 
             return plaintext
         except Exception as e:
-            self._logger.error(f"JWE decryption failed: {e}", exc_info=True)
+            self._logger.error("JWE decryption failed: %s", e, exc_info=True)
             raise JamJWEDecryptionError(
                 message=f"JWE decryption failed: {e}"
             ) from e

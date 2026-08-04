@@ -146,7 +146,7 @@ class BaseSessionModule(ABC, metaclass=ConfigMeta):
                 data = self.__encode_session_id__(data)
             except ValueError as e:
                 if self._logger:
-                    self._logger.error(f"Failed to encode session ID: {e}")
+                    self._logger.error("Failed to encode session ID: %s", e)
             return data
         else:
             return data
@@ -158,7 +158,7 @@ class BaseSessionModule(ABC, metaclass=ConfigMeta):
                 data = self.__decode_session_id__(data)
             except ValueError as e:
                 if self._logger:
-                    self._logger.error(f"Failed to decode session ID: {e}")
+                    self._logger.error("Failed to decode session ID: %s", e)
             return data
         else:
             return data

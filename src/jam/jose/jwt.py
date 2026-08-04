@@ -97,7 +97,8 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         if jws is not None:
             if alg is not None:
                 raise JamConfigurationError(
-                    message="Cannot specify both 'alg' and 'jws'. Use either 'jws' or 'alg'."
+                    message="Cannot specify both 'alg' and 'jws'. Use either 'jws' or 'alg'.",
+                    error_code="configuration.jwt.conflicting_jws",
                 )
             self.jws = jws
             self._alg = jws._alg
@@ -122,7 +123,8 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         if jwe is not None:
             if enc is not None:
                 raise JamConfigurationError(
-                    message="Cannot specify both 'enc' and 'jwe'. Use either 'jwe' or 'enc'."
+                    message="Cannot specify both 'enc' and 'jwe'. Use either 'jwe' or 'enc'.",
+                    error_code="configuration.jwt.conflicting_jwe",
                 )
             self.jwe = jwe
             self._enc = jwe._enc
@@ -139,7 +141,8 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
 
         if not self.jws and not self.jwe:
             raise JamConfigurationError(
-                message="Either 'alg', 'enc', 'jws', or 'jwe' must be provided"
+                message="Either 'alg', 'enc', 'jws', or 'jwe' must be provided",
+                error_code="configuration.jwt.no_algorithm",
             )
 
         self.list = self._list_built(list) if list else None
@@ -175,7 +178,10 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         alg = self._alg
         key = self._key
         if not alg or not key:
-            raise JamConfigurationError(message="JWS requires 'alg' and 'key'")
+            raise JamConfigurationError(
+                message="JWS requires 'alg' and 'key'",
+                error_code="configuration.jwt.missing_jws_key",
+            )
 
         return JWS(
             alg=alg,
@@ -188,7 +194,8 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         enc = self._enc
         if not enc:
             raise JamConfigurationError(
-                message="JWE requires 'enc' to be provided"
+                message="JWE requires 'enc' to be provided",
+                error_code="configuration.jwt.missing_enc",
             )
 
         key = self._key
@@ -397,7 +404,8 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         if self._algorithm is None:
             if not alg or not key:
                 raise JamConfigurationError(
-                    message="JWS requires 'alg' and 'key'"
+                    message="JWS requires 'alg' and 'key'",
+                    error_code="configuration.jwt.missing_jws_key",
                 )
             self._algorithm = create_algorithm(
                 alg, key, self._password, self._logger
@@ -465,7 +473,8 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         """
         if not self.jws:
             raise JamConfigurationError(
-                message="JWS not configured. Provide 'alg' parameter."
+                message="JWS not configured. Provide 'alg' parameter.",
+                error_code="configuration.jwt.jws_not_configured",
             )
 
         if jti is None:
@@ -509,7 +518,8 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         """
         if not self.jws:
             raise JamConfigurationError(
-                message="JWS not configured. Provide 'alg' parameter."
+                message="JWS not configured. Provide 'alg' parameter.",
+                error_code="configuration.jwt.jws_not_configured",
             )
 
         if check_list and self.list:
@@ -585,7 +595,8 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         """
         if not self.jwe:
             raise JamConfigurationError(
-                message="JWE not configured. Provide 'enc' parameter."
+                message="JWE not configured. Provide 'enc' parameter.",
+                error_code="configuration.jwt.jwe_not_configured",
             )
 
         if isinstance(plaintext, dict):
@@ -622,7 +633,8 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         """
         if not self.jwe:
             raise JamConfigurationError(
-                message="JWE not configured. Provide 'enc' parameter."
+                message="JWE not configured. Provide 'enc' parameter.",
+                error_code="configuration.jwt.jwe_not_configured",
             )
 
         plaintext = self.jwe.decrypt(token)
