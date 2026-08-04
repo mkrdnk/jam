@@ -56,6 +56,26 @@ def test_jwt_autodetect(jam_jwt_instance):
     assert decoded == user
 
 
+def test_jwe_autodetect():
+    jam = Jam(
+        config={
+            "jose": {
+                "jwt": {
+                    "alg": "HS256",
+                    "enc": "A256GCM",
+                    "secret_key": "SECRET",
+                }
+            }
+        },
+        subject=User,
+    )
+    user = User(id="user123", name="test")
+    token = jam.jwt.encrypt({"id": user.id, "name": user.name})
+    assert token.count(".") == 4
+    decoded = jam.authenticate(token)
+    assert decoded == user
+
+
 def test_session_instance(jam_session_instance):
     session_data = {"user_id": "user123"}
     session_id = jam_session_instance.session.create("user", session_data)
