@@ -30,7 +30,7 @@ from jam.jose.__algorithms__ import (
 from jam.jose.__base__ import BaseJWT
 from jam.jose.jwe import JWE
 from jam.jose.jws import JWS
-from jam.lists import BaseList
+from jam.lists import BaseList, build_list
 from jam.logger import BaseLogger, logger
 from jam.utils.config_maker import __key_loader__
 from jam.utils.config_meta import ConfigMeta
@@ -145,7 +145,7 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
                 error_code="configuration.jwt.no_algorithm",
             )
 
-        self.list = self._list_built(list) if list else None
+        self.list = build_list(list, self._logger) if list else None
 
         self._logger.info(
             f"Initialized JWT with alg={self._alg}, enc={self._enc}, "
@@ -251,7 +251,9 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
             from cryptography.hazmat.primitives.asymmetric import ec, rsa
             from cryptography.hazmat.primitives.serialization import (
                 load_der_private_key,
+                load_der_public_key,
                 load_pem_private_key,
+                load_pem_public_key,
                 load_ssh_public_key,
             )
 
@@ -284,6 +286,32 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
                         return (
                             "rsa"
                             if isinstance(loaded, rsa.RSAPrivateKey)
+                            else "ec"
+                        )
+                except (ValueError, TypeError):
+                    pass
+
+                try:
+                    loaded = load_pem_public_key(key)
+                    if isinstance(
+                        loaded, rsa.RSAPublicKey | ec.EllipticCurvePublicKey
+                    ):
+                        return (
+                            "rsa"
+                            if isinstance(loaded, rsa.RSAPublicKey)
+                            else "ec"
+                        )
+                except (ValueError, TypeError):
+                    pass
+
+                try:
+                    loaded = load_der_public_key(key)
+                    if isinstance(
+                        loaded, rsa.RSAPublicKey | ec.EllipticCurvePublicKey
+                    ):
+                        return (
+                            "rsa"
+                            if isinstance(loaded, rsa.RSAPublicKey)
                             else "ec"
                         )
                 except (ValueError, TypeError):
@@ -325,50 +353,6 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
             salt=b"jwe-encryption",
             info=b"encryption-key",
         ).derive(signing_key)
-
-    def _list_built(self, list_config: dict[str, Any] | BaseList) -> BaseList:
-        """Builder list.
-
-        Args:
-            list_config (dict[str, Any] | BaseList): List config or list instance.
-
-        Returns:
-            BaseList: Built list instance.
-        """
-        if isinstance(list_config, BaseList):
-            return list_config
-        match list_config["backend"]:
-            case "redis":
-                from jam.lists.redis import RedisList
-
-                return RedisList(
-                    type=list_config.get("type", "black"),
-                    prefix=list_config.get("prefix", "jwt_list"),
-                    redis_uri=list_config.get("redis_uri"),
-                    ttl=list_config.get("ttl"),
-                    logger=self._logger,
-                )
-            case "json":
-                from jam.lists.json import JSONList
-
-                return JSONList(
-                    type=list_config.get("type", "black"),
-                    prefix=list_config.get("prefix", "jwt_list"),
-                    json_path=list_config.get("json_path", "whitelist.json"),
-                    logger=self._logger,
-                )
-            case "memory":
-                from jam.lists.memory import MemoryList
-
-                return MemoryList(
-                    type=list_config.get("type", "black"),
-                    prefix=list_config.get("prefix", "jwt_list"),
-                    logger=self._logger,
-                )
-            case _:
-                raise JamConfigurationError(
-                    message=f"Unknown list backend: {list_config['backend']}"
-                )
 
     def _validate_algorithm(self, alg: str) -> None:
         """Validate JWS algorithm."""
