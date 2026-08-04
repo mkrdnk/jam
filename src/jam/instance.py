@@ -130,8 +130,10 @@ class Jam(BaseJam):
                         message="Session module is not configured.",
                         error_code="configuration.session.not_configured",
                     )
-                session_key = self.config.get("session", {}).get(
-                    "session_key", "auth"
+                session_key = (
+                    (self.config or {})
+                    .get("session", {})
+                    .get("session_key", "auth")
                 )
                 return self.session.create(session_key, payload)
             case _:
