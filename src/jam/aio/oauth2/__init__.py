@@ -11,7 +11,6 @@ from jam.aio.oauth2.builtin.gitlab import GitLabOAuth2Client
 from jam.aio.oauth2.builtin.google import GoogleOAuth2Client
 from jam.aio.oauth2.builtin.yandex import YandexOAuth2Client
 from jam.encoders import BaseEncoder, JsonEncoder
-from jam.logger import BaseLogger, logger
 
 
 BUILTIN_PROVIDERS = {
@@ -24,7 +23,6 @@ BUILTIN_PROVIDERS = {
 
 def create_instance(
     providers: dict[str, dict],
-    logger: BaseLogger = logger,
     serializer: BaseEncoder | type[BaseEncoder] = JsonEncoder,
     **kwargs: Any
 ) -> dict[str, BaseOAuth2Client]:
@@ -32,7 +30,6 @@ def create_instance(
 
     Args:
         providers: {provider_name: {client_id, client_secret, redirect_uri, ...}}
-        logger: Logger instance
         serializer: JSON encoder/decoder
         **kwargs: Additional params
 

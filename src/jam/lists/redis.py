@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import logging
 from typing import Literal
-
-from jam.logger import BaseLogger
 
 
 try:
@@ -17,6 +16,9 @@ except ImportError:
 
 from jam.exceptions.jose import JamRedisListConfigurationError
 from jam.lists.__base__ import BaseList
+
+
+logger = logging.getLogger(__name__)
 
 
 class RedisList(BaseList):
@@ -46,7 +48,6 @@ class RedisList(BaseList):
         redis_uri: str | Redis | None = None,
         redis: Redis | None = None,
         ttl: int | None = None,
-        logger: BaseLogger | None = None,
     ) -> None:
         """Initialize RedisList.
 
@@ -56,7 +57,6 @@ class RedisList(BaseList):
             redis_uri (str | Redis): Redis connection URI or Redis instance.
             redis (Redis | None): Redis instance (alias for redis_uri).
             ttl (int | None): Token TTL in seconds.
-            logger (BaseLogger | None): Logger instance.
         """
         self._prefix = prefix
         self._ttl = ttl
@@ -75,11 +75,12 @@ class RedisList(BaseList):
                 message="redis_uri or redis must be provided"
             )
 
-        self._logger = logger
-        if self._logger:
-            self._logger.info(
-                f"Initialized RedisList with type={type}, prefix={prefix}, ttl={ttl}"
-            )
+        logger.info(
+            "Initialized RedisList with type=%s, prefix=%s, ttl=%s",
+            type,
+            prefix,
+            ttl,
+        )
 
     def _make_key(self, token: str) -> str:
         """Create Redis key with prefix."""
@@ -92,8 +93,7 @@ class RedisList(BaseList):
             token (str): JWT token.
         """
         self._redis.set(self._make_key(token), "1", ex=self._ttl)
-        if self._logger:
-            self._logger.debug("Added token to %s list", self._prefix)
+        logger.debug("Added token to %s list", self._prefix)
 
     def add_many(self, tokens: list[str]) -> None:
         """Add multiple tokens to the list.
@@ -107,10 +107,7 @@ class RedisList(BaseList):
         for token in tokens:
             pipe.set(self._make_key(token), "1", ex=self._ttl)
         pipe.execute()
-        if self._logger:
-            self._logger.debug(
-                f"Added {len(tokens)} tokens to {self._prefix} list"
-            )
+        logger.debug("Added %s tokens to %s list", len(tokens), self._prefix)
 
     def check(self, token: str) -> bool:
         """Check if a token is present in the list.
@@ -147,8 +144,7 @@ class RedisList(BaseList):
             token (str): JWT token.
         """
         self._redis.delete(self._make_key(token))
-        if self._logger:
-            self._logger.debug("Deleted token from %s list", self._prefix)
+        logger.debug("Deleted token from %s list", self._prefix)
 
     def delete_many(self, tokens: list[str]) -> None:
         """Remove multiple tokens from the list.
@@ -160,7 +156,6 @@ class RedisList(BaseList):
             return
         keys = [self._make_key(t) for t in tokens]
         self._redis.delete(*keys)
-        if self._logger:
-            self._logger.debug(
-                f"Deleted {len(tokens)} tokens from {self._prefix} list"
-            )
+        logger.debug(
+            "Deleted %s tokens from %s list", len(tokens), self._prefix
+        )

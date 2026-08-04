@@ -3,6 +3,7 @@
 from abc import ABC, abstractmethod
 import hashlib
 import hmac
+import logging
 import secrets
 from typing import Any, Literal, TypeVar, cast
 
@@ -22,7 +23,6 @@ from jam.exceptions import (
     JamPASETOKeyVerificationError,
 )
 from jam.lists import BaseList, build_list
-from jam.logger import BaseLogger, logger
 from jam.paseto.utils import (
     __gen_hash__,
     __pae__,
@@ -34,6 +34,9 @@ from jam.utils.xchacha20poly1305 import (
     xchacha20poly1305_decrypt,
     xchacha20poly1305_encrypt,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 PASETO = TypeVar("PASETO", bound="BasePASETO")
@@ -300,7 +303,6 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
         purpose: Literal["local", "public"],
         secret_key: str | bytes | Any,
         list: dict[str, Any] | BaseList | None = None,
-        logger: BaseLogger = logger,
         config: str | dict[str, Any] | None = None,
         pointer: str | None = None,
     ) -> None:
@@ -313,7 +315,6 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
                 purpose. Can be a path to a key file.
             list (dict[str, Any] | BaseList | None): List config or list
                 instance for token storage.
-            logger (BaseLogger): Logger instance.
             config (str | dict[str, Any] | None): Configuration dict or file path.
             pointer (str | None): Config pointer. Defaults to "jam.paseto".
 
@@ -331,8 +332,7 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
             | None
         ) = None
         self._purpose: Literal["local", "public"] = purpose
-        self._logger = logger
-        self.list: BaseList | None = build_list(list, logger) if list else None
+        self.list: BaseList | None = build_list(list) if list else None
         self._set_key(secret_key)
 
     def _set_key(self, secret_key: str | bytes | Any) -> None:

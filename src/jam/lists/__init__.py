@@ -9,21 +9,16 @@ from jam.lists.__base__ import BaseList
 from jam.lists.json import JSONList
 from jam.lists.memory import MemoryList
 from jam.lists.redis import RedisList
-from jam.logger import BaseLogger
 
 
 BaseJWTList = BaseList
 
 
-def build_list(
-    list_config: dict[str, Any] | BaseList,
-    logger: BaseLogger | None = None,
-) -> BaseList:
+def build_list(list_config: dict[str, Any] | BaseList) -> BaseList:
     """Build a list instance from a config dict or return it as-is.
 
     Args:
         list_config (dict[str, Any] | BaseList): List config or list instance.
-        logger (BaseLogger | None): Logger passed to the built list.
 
     Returns:
         BaseList: Built list instance.
@@ -41,20 +36,17 @@ def build_list(
                 prefix=list_config.get("prefix", "jwt_list"),
                 redis_uri=list_config.get("redis_uri"),
                 ttl=list_config.get("ttl"),
-                logger=logger,
             )
         case "json":
             return JSONList(
                 type=list_config.get("type", "black"),
                 prefix=list_config.get("prefix", "jwt_list"),
                 json_path=list_config.get("json_path", "whitelist.json"),
-                logger=logger,
             )
         case "memory":
             return MemoryList(
                 type=list_config.get("type", "black"),
                 prefix=list_config.get("prefix", "jwt_list"),
-                logger=logger,
             )
         case _:
             raise JamConfigurationError(

@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+import logging
 from typing import Any
 from uuid import uuid4
 
@@ -10,8 +11,10 @@ from cryptography.fernet import Fernet
 from jam.__base_encoder__ import BaseEncoder
 from jam.encoders import JsonEncoder
 from jam.exceptions import JamSessionEmptyAESKey
-from jam.logger import BaseLogger
 from jam.utils.config_maker import __key_loader__
+
+
+logger = logging.getLogger(__name__)
 
 
 class BaseAsyncSessionModule(ABC):
@@ -23,13 +26,11 @@ class BaseAsyncSessionModule(ABC):
         is_session_crypt: bool = False,
         session_aes_secret: bytes | str | None = None,
         serializer: type[BaseEncoder] | BaseEncoder = JsonEncoder,
-        logger: BaseLogger | None = None,
     ) -> None:
         """Initialize the async session module."""
         self._id = id_factory
         self._sk_mark_symbol = "J$_"
         self._serializer = serializer
-        self._logger = logger
         if is_session_crypt and not session_aes_secret:
             raise JamSessionEmptyAESKey
         if is_session_crypt:
@@ -60,8 +61,7 @@ class BaseAsyncSessionModule(ABC):
             try:
                 data = self.__encode_session_id__(data)
             except ValueError as e:
-                if self._logger:
-                    self._logger.error(f"Failed to encode session ID: {e}")
+                logger.error(f"Failed to encode session ID: {e}")
             return data
         else:
             return data
@@ -72,8 +72,7 @@ class BaseAsyncSessionModule(ABC):
             try:
                 data = self.__decode_session_id__(data)
             except ValueError as e:
-                if self._logger:
-                    self._logger.error(f"Failed to decode session ID: {e}")
+                logger.error(f"Failed to decode session ID: {e}")
             return data
         else:
             return data

@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+import logging
 from typing import Any
 from uuid import uuid4
 
@@ -10,9 +11,11 @@ from cryptography.fernet import Fernet
 from jam.__base_encoder__ import BaseEncoder
 from jam.encoders import JsonEncoder
 from jam.exceptions import JamSessionEmptyAESKey
-from jam.logger import BaseLogger
 from jam.utils.config_maker import __key_loader__
 from jam.utils.config_meta import ConfigMeta
+
+
+logger = logging.getLogger(__name__)
 
 
 class BaseSessionModule(ABC, metaclass=ConfigMeta):
@@ -89,7 +92,6 @@ class BaseSessionModule(ABC, metaclass=ConfigMeta):
         is_session_crypt: bool = False,
         session_aes_secret: bytes | str | None = None,
         serializer: type[BaseEncoder] | BaseEncoder = JsonEncoder,
-        logger: BaseLogger | None = None,
         config: str | dict[str, Any] | None = None,
         pointer: str | None = None,
     ) -> None:
@@ -102,7 +104,6 @@ class BaseSessionModule(ABC, metaclass=ConfigMeta):
             is_session_crypt (bool, optional): If True, session keys will be encoded. Defaults to False.
             session_aes_secret (Optional[bytes, str], optional): AES secret for encoding session keys.
             serializer (Union[BaseEncoder, type[BaseEncoder]], optional): JSON encoder/decoder. Defaults to JsonEncoder.
-            logger (Optional[BaseLogger], optional): Logger instance. Defaults to None.
             config (str | dict[str, Any] | None): Configuration dict or file path.
             pointer (str | None): Config pointer. Defaults to "jam.session".
 
@@ -114,7 +115,6 @@ class BaseSessionModule(ABC, metaclass=ConfigMeta):
         self._id = id_factory
         self._sk_mark_symbol = "J$_"
         self._serializer = serializer
-        self._logger = logger
         if is_session_crypt and not session_aes_secret:
             raise JamSessionEmptyAESKey
         if is_session_crypt:
@@ -145,8 +145,7 @@ class BaseSessionModule(ABC, metaclass=ConfigMeta):
             try:
                 data = self.__encode_session_id__(data)
             except ValueError as e:
-                if self._logger:
-                    self._logger.error("Failed to encode session ID: %s", e)
+                logger.error("Failed to encode session ID: %s", e)
             return data
         else:
             return data
@@ -157,8 +156,7 @@ class BaseSessionModule(ABC, metaclass=ConfigMeta):
             try:
                 data = self.__decode_session_id__(data)
             except ValueError as e:
-                if self._logger:
-                    self._logger.error("Failed to decode session ID: %s", e)
+                logger.error("Failed to decode session ID: %s", e)
             return data
         else:
             return data

@@ -6,10 +6,16 @@ Source code: https://github.com/mkrdnk/jam
 Documentation: https://jam.makridenko.ru
 """
 
+import logging
+
 from jam.__base__ import BaseJam
 from jam.authz import BasePolicy, Policy
 from jam.instance import Jam
 from jam.subject import BaseSubject
+from jam.utils.redaction import SensitiveDataFilter
+
+logging.getLogger("jam").addHandler(logging.NullHandler())
+logging.getLogger("jam").addFilter(SensitiveDataFilter())
 
 
 __version__ = "4.0.0a0"
@@ -19,4 +25,5 @@ __all__ = [
     "BaseSubject",
     "BasePolicy",
     "Policy",
+    "SensitiveDataFilter",
 ]

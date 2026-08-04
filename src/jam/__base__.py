@@ -4,16 +4,19 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 import dataclasses
-from typing import Any, Literal
+import logging
+from typing import Any, cast
 
 from jam.__base_encoder__ import BaseEncoder
 from jam.authz import BasePolicy, Policy
 from jam.encoders import JsonEncoder
 from jam.exceptions import JamConfigurationError
-from jam.logger import BaseLogger, JamLogger
 from jam.plugins.__base__ import BasePlugin
 from jam.subject import BaseSubject
 from jam.utils.config_maker import __config_maker__, __module_loader__
+
+
+logger = logging.getLogger(__name__)
 
 
 class BaseJam(ABC):
@@ -37,10 +40,6 @@ class BaseJam(ABC):
         config: str | dict[str, Any] | None = None,
         pointer: str = "jam",
         *,
-        logger: type[BaseLogger] = JamLogger,
-        log_level: Literal[
-            "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
-        ] = "INFO",
         serializer: BaseEncoder | type[BaseEncoder] = JsonEncoder,
         subject: type[BaseSubject] | None = None,
         plugins: list[type[BasePlugin]] | None = None,
@@ -51,8 +50,6 @@ class BaseJam(ABC):
             config (Union[str, dict[str, Any], None]): Configuration dict or
                 file path. Defaults to the class attribute.
             pointer (str): Config pointer. Defaults to "jam".
-            logger (BaseLogger): Logger.
-            log_level (Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]): Log level.
             serializer (Union[BaseEncoder, type[BaseEncoder]]): Serializer.
             subject (type[BaseSubject] | None): Subject class override.
             plugins (list[type[BasePlugin]] | None): List of plugins.
@@ -60,16 +57,9 @@ class BaseJam(ABC):
         if config is None:
             config = self.config or {}
         config = __config_maker__(config, pointer)
-        main_config = self.__build_main_config(
-            config, logger, log_level, serializer
-        )
-
-        logger = main_config["logger"]
-        log_level = main_config["log_level"]
-        serializer = main_config["serializer"]
+        serializer = self.__build_main_config(config, serializer)
 
         self.config = config
-        self._logger = logger(log_level)
         self._serializer = serializer
         self._plugins = []
 
@@ -86,64 +76,43 @@ class BaseJam(ABC):
         self.paseto = None
         self._policy: BasePolicy | None = None
 
-        self._logger.debug(
-            f"Initializing BaseJam with log_level={log_level}, serializer={serializer}"
-        )
+        logger.debug("Initializing BaseJam with serializer=%s", serializer)
         self.__build_instance(config)
-        self._logger.debug(
+        logger.debug(
             "BaseJam initialization complete. Modules loaded:\n"
-            f" jwt={self.jwt is not None}, jws={self.jws is not None}, jwe={self.jwe is not None}, session={self.session is not None}, oauth2={self.oauth2 is not None}, paseto={self.paseto is not None}, otp={self.otp is not None}"
+            " jwt=%s, jws=%s, jwe=%s, session=%s, oauth2=%s, paseto=%s, otp=%s",
+            self.jwt is not None,
+            self.jws is not None,
+            self.jwe is not None,
+            self.session is not None,
+            self.oauth2 is not None,
+            self.paseto is not None,
+            self.otp is not None,
         )
 
     def __build_main_config(
         self,
         config: dict[str, Any],
-        default_logger: type[BaseLogger],
-        default_log_level: Literal[
-            "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
-        ],
         default_serializer: BaseEncoder | type[BaseEncoder],
-    ) -> dict[str, Any]:
-        """Build main params from config like logger, loglevel, etc.
+    ) -> BaseEncoder | type[BaseEncoder]:
+        """Build the serializer from config or use the default.
 
         Args:
             config (dict[str, Any]): Configuration dictionary
-            default_logger (type[BaseLogger]): Default logger class
-            default_log_level (Literal): Default log level
             default_serializer (BaseEncoder | type[BaseEncoder]): Default serializer
 
         Returns:
-            dict[str, Any]: Dictionary with logger, log_level, and serializer
+            BaseEncoder | type[BaseEncoder]: Resolved serializer
         """
-        logger = default_logger
-        log_level = default_log_level
         serializer = default_serializer
-
-        # Read logger from config
-        if "logger" in config:
-            logger_cfg = config["logger"]
-            if isinstance(logger_cfg, str):
-                logger = __module_loader__(logger_cfg)
-            elif isinstance(logger_cfg, type) and issubclass(
-                logger_cfg, BaseLogger
-            ):
-                logger = logger_cfg
-
-        if "log_level" in config:
-            log_level_cfg = config["log_level"]
-            if isinstance(log_level_cfg, str) and log_level_cfg.upper() in (
-                "DEBUG",
-                "INFO",
-                "WARNING",
-                "ERROR",
-                "CRITICAL",
-            ):
-                log_level = log_level_cfg.upper()
 
         if "serializer" in config:
             serializer_cfg = config["serializer"]
             if isinstance(serializer_cfg, str):
-                serializer = __module_loader__(serializer_cfg)
+                serializer = cast(
+                    "BaseEncoder | type[BaseEncoder]",
+                    __module_loader__(serializer_cfg),
+                )
             elif isinstance(serializer_cfg, type) and issubclass(
                 serializer_cfg, BaseEncoder
             ):
@@ -151,11 +120,7 @@ class BaseJam(ABC):
             elif isinstance(serializer_cfg, BaseEncoder):
                 serializer = serializer_cfg
 
-        return {
-            "logger": logger,
-            "log_level": log_level,
-            "serializer": serializer,
-        }
+        return serializer
 
     def __build_instance(self, config: dict[str, Any]) -> None:
         """Build module instances from configuration.
@@ -342,6 +307,6 @@ class BaseJam(ABC):
                         kwargs.update(result)
 
                 except Exception as e:
-                    self._logger.error("Plugin: %s | error: %s", plugin.name, e)
+                    logger.error("Plugin: %s | error: %s", plugin.name, e)
 
         return kwargs

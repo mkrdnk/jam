@@ -2,6 +2,7 @@
 
 import base64
 import json
+import logging
 import time
 from typing import TYPE_CHECKING, Any
 import uuid
@@ -31,9 +32,11 @@ from jam.jose.__base__ import BaseJWT
 from jam.jose.jwe import JWE
 from jam.jose.jws import JWS
 from jam.lists import BaseList, build_list
-from jam.logger import BaseLogger, logger
 from jam.utils.config_maker import __key_loader__
 from jam.utils.config_meta import ConfigMeta
+
+
+logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
@@ -59,7 +62,6 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         password: str | bytes | None = None,
         list: dict[str, Any] | BaseList | None = None,
         serializer: BaseEncoder | type[BaseEncoder] = JsonEncoder,
-        logger: BaseLogger = logger,
         jws: JWS | None = None,
         jwe: JWE | None = None,
         config: str | dict[str, Any] | None = None,
@@ -74,7 +76,6 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
             password (str | bytes | None): Password for encrypted private keys.
             list (dict[str, Any] | BaseList | None): List config or list instance for token storage.
             serializer (BaseEncoder | type[BaseEncoder]): JSON encoder/decoder.
-            logger (BaseLogger): Logger instance.
             jws (JWS | None): Pre-built JWS instance. If provided, alg is ignored.
             jwe (JWE | None): Pre-built JWE instance. If provided, enc and secret_key are ignored.
             config (str | dict[str, Any] | None): Configuration dict or file path.
@@ -86,7 +87,6 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
             ValueError: If both enc and jwe are provided.
             JamJWTUnsupportedAlgorithm: If algorithm is not supported.
         """
-        self._logger = logger
         self._serializer = serializer
 
         self.jws: JWS | None = None
@@ -145,11 +145,14 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
                 error_code="configuration.jwt.no_algorithm",
             )
 
-        self.list = build_list(list, self._logger) if list else None
+        self.list = build_list(list) if list else None
 
-        self._logger.info(
-            f"Initialized JWT with alg={self._alg}, enc={self._enc}, "
-            f"has_jws={self.jws is not None}, has_jwe={self.jwe is not None}"
+        logger.info(
+            "Initialized JWT with alg=%s, enc=%s, has_jws=%s, has_jwe=%s",
+            self._alg,
+            self._enc,
+            self.jws is not None,
+            self.jwe is not None,
         )
 
     def _normalize_key(
@@ -187,7 +190,6 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
             alg=alg,
             key=key,
             password=self._password,
-            logger=self._logger,
         )
 
     def _build_jwe(self) -> JWE:
@@ -235,7 +237,6 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
             key=enc_key,
             password=self._password,
             serializer=self._serializer,
-            logger=self._logger,
         )
 
     def _detect_key_type(self, key: KeyLike | None) -> str:
@@ -391,9 +392,7 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
                     message="JWS requires 'alg' and 'key'",
                     error_code="configuration.jwt.missing_jws_key",
                 )
-            self._algorithm = create_algorithm(
-                alg, key, self._password, self._logger
-            )
+            self._algorithm = create_algorithm(alg, key, self._password)
         return self._algorithm
 
     def _make_payload(
@@ -652,7 +651,6 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
                         alg=inner_alg,
                         key=self.jws._key,
                         password=self.jws._password,
-                        logger=self.jws._logger,
                     )
                     inner_decoded = temp_jws.verify(payload_str, True)
                 else:

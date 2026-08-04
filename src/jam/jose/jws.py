@@ -14,7 +14,6 @@ from jam.jose.__algorithms__ import (
 )
 from jam.jose.__base__ import BaseJWS
 from jam.jose.utils import __base64url_decode__, __base64url_encode__
-from jam.logger import BaseLogger, logger
 from jam.utils.config_maker import __key_loader__
 from jam.utils.config_meta import ConfigMeta
 
@@ -34,7 +33,6 @@ class JWS(BaseJWS, metaclass=ConfigMeta):
         alg: str,
         key: KeyLike | "JWK",
         password: bytes | None = None,
-        logger: BaseLogger = logger,
         config: str | dict[str, Any] | None = None,
         pointer: str | None = None,
     ) -> None:
@@ -44,7 +42,6 @@ class JWS(BaseJWS, metaclass=ConfigMeta):
             alg (str): Algorithm name
             key (KeyLike | JWK): Key to use for signing/verifying
             password (bytes | None): Password for encrypted private keys
-            logger (BaseLogger): Logger instance
             config (str | dict[str, Any] | None): Configuration dict or file path.
             pointer (str | None): Config pointer. Defaults to "jam.jose.jws".
         """
@@ -61,13 +58,11 @@ class JWS(BaseJWS, metaclass=ConfigMeta):
 
         self._key = key
         self._password = password
-        self._logger = logger
 
         self._algorithm = create_algorithm(
             alg=self._alg,
             secret=key,
             password=password,
-            logger=logger,
         )
 
     def _validate_algorithm(self, alg: str) -> None:

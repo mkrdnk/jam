@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 
+import logging
 from typing import Literal
 
 from jam.lists.__base__ import BaseList
-from jam.logger import BaseLogger
+
+
+logger = logging.getLogger(__name__)
 
 
 class MemoryList(BaseList):
@@ -28,19 +31,16 @@ class MemoryList(BaseList):
         self,
         type: Literal["white", "black"],
         prefix: str = "jwt_list",
-        logger: BaseLogger | None = None,
     ) -> None:
         """Initialize MemoryList.
 
         Args:
             type (Literal["white", "black"]): Type of list.
             prefix (str): Key prefix for storage.
-            logger (BaseLogger | None): Logger instance.
         """
         self._storage: dict[str, bool] = {}
         self._prefix = prefix
         self.__list_type__ = type
-        self._logger = logger
 
     def add(self, token: str) -> None:
         """Add a single token to the list.
@@ -49,8 +49,7 @@ class MemoryList(BaseList):
             token (str): JWT token.
         """
         self._storage[token] = True
-        if self._logger:
-            self._logger.debug("Added token to %s list", self._prefix)
+        logger.debug("Added token to %s list", self._prefix)
 
     def add_many(self, tokens: list[str]) -> None:
         """Add multiple tokens to the list.
@@ -60,10 +59,7 @@ class MemoryList(BaseList):
         """
         for token in tokens:
             self._storage[token] = True
-        if self._logger:
-            self._logger.debug(
-                f"Added {len(tokens)} tokens to {self._prefix} list"
-            )
+        logger.debug("Added %s tokens to %s list", len(tokens), self._prefix)
 
     def check(self, token: str) -> bool:
         """Check if a token is present in the list.
@@ -94,8 +90,7 @@ class MemoryList(BaseList):
             token (str): JWT token.
         """
         self._storage.pop(token, None)
-        if self._logger:
-            self._logger.debug("Deleted token from %s list", self._prefix)
+        logger.debug("Deleted token from %s list", self._prefix)
 
     def delete_many(self, tokens: list[str]) -> None:
         """Remove multiple tokens from the list.
@@ -105,7 +100,6 @@ class MemoryList(BaseList):
         """
         for token in tokens:
             self._storage.pop(token, None)
-        if self._logger:
-            self._logger.debug(
-                f"Deleted {len(tokens)} tokens from {self._prefix} list"
-            )
+        logger.debug(
+            "Deleted %s tokens from %s list", len(tokens), self._prefix
+        )

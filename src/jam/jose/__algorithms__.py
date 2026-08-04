@@ -5,6 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 import hashlib
 import hmac
+import logging
 import os
 from typing import Any, Union
 
@@ -30,7 +31,9 @@ from jam.exceptions.jose import (
     JamJWSVerificationError,
 )
 from jam.jose.utils import __base64url_decode__, __base64url_encode__
-from jam.logger import BaseLogger
+
+
+logger = logging.getLogger(__name__)
 
 
 KeyLike = Union[
@@ -51,7 +54,6 @@ class BaseAlgorithm(ABC):
         alg: str,
         secret: KeyLike,
         password: bytes | None,
-        logger: BaseLogger,
     ) -> None:
         """Initialize algorithm.
 
@@ -59,12 +61,10 @@ class BaseAlgorithm(ABC):
             alg (str): Algorithm name
             secret (KeyLike): Secret key
             password (bytes | None): Password for private key
-            logger (BaseLogger): Logger instance
         """
         self.alg = alg
         self._secret = secret
         self._password = password
-        self._logger = logger
 
     @abstractmethod
     def sign(self, data: bytes) -> str:
@@ -142,7 +142,7 @@ class BaseAlgorithm(ABC):
                 key_bytes, password=self._password
             )
         except ValueError as e:
-            self._logger.error(
+            logger.error(
                 f"Failed to load private key: {e}",
                 exc_info=True,
             )
@@ -178,12 +178,12 @@ class BaseAlgorithm(ABC):
                 priv = serialization.load_pem_private_key(
                     key_bytes, password=self._password
                 )
-                self._logger.debug(
+                logger.debug(
                     "Extracted public key from private PEM automatically."
                 )
                 return priv.public_key()
             except ValueError as e:
-                self._logger.error(
+                logger.error(
                     f"Failed to load public key: {e}",
                     exc_info=True,
                 )
@@ -204,7 +204,7 @@ class HSAlgorithm(BaseAlgorithm):
         Returns:
             str: Base64url encoded signature
         """
-        self._logger.debug("Signing with %s", self.alg)
+        logger.debug("Signing with %s", self.alg)
         key = (
             self._secret.encode()
             if isinstance(self._secret, str)
@@ -230,7 +230,7 @@ class HSAlgorithm(BaseAlgorithm):
         Raises:
             JamJWSVerificationError: If signature is invalid
         """
-        self._logger.debug("Verifying %s signature", self.alg)
+        logger.debug("Verifying %s signature", self.alg)
         k = key.encode() if isinstance(key, str) else key
         if not isinstance(k, bytes):
             raise JamInvalidKeyTypeError(
@@ -240,7 +240,7 @@ class HSAlgorithm(BaseAlgorithm):
         digest = getattr(hashlib, f"sha{self.alg[2:]}")
         expected = hmac.new(k, data, digest).digest()
         if not hmac.compare_digest(sig, expected):
-            self._logger.warning("HMAC signature verification failed")
+            logger.warning("HMAC signature verification failed")
             raise JamJWSVerificationError(message="Invalid HMAC signature")
 
 
@@ -272,14 +272,14 @@ class RSAlgorithm(BaseAlgorithm):
         Returns:
             str: Base64url encoded signature
         """
-        self._logger.debug("Signing with %s", self.alg)
+        logger.debug("Signing with %s", self.alg)
         try:
             private_key = self._get_private_key()
             hash_alg = getattr(hashes, f"SHA{self.alg[2:]}")()
             sig = private_key.sign(data, padding.PKCS1v15(), hash_alg)
             return __base64url_encode__(sig)
         except Exception as e:
-            self._logger.error(
+            logger.error(
                 f"Failed to sign with {self.alg}: {e}",
                 exc_info=True,
             )
@@ -296,13 +296,13 @@ class RSAlgorithm(BaseAlgorithm):
         Raises:
             JamJWSVerificationError: If signature is invalid
         """
-        self._logger.debug("Verifying %s signature", self.alg)
+        logger.debug("Verifying %s signature", self.alg)
         try:
             pub_key = self._load_public_key_auto(key)
             hash_alg = getattr(hashes, f"SHA{self.alg[2:]}")()
             pub_key.verify(sig, data, padding.PKCS1v15(), hash_alg)
         except Exception as e:
-            self._logger.warning(
+            logger.warning(
                 f"RSA signature verification failed: {e}",
                 exc_info=True,
             )
@@ -345,7 +345,7 @@ class ESAlgorithm(BaseAlgorithm):
         Returns:
             str: Base64url encoded signature
         """
-        self._logger.debug("Signing with %s", self.alg)
+        logger.debug("Signing with %s", self.alg)
         try:
             private_key = self._get_private_key()
             _, hash_alg = self._CURVE_MAP[self.alg]
@@ -355,7 +355,7 @@ class ESAlgorithm(BaseAlgorithm):
             raw = r.to_bytes(n, "big") + s.to_bytes(n, "big")
             return __base64url_encode__(raw)
         except Exception as e:
-            self._logger.error(
+            logger.error(
                 f"Failed to sign with {self.alg}: {e}",
                 exc_info=True,
             )
@@ -372,7 +372,7 @@ class ESAlgorithm(BaseAlgorithm):
         Raises:
             JamJWSVerificationError: If signature is invalid
         """
-        self._logger.debug("Verifying %s signature", self.alg)
+        logger.debug("Verifying %s signature", self.alg)
         try:
             pub_key = self._load_public_key_auto(key)
             _, hash_alg = self._CURVE_MAP[self.alg]
@@ -390,7 +390,7 @@ class ESAlgorithm(BaseAlgorithm):
         except JamJWSVerificationError:
             raise
         except Exception as e:
-            self._logger.warning(
+            logger.warning(
                 f"ECDSA signature verification failed: {e}",
                 exc_info=True,
             )
@@ -427,7 +427,7 @@ class PSAlgorithm(BaseAlgorithm):
         Returns:
             str: Base64url encoded signature
         """
-        self._logger.debug("Signing with %s", self.alg)
+        logger.debug("Signing with %s", self.alg)
         try:
             private_key = self._get_private_key()
             hash_alg = getattr(hashes, f"SHA{self.alg[2:]}")()
@@ -441,7 +441,7 @@ class PSAlgorithm(BaseAlgorithm):
             )
             return __base64url_encode__(sig)
         except Exception as e:
-            self._logger.error(
+            logger.error(
                 f"Failed to sign with {self.alg}: {e}",
                 exc_info=True,
             )
@@ -458,7 +458,7 @@ class PSAlgorithm(BaseAlgorithm):
         Raises:
             JamJWSVerificationError: If signature is invalid
         """
-        self._logger.debug("Verifying %s signature", self.alg)
+        logger.debug("Verifying %s signature", self.alg)
         try:
             pub_key = self._load_public_key_auto(key)
             hash_alg = getattr(hashes, f"SHA{self.alg[2:]}")()
@@ -472,7 +472,7 @@ class PSAlgorithm(BaseAlgorithm):
                 hash_alg,
             )
         except Exception as e:
-            self._logger.warning(
+            logger.warning(
                 f"RSA PSS signature verification failed: {e}",
                 exc_info=True,
             )
@@ -485,7 +485,6 @@ def create_algorithm(
     alg: str,
     secret: KeyLike,
     password: bytes | None,
-    logger: BaseLogger,
 ) -> BaseAlgorithm:
     """Create algorithm instance based on algorithm name.
 
@@ -493,7 +492,6 @@ def create_algorithm(
         alg (str): Algorithm name
         secret (KeyLike): Secret key
         password (bytes | None): Password for private key
-        logger (BaseLogger): Logger instance
 
     Returns:
         BaseAlgorithm: Algorithm instance
@@ -502,13 +500,13 @@ def create_algorithm(
         ValueError: If algorithm is not supported
     """
     if alg.startswith("HS"):
-        return HSAlgorithm(alg, secret, password, logger)
+        return HSAlgorithm(alg, secret, password)
     if alg.startswith("RS"):
-        return RSAlgorithm(alg, secret, password, logger)
+        return RSAlgorithm(alg, secret, password)
     if alg.startswith("ES"):
-        return ESAlgorithm(alg, secret, password, logger)
+        return ESAlgorithm(alg, secret, password)
     if alg.startswith("PS"):
-        return PSAlgorithm(alg, secret, password, logger)
+        return PSAlgorithm(alg, secret, password)
 
     raise JamAlgorithmError(message=f"Unsupported algorithm: {alg}")
 
@@ -537,7 +535,6 @@ class BaseKeyAlgorithm(ABC):
         alg: str,
         key: KeyLike,
         password: bytes | None,
-        logger: BaseLogger,
     ) -> None:
         """Initialize key management algorithm.
 
@@ -545,12 +542,10 @@ class BaseKeyAlgorithm(ABC):
             alg: Algorithm name.
             key: Key for wrapping/unwrapping.
             password: Password for encrypted private keys.
-            logger: Logger instance.
         """
         self.alg = alg
         self._key = key
         self._password = password
-        self._logger = logger
 
     @abstractmethod
     def wrap_key(self, cek: bytes) -> tuple[bytes, dict[str, Any]]:
@@ -653,7 +648,7 @@ class RSAKeyAlgorithm(BaseKeyAlgorithm):
 
     def wrap_key(self, cek: bytes) -> tuple[bytes, dict[str, Any]]:
         """Wrap CEK using RSA."""
-        self._logger.debug("Wrapping key with %s", self.alg)
+        logger.debug("Wrapping key with %s", self.alg)
         public_key = self._load_public_key()
         padding = self._PADDING_MAP.get(self.alg)
         if not padding:
@@ -666,7 +661,7 @@ class RSAKeyAlgorithm(BaseKeyAlgorithm):
 
     def unwrap_key(self, encrypted_key: bytes, header: dict[str, Any]) -> bytes:
         """Unwrap CEK using RSA."""
-        self._logger.debug("Unwrapping key with %s", self.alg)
+        logger.debug("Unwrapping key with %s", self.alg)
         private_key = self._load_private_key()
         padding = self._PADDING_MAP.get(self.alg)
         if not padding:
@@ -684,7 +679,7 @@ class AESKeyWrapAlgorithm(BaseKeyAlgorithm):
 
     def wrap_key(self, cek: bytes) -> tuple[bytes, dict[str, Any]]:
         """Wrap CEK using AES Key Wrap."""
-        self._logger.debug("Wrapping key with %s", self.alg)
+        logger.debug("Wrapping key with %s", self.alg)
         key_size = self._KEY_SIZES.get(self.alg, 16)
 
         if isinstance(self._key, str):
@@ -701,7 +696,7 @@ class AESKeyWrapAlgorithm(BaseKeyAlgorithm):
 
     def unwrap_key(self, encrypted_key: bytes, header: dict[str, Any]) -> bytes:
         """Unwrap CEK using AES Key Wrap."""
-        self._logger.debug("Unwrapping key with %s", self.alg)
+        logger.debug("Unwrapping key with %s", self.alg)
         key_size = self._KEY_SIZES.get(self.alg, 16)
 
         if isinstance(self._key, str):
@@ -723,7 +718,7 @@ class ECDHKeyAlgorithm(BaseKeyAlgorithm):
 
     def wrap_key(self, cek: bytes) -> tuple[bytes, dict[str, Any]]:
         """Wrap CEK using ECDH."""
-        self._logger.debug("Wrapping key with %s", self.alg)
+        logger.debug("Wrapping key with %s", self.alg)
 
         if self.alg in ("ECDH-ES", "ECDH-ES+A128KW"):
             curve = ec.SECP256R1()
@@ -759,7 +754,6 @@ class ECDHKeyAlgorithm(BaseKeyAlgorithm):
                 self.alg.replace("ECDH-ES+", ""),
                 derived_key,
                 None,
-                self._logger,
             )
             encrypted_key, _ = key_wrap.wrap_key(cek)
 
@@ -795,7 +789,7 @@ class ECDHKeyAlgorithm(BaseKeyAlgorithm):
 
     def unwrap_key(self, encrypted_key: bytes, header: dict[str, Any]) -> bytes:
         """Unwrap CEK using ECDH."""
-        self._logger.debug("Unwrapping key with %s", self.alg)
+        logger.debug("Unwrapping key with %s", self.alg)
 
         private_key = self._load_private_key()
         epk = header.get("epk", {})
@@ -835,7 +829,6 @@ class ECDHKeyAlgorithm(BaseKeyAlgorithm):
                 self.alg.replace("ECDH-ES+", ""),
                 derived_key,
                 None,
-                self._logger,
             )
             return key_wrap.unwrap_key(encrypted_key, header)
 
@@ -847,7 +840,7 @@ class AESGCMKeyAlgorithm(BaseKeyAlgorithm):
 
     def wrap_key(self, cek: bytes) -> tuple[bytes, dict[str, Any]]:
         """Wrap CEK using AES-GCM."""
-        self._logger.debug("Wrapping key with %s", self.alg)
+        logger.debug("Wrapping key with %s", self.alg)
         key_size = self._KEY_SIZES.get(self.alg, 16)
         iv = os.urandom(12)
 
@@ -867,7 +860,7 @@ class AESGCMKeyAlgorithm(BaseKeyAlgorithm):
 
     def unwrap_key(self, encrypted_key: bytes, header: dict[str, Any]) -> bytes:
         """Unwrap CEK using AES-GCM."""
-        self._logger.debug("Unwrapping key with %s", self.alg)
+        logger.debug("Unwrapping key with %s", self.alg)
         key_size = self._KEY_SIZES.get(self.alg, 16)
         iv = __base64url_decode__(header.get("iv", ""))
 
@@ -898,7 +891,7 @@ class PBES2KeyAlgorithm(BaseKeyAlgorithm):
 
     def wrap_key(self, cek: bytes) -> tuple[bytes, dict[str, Any]]:
         """Wrap CEK using PBES2."""
-        self._logger.debug("Wrapping key with %s", self.alg)
+        logger.debug("Wrapping key with %s", self.alg)
 
         hash_alg, key_size, kw_alg = self._ALG_MAP.get(
             self.alg, (hashes.SHA256(), 16, "A128KW")
@@ -920,7 +913,7 @@ class PBES2KeyAlgorithm(BaseKeyAlgorithm):
 
         kw_key = derived_key[key_size:]
 
-        kw = AESKeyWrapAlgorithm(kw_alg, kw_key, None, self._logger)
+        kw = AESKeyWrapAlgorithm(kw_alg, kw_key, None)
         encrypted_key, _ = kw.wrap_key(cek)
 
         return encrypted_key, {
@@ -930,7 +923,7 @@ class PBES2KeyAlgorithm(BaseKeyAlgorithm):
 
     def unwrap_key(self, encrypted_key: bytes, header: dict[str, Any]) -> bytes:
         """Unwrap CEK using PBES2."""
-        self._logger.debug("Unwrapping key with %s", self.alg)
+        logger.debug("Unwrapping key with %s", self.alg)
 
         hash_alg, key_size, kw_alg = self._ALG_MAP.get(
             self.alg, (hashes.SHA256(), 16, "A128KW")
@@ -952,22 +945,20 @@ class PBES2KeyAlgorithm(BaseKeyAlgorithm):
 
         kw_key = derived_key[key_size:]
 
-        kw = AESKeyWrapAlgorithm(kw_alg, kw_key, None, self._logger)
+        kw = AESKeyWrapAlgorithm(kw_alg, kw_key, None)
         return kw.unwrap_key(encrypted_key, header)
 
 
 class BaseEncAlgorithm(ABC):
     """Base class for JWE content encryption algorithms - RFC 7518 Section 5."""
 
-    def __init__(self, enc: str, logger: BaseLogger) -> None:
+    def __init__(self, enc: str) -> None:
         """Initialize content encryption algorithm.
 
         Args:
             enc: Algorithm name.
-            logger: Logger instance.
         """
         self.enc = enc
-        self._logger = logger
 
     @abstractmethod
     def get_key_length(self) -> int:
@@ -1033,7 +1024,7 @@ class AESGCMEncAlgorithm(BaseEncAlgorithm):
         self, plaintext: bytes, iv: bytes, aad: bytes, key: bytes
     ) -> tuple[bytes, bytes]:
         """Encrypt using AES-GCM."""
-        self._logger.debug("Encrypting with %s", self.enc)
+        logger.debug("Encrypting with %s", self.enc)
         aesgcm = AESGCM(key)
         ciphertext = aesgcm.encrypt(iv, plaintext, aad)
         return ciphertext[:-16], ciphertext[-16:]
@@ -1042,7 +1033,7 @@ class AESGCMEncAlgorithm(BaseEncAlgorithm):
         self, ciphertext: bytes, iv: bytes, tag: bytes, aad: bytes, key: bytes
     ) -> bytes:
         """Decrypt using AES-GCM."""
-        self._logger.debug("Decrypting with %s", self.enc)
+        logger.debug("Decrypting with %s", self.enc)
         aesgcm = AESGCM(key)
         return aesgcm.decrypt(iv, ciphertext + tag, aad)
 
@@ -1073,7 +1064,7 @@ class AESCBCEncAlgorithm(BaseEncAlgorithm):
         self, plaintext: bytes, iv: bytes, aad: bytes, key: bytes
     ) -> tuple[bytes, bytes]:
         """Encrypt using AES-CBC + HMAC."""
-        self._logger.debug("Encrypting with %s", self.enc)
+        logger.debug("Encrypting with %s", self.enc)
 
         mac_key_len = self.get_key_length() // 2
 
@@ -1100,7 +1091,7 @@ class AESCBCEncAlgorithm(BaseEncAlgorithm):
         self, ciphertext: bytes, iv: bytes, tag: bytes, aad: bytes, key: bytes
     ) -> bytes:
         """Decrypt using AES-CBC + HMAC."""
-        self._logger.debug("Decrypting with %s", self.enc)
+        logger.debug("Decrypting with %s", self.enc)
 
         mac_key_len = self.get_key_length() // 2
         enc_key_len = self.get_key_length() // 2  # noqa
@@ -1163,7 +1154,6 @@ def create_key_algorithm(
     alg: str,
     key: KeyLike,
     password: bytes | None,
-    logger: BaseLogger,
 ) -> BaseKeyAlgorithm:
     """Create JWE key management algorithm instance.
 
@@ -1171,7 +1161,6 @@ def create_key_algorithm(
         alg: Algorithm name.
         key: Key for wrapping/unwrapping.
         password: Password for encrypted private keys.
-        logger: Logger instance.
 
     Returns:
         BaseKeyAlgorithm instance.
@@ -1180,28 +1169,26 @@ def create_key_algorithm(
         ValueError: If algorithm is not supported.
     """
     if alg in ("RSA1_5", "RSA-OAEP", "RSA-OAEP-256"):
-        return RSAKeyAlgorithm(alg, key, password, logger)
+        return RSAKeyAlgorithm(alg, key, password)
     if alg in ("A128KW", "A192KW", "A256KW"):
-        return AESKeyWrapAlgorithm(alg, key, password, logger)
+        return AESKeyWrapAlgorithm(alg, key, password)
     if alg in ("ECDH-ES", "ECDH-ES+A128KW", "ECDH-ES+A192KW", "ECDH-ES+A256KW"):
-        return ECDHKeyAlgorithm(alg, key, password, logger)
+        return ECDHKeyAlgorithm(alg, key, password)
     if alg in ("A128GCMKW", "A256GCMKW"):
-        return AESGCMKeyAlgorithm(alg, key, password, logger)
+        return AESGCMKeyAlgorithm(alg, key, password)
     if alg.startswith("PBES2"):
-        return PBES2KeyAlgorithm(alg, key, password, logger)
+        return PBES2KeyAlgorithm(alg, key, password)
 
     raise JamAlgorithmError(message=f"Unsupported key algorithm: {alg}")
 
 
 def create_enc_algorithm(
     enc: str,
-    logger: BaseLogger,
 ) -> BaseEncAlgorithm:
     """Create JWE content encryption algorithm instance.
 
     Args:
         enc: Algorithm name.
-        logger: Logger instance.
 
     Returns:
         BaseEncAlgorithm instance.
@@ -1210,9 +1197,9 @@ def create_enc_algorithm(
         ValueError: If algorithm is not supported.
     """
     if enc in ("A128GCM", "A256GCM"):
-        return AESGCMEncAlgorithm(enc, logger)
+        return AESGCMEncAlgorithm(enc)
     if enc in ("A128CBC-HS256", "A192CBC-HS384", "A256CBC-HS512"):
-        return AESCBCEncAlgorithm(enc, logger)
+        return AESCBCEncAlgorithm(enc)
 
     raise JamAlgorithmError(
         message=f"Unsupported content encryption algorithm: {enc}"

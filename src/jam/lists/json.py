@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import logging
 from typing import Literal
-
-from jam.logger import BaseLogger
 
 
 try:
@@ -16,6 +15,9 @@ except ImportError:
     )
 
 from jam.lists.__base__ import BaseList
+
+
+logger = logging.getLogger(__name__)
 
 
 class JSONList(BaseList):
@@ -43,7 +45,6 @@ class JSONList(BaseList):
         type: Literal["white", "black"],
         prefix: str = "jwt_list",
         json_path: str = "whitelist.json",
-        logger: BaseLogger | None = None,
     ) -> None:
         """Initialize JSONList.
 
@@ -51,14 +52,11 @@ class JSONList(BaseList):
             type (Literal["white", "black"]): Type of list.
             prefix (str): Key prefix (used for logging).
             json_path (str): Path to JSON file.
-            logger (BaseLogger | None): Logger instance.
         """
         self._prefix = prefix
         self.__list_type__ = type
         self._db = TinyDB(json_path)
-        self._logger = logger
-        if self._logger:
-            self._logger.info("Initialized JSONList at %s", json_path)
+        logger.info("Initialized JSONList at %s", json_path)
 
     def add(self, token: str) -> None:
         """Add a single token to the list.
@@ -67,8 +65,7 @@ class JSONList(BaseList):
             token (str): JWT token.
         """
         self._db.insert({"token": token})
-        if self._logger:
-            self._logger.debug("Added token to %s list", self._prefix)
+        logger.debug("Added token to %s list", self._prefix)
 
     def add_many(self, tokens: list[str]) -> None:
         """Add multiple tokens to the list.
@@ -78,10 +75,7 @@ class JSONList(BaseList):
         """
         for token in tokens:
             self._db.insert({"token": token})
-        if self._logger:
-            self._logger.debug(
-                f"Added {len(tokens)} tokens to {self._prefix} list"
-            )
+        logger.debug("Added %s tokens to %s list", len(tokens), self._prefix)
 
     def check(self, token: str) -> bool:
         """Check if a token is present in the list.
@@ -118,8 +112,7 @@ class JSONList(BaseList):
         """
         cond = Query()
         self._db.remove(cond.token == token)
-        if self._logger:
-            self._logger.debug("Deleted token from %s list", self._prefix)
+        logger.debug("Deleted token from %s list", self._prefix)
 
     def delete_many(self, tokens: list[str]) -> None:
         """Remove multiple tokens from the list.
@@ -130,7 +123,6 @@ class JSONList(BaseList):
         cond = Query()
         for token in tokens:
             self._db.remove(cond.token == token)
-        if self._logger:
-            self._logger.debug(
-                f"Deleted {len(tokens)} tokens from {self._prefix} list"
-            )
+        logger.debug(
+            "Deleted %s tokens from %s list", len(tokens), self._prefix
+        )

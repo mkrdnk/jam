@@ -10,13 +10,11 @@ from uuid import uuid4
 
 from jam.aio.sessions.__base__ import BaseAsyncSessionModule
 from jam.encoders import BaseEncoder, JsonEncoder
-from jam.logger import BaseLogger, logger
 
 
 def create_instance(
     session_type: str | None = None,
     sessions_type: str | None = None,
-    logger: BaseLogger = logger,
     serializer: BaseEncoder | type[BaseEncoder] = JsonEncoder,
     **kwargs: Any,
 ) -> BaseAsyncSessionModule:
@@ -25,7 +23,6 @@ def create_instance(
     Args:
         session_type: "redis" | "json" | "custom"
         sessions_type: Alias for session_type (deprecated, use 'session_type')
-        logger: Logger instance
         serializer: JSON encoder/decoder
         **kwargs: Config params specific to session type
 

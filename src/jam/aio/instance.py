@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import logging
 import time
 from typing import Any
 import uuid
@@ -13,6 +14,9 @@ from jam.exceptions import (
     JamJWTNotInWhiteList,
     JamJWTNotYetValid,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class Jam(BaseAsyncJam):
@@ -71,11 +75,11 @@ class Jam(BaseAsyncJam):
             str: New token
         """
         assert self.jwt is not None
-        self._logger.debug(
+        logger.debug(
             f"Creating JWT token with payload keys: {list(payload.keys())}"
         )
         token = self.jwt.encode(payload=payload)
-        self._logger.debug(
+        logger.debug(
             f"JWT token created successfully, length: {len(token)} characters"
         )
 
@@ -157,7 +161,7 @@ class Jam(BaseAsyncJam):
             JamJWTInBlackList: If token is in black list
         """
         assert self.jwt is not None
-        self._logger.debug(
+        logger.debug(
             f"Verifying JWT token (length: {len(token)} chars), check_exp={check_exp}, check_list={check_list}, check_nbf={check_nbf}"
         )
         data = self.jwt.decode(token)
@@ -176,7 +180,7 @@ class Jam(BaseAsyncJam):
             if payload["nbf"] > time.time():
                 raise JamJWTNotYetValid
 
-        self._logger.debug(
+        logger.debug(
             f"JWT token verified successfully, payload keys: {list(payload.keys())}"
         )
 
@@ -219,9 +223,9 @@ class Jam(BaseAsyncJam):
             str: JWS token.
         """
         assert self.jws is not None
-        self._logger.debug(f"Signing data with JWS, header: {header}")
+        logger.debug(f"Signing data with JWS, header: {header}")
         token = self.jws.sign(header or {}, data)
-        self._logger.debug(f"JWS token created, length: {len(token)}")
+        logger.debug(f"JWS token created, length: {len(token)}")
         return token
 
     async def jws_verify(self, token: str) -> dict[str, Any]:
@@ -234,9 +238,9 @@ class Jam(BaseAsyncJam):
             dict[str, Any]: Decoded payload.
         """
         assert self.jws is not None
-        self._logger.debug(f"Verifying JWS token, length: {len(token)}")
+        logger.debug(f"Verifying JWS token, length: {len(token)}")
         result = self.jws.verify(token)
-        self._logger.debug("JWS token verified successfully")
+        logger.debug("JWS token verified successfully")
         return result
 
     async def jwe_encrypt(
@@ -254,12 +258,12 @@ class Jam(BaseAsyncJam):
             str: JWE token.
         """
         assert self.jwe is not None
-        self._logger.debug(f"Encrypting data with JWE, header: {header}")
+        logger.debug(f"Encrypting data with JWE, header: {header}")
         token = self.jwe.encrypt(
             self._serializer.dumps(data) if isinstance(data, dict) else data,
             header,
         )
-        self._logger.debug(f"JWE token created, length: {len(token)}")
+        logger.debug(f"JWE token created, length: {len(token)}")
         return token
 
     async def jwe_decrypt(self, token: str) -> bytes:
@@ -272,9 +276,9 @@ class Jam(BaseAsyncJam):
             bytes: Decrypted data.
         """
         assert self.jwe is not None
-        self._logger.debug(f"Decrypting JWE token, length: {len(token)}")
+        logger.debug(f"Decrypting JWE token, length: {len(token)}")
         result = self.jwe.decrypt(token)
-        self._logger.debug("JWE token decrypted successfully")
+        logger.debug("JWE token decrypted successfully")
         return result
 
     async def session_create(
@@ -290,13 +294,11 @@ class Jam(BaseAsyncJam):
             str: New session ID
         """
         assert self.session is not None
-        self._logger.debug(
+        logger.debug(
             f"Creating session with key: {session_key}, data keys: {list(data.keys())}"
         )
         session_id = await self.session.create(session_key, data)
-        self._logger.debug(
-            f"Session created successfully, session_id: {session_id}"
-        )
+        logger.debug(f"Session created successfully, session_id: {session_id}")
         return session_id
 
     async def session_get(self, session_id: str) -> dict[str, Any] | None:
@@ -309,14 +311,12 @@ class Jam(BaseAsyncJam):
             dict[str, Any] | None: Session data if exist
         """
         assert self.session is not None
-        self._logger.debug(f"Getting session data for session_id: {session_id}")
+        logger.debug(f"Getting session data for session_id: {session_id}")
         data = await self.session.get(session_id)
         if data:
-            self._logger.debug(
-                f"Session data retrieved, keys: {list(data.keys())}"
-            )
+            logger.debug(f"Session data retrieved, keys: {list(data.keys())}")
         else:
-            self._logger.debug(f"Session {session_id} not found")
+            logger.debug(f"Session {session_id} not found")
         return data
 
     async def session_delete(self, session_id: str) -> None:

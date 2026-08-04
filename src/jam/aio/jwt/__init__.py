@@ -8,7 +8,6 @@ from typing import Any, Optional, Union
 
 from jam.jwt.__base__ import BaseJWT
 from jam.jwt.__types__ import KeyLike
-from jam.logger import BaseLogger, logger
 from jam.encoders import BaseEncoder, JsonEncoder
 
 
@@ -17,7 +16,6 @@ def create_instance(
     secret: Optional[KeyLike] = None,
     secret_key: Optional[KeyLike] = None,  # Backward compatibility
     password: Optional[Union[str, bytes]] = None,
-    logger: BaseLogger = logger,
     serializer: Union[BaseEncoder, type[BaseEncoder]] = JsonEncoder,
     **kwargs: Any
 ) -> BaseJWT:
@@ -31,7 +29,6 @@ def create_instance(
         secret: Secret key (or use secret_key for backward compatibility)
         secret_key: Alias for secret (deprecated, use 'secret')
         password: Password for encrypted keys
-        logger: Logger instance
         serializer: JSON encoder/decoder
         **kwargs: Additional params (e.g., custom_module, list configuration)
     
@@ -52,7 +49,6 @@ def create_instance(
         alg=alg,
         secret=secret,
         password=password,
-        logger=logger,
         serializer=serializer,
         **kwargs
     )
