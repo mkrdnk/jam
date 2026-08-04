@@ -3,6 +3,7 @@
 """Declarative authorization policies."""
 
 from abc import ABC, abstractmethod
+import ast
 from collections.abc import Callable
 from typing import Any
 
@@ -95,5 +96,9 @@ class Policy(BasePolicy):
             return True
         if "=" in predicate:
             field, value = predicate.split("=", 1)
+            try:
+                value = ast.literal_eval(value)
+            except (ValueError, SyntaxError):
+                pass
             return getattr(subject, field, None) == value
         return bool(getattr(subject, predicate, None))
