@@ -93,7 +93,7 @@ class Jam(BaseJam):
                     jti=jti,
                 )
             if self.paseto is not None:
-                return self.__issue_paseto(payload, exp, iss, aud, jti)
+                return self.__issue_paseto(payload, exp, iss, aud, nbf, jti)
             raise JamConfigurationError(
                 message=(
                     "Cannot issue a token: no jwt or paseto module configured. "
@@ -123,7 +123,7 @@ class Jam(BaseJam):
                         message="PASETO module is not configured.",
                         error_code="configuration.paseto.not_configured",
                     )
-                return self.__issue_paseto(payload, exp, iss, aud, jti)
+                return self.__issue_paseto(payload, exp, iss, aud, nbf, jti)
             case "session":
                 if self.session is None:
                     raise JamConfigurationError(
@@ -232,6 +232,7 @@ class Jam(BaseJam):
         exp: int | None,
         iss: str | None,
         aud: str | None,
+        nbf: int | None,
         jti: str | None,
     ) -> str:
         """Encode a payload with the configured PASETO module.
@@ -241,6 +242,7 @@ class Jam(BaseJam):
             exp (int | None): Expiration in seconds.
             iss (str | None): Issuer.
             aud (str | None): Audience.
+            nbf (int | None): Not-before in seconds.
             jti (str | None): Token ID.
 
         Returns:
@@ -249,6 +251,8 @@ class Jam(BaseJam):
         data = dict(payload)
         if exp is not None:
             data["exp"] = int(time.time()) + exp
+        if nbf is not None:
+            data["nbf"] = int(time.time()) + nbf
         if iss is not None:
             data["iss"] = iss
         if aud is not None:
