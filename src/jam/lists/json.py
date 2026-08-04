@@ -58,7 +58,7 @@ class JSONList(BaseList):
         self._db = TinyDB(json_path)
         self._logger = logger
         if self._logger:
-            self._logger.info(f"Initialized JSONList at {json_path}")
+            self._logger.info("Initialized JSONList at %s", json_path)
 
     def add(self, token: str) -> None:
         """Add a single token to the list.
@@ -68,7 +68,7 @@ class JSONList(BaseList):
         """
         self._db.insert({"token": token})
         if self._logger:
-            self._logger.debug(f"Added token to {self._prefix} list")
+            self._logger.debug("Added token to %s list", self._prefix)
 
     def add_many(self, tokens: list[str]) -> None:
         """Add multiple tokens to the list.
@@ -119,7 +119,7 @@ class JSONList(BaseList):
         cond = Query()
         self._db.remove(cond.token == token)
         if self._logger:
-            self._logger.debug(f"Deleted token from {self._prefix} list")
+            self._logger.debug("Deleted token from %s list", self._prefix)
 
     def delete_many(self, tokens: list[str]) -> None:
         """Remove multiple tokens from the list.

@@ -50,7 +50,7 @@ class MemoryList(BaseList):
         """
         self._storage[token] = True
         if self._logger:
-            self._logger.debug(f"Added token to {self._prefix} list")
+            self._logger.debug("Added token to %s list", self._prefix)
 
     def add_many(self, tokens: list[str]) -> None:
         """Add multiple tokens to the list.
@@ -95,7 +95,7 @@ class MemoryList(BaseList):
         """
         self._storage.pop(token, None)
         if self._logger:
-            self._logger.debug(f"Deleted token from {self._prefix} list")
+            self._logger.debug("Deleted token from %s list", self._prefix)
 
     def delete_many(self, tokens: list[str]) -> None:
         """Remove multiple tokens from the list.
