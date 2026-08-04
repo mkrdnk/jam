@@ -19,8 +19,6 @@ from jam import Jam
 jam = Jam(
     config="path/to/config/file.toml.yaml.json", # or python-dict
     pointer="jam",
-    logger=JamLogger,
-    log_level="INFO",
     serializer=JsonEncoder
 )
 ```
@@ -149,47 +147,6 @@ key = "$PASETO_SECRET_KEY"
     This can be useful for configuring two instances of `Jam` in a single file, for example.
 
 ---
-#### logger: type[BaseLogger] = JamLogger
-
-Logger class. Useful if you need to replace the standard logger.
-```python
-from jam import Jam
-
-from yourapp.logger import YourCustomLogger
-
-jam = Jam(config="config.toml", logger=YourCustomLogger)
-```
-
-This parameter can also be configured in the config file,
-but then you need to pass the path to the class in Python style:
-```toml
-[jam]
-logger = "yourapp.logger.YourCustomLogger"
-
-[jam.jose.jwt]
-alg = "HS256"
-secret_key = "$JWT_SECRET_KEY"
-```
-
-For more details, see the [documentation on logging](/usage/logging).
-
----
-
-#### log_level: str = "INFO"
-Jam logging level. 
-The takes one of the following values: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
-
-It can also be passed in the config file:
-```toml
-[jam]
-log_level = "INFO"
-
-[jam.jose.jwt]
-alg = "HS256"
-secret_key = "$JWT_SECRET_KEY"
-```
-
----
 
 #### serializer: type[BaseEncoder] = JsonEncoder
 
@@ -215,9 +172,6 @@ if a value begins with `$` in config files. For python dict, use `os.getenv`.
 Example:
 
 ```toml
-[jwt]
-log_level = "INFO"
-
 [jam.jose.jwt]
 alg = "$JWT_ALG"
 secret_key = "$JWT_SECRET"
