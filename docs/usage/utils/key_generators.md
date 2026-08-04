@@ -54,7 +54,7 @@ Returns:
 
 `dict[str, str]` - Dict in format `{"private": KEY, "public": KEY}`.
 
-```python 
+```python
 from jam.utils import generate_ed25519_keypair
 
 ed25519_keypair = generate_ed25519_keypair()
@@ -84,7 +84,7 @@ Returns:
 
 * `jam.utils.otp_key_from_string`
 
-Args: 
+Args:
 
 * `s`: `str` - Some string to generate.
 

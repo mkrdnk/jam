@@ -38,7 +38,7 @@ jam = Jam(config="config.toml")
 
 ### Add token to list
 
-Method: `jam.jwt_list.add`
+Method: `jam.jwt.list.add`
 
 Adds token to blacklist or whitelist.
 
@@ -47,12 +47,12 @@ Args:
 * `token`: `str` - JWT token to add.
 
 ```python
-jam.jwt_list.add(token=token)
+jam.jwt.list.add(token=token)
 ```
 
 ### Check token in list
 
-Method: `jam.jwt_list.check`
+Method: `jam.jwt.list.check`
 
 Checks if token is in list.
 
@@ -65,14 +65,14 @@ Returns:
 `bool`: `True` if token is in list, `False` otherwise.
 
 ```python
-is_revoked = jam.jwt_list.check(token=token)
+is_revoked = jam.jwt.list.check(token=token)
 if is_revoked:
     print("Token is revoked")
 ```
 
 ### Delete token from list
 
-Method: `jam.jwt_list.delete`
+Method: `jam.jwt.list.delete`
 
 Removes token from list.
 
@@ -81,12 +81,12 @@ Args:
 * `token`: `str` - JWT token to delete.
 
 ```python
-jam.jwt_list.delete(token=token)
+jam.jwt.list.delete(token=token)
 ```
 
 ### Add multiple tokens
 
-Method: `jam.jwt_list.add_many`
+Method: `jam.jwt.list.add_many`
 
 Adds multiple tokens to list.
 
@@ -95,12 +95,12 @@ Args:
 * `tokens`: `list[str]` - List of JWT tokens.
 
 ```python
-jam.jwt_list.add_many(tokens=[token1, token2, token3])
+jam.jwt.list.add_many(tokens=[token1, token2, token3])
 ```
 
 ### Check multiple tokens
 
-Method: `jam.jwt_list.check_many`
+Method: `jam.jwt.list.check_many`
 
 Checks multiple tokens in list.
 
@@ -113,14 +113,14 @@ Returns:
 `dict[str, bool]`: Dict mapping tokens to their presence status.
 
 ```python
-results = jam.jwt_list.check_many(tokens=[token1, token2])
+results = jam.jwt.list.check_many(tokens=[token1, token2])
 print(results)
 >>> {token1: True, token2: False}
 ```
 
 ### Delete multiple tokens
 
-Method: `jam.jwt_list.delete_many`
+Method: `jam.jwt.list.delete_many`
 
 Removes multiple tokens from list.
 
@@ -129,7 +129,7 @@ Args:
 * `tokens`: `list[str]` - List of JWT tokens.
 
 ```python
-jam.jwt_list.delete_many(tokens=[token1, token2])
+jam.jwt.list.delete_many(tokens=[token1, token2])
 ```
 
 ## Use out of instance
@@ -138,7 +138,7 @@ jam.jwt_list.delete_many(tokens=[token1, token2])
 
 Redis-based token list. Most optimal for production with TTL support.
 
-Module: `jam.jose.lists.redis.RedisList`
+Module: `jam.lists.redis.RedisList`
 
 Args:
 
@@ -150,7 +150,7 @@ Args:
 * `logger`: `BaseLogger` - Logger instance.
 
 ```python
-from jam.jose.lists.redis import RedisList
+from jam.lists.redis import RedisList
 
 list = RedisList(
     type="black",
@@ -172,7 +172,7 @@ list.delete(token)
 
 In-memory token list. Simple but not persistent.
 
-Module: `jam.jose.lists.memory.MemoryList`
+Module: `jam.lists.memory.MemoryList`
 
 Args:
 
@@ -181,7 +181,7 @@ Args:
 * `logger`: `BaseLogger` - Logger instance.
 
 ```python
-from jam.jose.lists.memory import MemoryList
+from jam.lists.memory import MemoryList
 
 list = MemoryList(
     type="black",
@@ -196,7 +196,7 @@ list.delete(token)
 
 JSON file-based token list. Persistent but limited scalability.
 
-Module: `jam.jose.lists.json.JSONList`
+Module: `jam.lists.json.JSONList`
 
 Args:
 
@@ -206,7 +206,7 @@ Args:
 * `logger`: `BaseLogger` - Logger instance.
 
 ```python
-from jam.jose.lists.json import JSONList
+from jam.lists.json import JSONList
 
 list = JSONList(
     type="black",
