@@ -24,12 +24,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## 4.0.0 - [unreleased]
 
 ### Added
+- `ConfigMeta` metaclass (`jam.utils.config_meta`) — classes accept `config` /
+  `pointer` kwargs; config values are injected into `__init__` parameters by
+  signature, explicit kwargs always win
+- `jam.lists` module with `BaseList`, `MemoryList`, `RedisList`, `JSONList`;
+  `jam.jose.lists` now re-exports from it and `BaseJWTList` remains as an alias
+- `jam.subject.BaseSubject` — dataclass contract for auth subjects (mandatory
+  `id` field) with generic `to_dict()` / `from_dict()` serialization
+- `jam.authz` — `BasePolicy` interface and declarative `Policy` built from
+  `{permission: [predicates]}` rules (`"*"` wildcard, `field=value`, `field`),
+  deny by default
+- Config-driven module init: JWT/JWS/JWE, PASETO (`v1`-`v4`), sessions
+  (`redis`/`json`), OAuth2 providers and authz are built directly from
+  `[jam]` config sections
+- New `Jam` facade API:
+  - `issue(subject, via=None, exp/iss/aud/nbf/jti, **claims)` — issues a
+    JWT, PASETO or session (auto-detects when `via=None`)
+  - `authenticate(token, via=None)` — verifies a token/session and returns a
+    `BaseSubject` (or raw payload dict)
+  - `authorize(subject, permission)` — checks the `[jam.authz]` policy
+  - `subject` / `config` as class attributes overridable via `__init__`
 
 ### Changed
+- JWT: `__init__` accepts `config` / `pointer`; `list` parameter accepts
+  `dict | BaseList | None`; `decode()` gained `check_list: bool = True`
+- JWS/JWE: `config` / `pointer` kwargs added
+- PASETO: `BasePASETO.__init__(purpose, secret_key, list, logger, config,
+  pointer)`; `.key()` kept as an alias; white/black list handling moved into
+  the base (`_list_add` / `_list_check`)
+- Sessions: `BaseSessionModule` uses `ConfigMeta` with `_SESSION_TYPE`
+  validation (`sessions_type` kept as a deprecated alias)
+- OAuth2: `create_instance` replaced by `build_clients(providers, serializer)`
+- The module config schema moved from `[jam.jwt]` to `[jam.jose.jwt]`
 
 ### Deprecated
+- `sessions_type` parameter in session modules (use `session_type`)
 
 ### Removed
+- `jam.jose.create_jwt_instance` / `create_jws_instance` / `create_jwe_instance`
+  / `create_instance` factories — construct `JWT` / `JWS` / `JWE` directly
+- Deprecated `jam.jwt` module and the `[jam.jwt]` → `[jam.jose.jwt]` config
+  migration
+- All deprecated `Jam` wrapper methods: `jwt_make_payload`, `jwt_create`,
+  `jwt_encode`, `jwt_decode`, `jws_sign`, `jws_verify`, `jwe_encrypt`,
+  `jwe_decrypt`, `session_*`, `otp_*`, `oauth2_*`, `paseto_make_payload`,
+  `paseto_create`, `paseto_decode` — use the module attributes and the new
+  `issue` / `authenticate` / `authorize` API
+- `BaseJam` old abstract interface and the `MODULES` factory map
 
 ### Fixed
 
