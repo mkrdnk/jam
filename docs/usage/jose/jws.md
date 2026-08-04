@@ -93,7 +93,6 @@ Args:
 * `alg`: `str` - Signing algorithm.
 * `key`: `str | bytes | KeyLike | JWK` - Key for signing.
 * `password`: `bytes | None = None` - Password for encrypted keys.
-* `logger`: `BaseLogger` - Logger instance.
 
 ```python
 from jam.jose import JWS

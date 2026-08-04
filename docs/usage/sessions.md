@@ -199,7 +199,6 @@ Args:
 * `session_aes_secret`: `bytes | str | None = None` - AES key for encrypting session data.
 * `id_factory`: `Callable[[], str] = lambda: str(uuid4())` - Session ID factory.
 * `serializer`: `BaseEncoder | type[BaseEncoder] = JsonEncoder` - JSON serializer.
-* `logger`: `BaseLogger | None = JamLogger` - Logger.
 
 ```python
 session = RedisSessions(
@@ -220,7 +219,6 @@ Args:
 * `session_aes_secret`: `bytes | str | None = None` - AES key for encrypting session data.
 * `id_factory`: `Callable[[], str] = lambda: str(uuid4())` - Session ID factory.
 * `serializer`: `BaseEncoder | type[BaseEncoder] = JsonEncoder` - JSON serializer.
-* `logger`: `BaseLogger | None = JamLogger` - Logger.
 
 ```python
 session = JSONSessions(

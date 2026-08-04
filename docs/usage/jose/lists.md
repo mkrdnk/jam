@@ -147,7 +147,6 @@ Args:
 * `redis_uri`: `str` - Redis connection URI.
 * `redis`: `Redis` - Pre-configured Redis client (optional).
 * `ttl`: `int` - Time to live in seconds (optional).
-* `logger`: `BaseLogger` - Logger instance.
 
 ```python
 from jam.lists.redis import RedisList
@@ -178,7 +177,6 @@ Args:
 
 * `type`: `str` - List type: `black` or `white`.
 * `prefix`: `str` - Key prefix for namespacing.
-* `logger`: `BaseLogger` - Logger instance.
 
 ```python
 from jam.lists.memory import MemoryList
@@ -203,7 +201,6 @@ Args:
 * `type`: `str` - List type: `black` or `white`.
 * `prefix`: `str` - Key prefix for namespacing.
 * `json_path`: `str` - Path to JSON file.
-* `logger`: `BaseLogger` - Logger instance.
 
 ```python
 from jam.lists.json import JSONList

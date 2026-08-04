@@ -216,7 +216,6 @@ Args:
 * `password`: `str | bytes | None` - Password for encrypted private keys.
 * `list`: `dict[str, Any] | None` - Token list config.
 * `serializer`: `BaseEncoder | type[BaseEncoder] = JsonEncoder` - JSON encoder/decoder.
-* `logger`: `BaseLogger` - Logger instance.
 * `jws`: `JWS | None` - Pre-built JWS instance. If provided, alg is ignored.
 * `jwe`: `JWE | None` - Pre-built JWE instance. If provided, enc and secret_key are ignored.
 

@@ -79,7 +79,6 @@ Args:
 * `key`: `str | bytes | KeyLike | JWK` - Key for encryption/decryption.
 * `password`: `bytes | None = None` - Password for PBES2 algorithms.
 * `serializer`: `BaseEncoder | type[BaseEncoder] = JsonEncoder` - Serializer.
-* `logger`: `BaseLogger` - Logger instance.
 
 ```python
 from jam.jose import JWE
