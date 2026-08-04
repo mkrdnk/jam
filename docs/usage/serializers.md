@@ -38,20 +38,3 @@ jam = Jam(
     # serializer=SomeSerializer  <- Or you can pass it as a parameter to the `jam.Jam` class
 )
 ```
-
-
-By default, Jam uses the stdlib json module for serialization. Jam also includes a pre-built serializer for [`msgspec`](https://github.com/jcrist/msgspec). To use it, you need to install [`msgspec`](https://github.com/jcrist/msgspec) and pass it to Jam:
-
-```bash
-pip install jamlib msgspec
-```
-
-```python
-from jam import jam
-from jam.encoders import MsgspecJsonEncoder
-
-jam = Jam(
-    config="jamconfig.yaml",
-    serializer=MsgspecJsonEncoder,
-)
-```
