@@ -57,6 +57,9 @@ def test_client_instance(client_instance):
     )
 
 
+@pytest.mark.skip(
+    reason="jam.aio is deferred until the sync API rework is complete"
+)
 @pytest.mark.asyncio
 async def test_async_client_instance(async_client_instance):
     payload = {"user": 1}

@@ -70,6 +70,76 @@ class TestJam(Jam):
         self._sessions: dict[str, dict[str, Any]] = {}
         self._session_keys: dict[str, str] = {}
 
+    def authorize(self, subject: Any, permission: str) -> bool:
+        """Check whether a subject is allowed to perform a permission.
+
+        Always succeeds for test purposes.
+
+        Args:
+            subject (Any): Subject instance.
+            permission (str): Permission name.
+
+        Returns:
+            bool: Always True.
+        """
+        return True
+
+    def issue(
+        self,
+        subject: Any,
+        via: str | None = None,
+        exp: int | None = None,
+        iss: str | None = None,
+        aud: str | None = None,
+        nbf: int | None = None,
+        jti: str | None = None,
+        **claims: Any,
+    ) -> str:
+        """Issue a fake token or session for a subject.
+
+        Args:
+            subject (Any): Subject instance or dict with an "id".
+            via (str | None): Token type: "jwt", "paseto", "session".
+            exp (int | None): Expiration in seconds.
+            iss (str | None): Issuer.
+            aud (str | None): Audience.
+            nbf (int | None): Not-before in seconds.
+            jti (str | None): Token ID.
+            **claims: Extra payload claims.
+
+        Returns:
+            str: Issued fake token or session ID.
+        """
+        payload = (
+            subject.to_dict() if hasattr(subject, "to_dict") else dict(subject)
+        )
+        payload.update(claims)
+        if via == "paseto":
+            return fake_paseto_token(payload, None)
+        if via == "session":
+            return self.session_create(session_key="auth", data=payload)
+        return fake_jwt_token_v2(
+            sub=payload.get("id"),
+            exp=exp,
+            iss=iss,
+            aud=aud,
+            nbf=nbf,
+            jti=jti,
+            payload=payload,
+        )
+
+    def authenticate(self, token: str, via: str | None = None) -> Any:
+        """Authenticate a fake token or session.
+
+        Args:
+            token (str): Token or session ID.
+            via (str | None): Token type.
+
+        Returns:
+            Any: Decoded payload dict.
+        """
+        return self.jwt_decode(token, check_exp=False, check_list=False)
+
     @deprecated(
         "This method is deprecated; the JWT payload is generated automatically in accordance with the specification."
     )

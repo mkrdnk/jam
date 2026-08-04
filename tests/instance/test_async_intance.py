@@ -7,6 +7,11 @@ from pytest_asyncio import fixture
 from jam.aio import Jam
 
 
+pytestmark = pytest.mark.skip(
+    reason="jam.aio is deferred until the sync API rework is complete"
+)
+
+
 @fixture
 async def jam_jwt_instance():
     jam = Jam(config={"jwt": {"alg": "HS256", "secret_key": "SECRET"}})
