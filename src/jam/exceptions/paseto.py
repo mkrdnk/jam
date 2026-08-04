@@ -22,7 +22,7 @@ class JamPASETOInvalidSecp384r1Key(JamConfigurationError):
     default_code = "paseto.configuration.invalid_secp384r1_key"
 
 
-class JamPASETOInvalidPurpose(JamValidationError):
+class JamPASETOInvalidPurpose(JamConfigurationError):
     default_message = "Invalid purpose."
     default_code = "paseto.configuration.invalid_purpose"
 
@@ -32,6 +32,6 @@ class JamPASETOInvalidTokenFormat(JamValidationError):
     default_code = "paseto.validation.invalid_token_format"
 
 
-class JamPASTOKeyVerificationError(JamError):
+class JamPASETOKeyVerificationError(JamError):
     default_message = "Key verification failed."
     default_code = "paseto.key_verification_failed"

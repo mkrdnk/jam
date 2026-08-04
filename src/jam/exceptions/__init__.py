@@ -10,14 +10,11 @@ from .jose import (
     JamJWSVerificationError,
 )
 from .jwt import (
-    JamJWTEmptyPrivateKey,
-    JamJWTEmptySecretKey,
     JamJWTExpired,
     JamJWTInBlackList,
     JamJWTNotInWhiteList,
     JamJWTNotYetValid,
     JamJWTUnsupportedAlgorithm,
-    JamJWTValidationError,
 )
 from .oauth2 import (
     JamOAuth2EmptyRaw,
@@ -31,7 +28,7 @@ from .paseto import (
     JamPASETOInvalidSecp384r1Key,
     JamPASETOInvalidSymmetricKey,
     JamPASETOInvalidTokenFormat,
-    JamPASTOKeyVerificationError,
+    JamPASETOKeyVerificationError,
 )
 from .plugins import (
     JamFlaskPluginConfigError,
@@ -69,10 +66,7 @@ __all__ = [
     "JamJWTInBlackList",
     "JamJWTNotInWhiteList",
     "JamJWTNotYetValid",
-    "JamJWTEmptyPrivateKey",
-    "JamJWTEmptySecretKey",
     "JamJWTUnsupportedAlgorithm",
-    "JamJWTValidationError",
     "JamJWSVerificationError",
     "JamJWKValidationError",
     "JamJWEEncryptionError",
@@ -83,7 +77,7 @@ __all__ = [
     "JamPASETOInvalidSecp384r1Key",
     "JamPASETOInvalidPurpose",
     "JamPASETOInvalidTokenFormat",
-    "JamPASTOKeyVerificationError",
+    "JamPASETOKeyVerificationError",
     "JamLitestarPluginConfigError",
     "JamLitestarPluginError",
     "JamFlaskPluginConfigError",
