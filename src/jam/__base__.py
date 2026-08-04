@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+import dataclasses
 from typing import Any, Literal
 
 from jam.__base_encoder__ import BaseEncoder
@@ -19,7 +20,7 @@ class BaseJam(ABC):
     """Base jam instance."""
 
     subject: type[BaseSubject] = BaseSubject
-    config: dict[str, Any] = {}
+    config: dict[str, Any] | None = None
 
     jwt: Any = None
     jws: Any = None
@@ -42,7 +43,7 @@ class BaseJam(ABC):
         ] = "INFO",
         serializer: BaseEncoder | type[BaseEncoder] = JsonEncoder,
         subject: type[BaseSubject] | None = None,
-        plugins: list[type[BasePlugin]] = [],
+        plugins: list[type[BasePlugin]] | None = None,
     ) -> None:
         """Initialize instance.
 
@@ -54,7 +55,7 @@ class BaseJam(ABC):
             log_level (Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]): Log level.
             serializer (Union[BaseEncoder, type[BaseEncoder]]): Serializer.
             subject (type[BaseSubject] | None): Subject class override.
-            plugins (list[type[BasePlugin]]): List of plugins.
+            plugins (list[type[BasePlugin]] | None): List of plugins.
         """
         if config is None:
             config = self.config or {}
@@ -256,8 +257,6 @@ class BaseJam(ABC):
         Returns:
             Any: Subject instance or dict if no subject class is configured.
         """
-        import dataclasses
-
         if not dataclasses.is_dataclass(self.subject):
             return payload
         field_names = {f.name for f in dataclasses.fields(self.subject)}
@@ -343,6 +342,6 @@ class BaseJam(ABC):
                         kwargs.update(result)
 
                 except Exception as e:
-                    self._logger.error(f"Plugin:{plugin.name} | error: {e}")
+                    self._logger.error("Plugin: %s | error: %s", plugin.name, e)
 
         return kwargs
