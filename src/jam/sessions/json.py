@@ -119,7 +119,7 @@ class JSONSessions(BaseSessionModule):
             dict | None: The session data if found, otherwise None.
         """
         if self._logger:
-            self._logger.debug(f"Getting session with ID: {session_id}")
+            self._logger.debug("Getting session with ID: %s", session_id)
         # session_id = self.__decode_session_id_if_needed__(session_id)
         result = self._db.search(self._qs.session_id == session_id)
         if result:
@@ -134,7 +134,7 @@ class JSONSessions(BaseSessionModule):
             del result
             return loads_data
         if self._logger:
-            self._logger.debug(f"Session {session_id} not found")
+            self._logger.debug("Session %s not found", session_id)
         return None
 
     def delete(self, session_id: str) -> None:
@@ -147,7 +147,7 @@ class JSONSessions(BaseSessionModule):
             None
         """
         if self._logger:
-            self._logger.debug(f"Deleting session with ID: {session_id}")
+            self._logger.debug("Deleting session with ID: %s", session_id)
         removed_count = self._db.remove(self._qs.session_id == session_id)
         if self._logger:
             self._logger.debug(

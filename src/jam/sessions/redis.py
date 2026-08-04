@@ -86,7 +86,7 @@ class RedisSessions(BaseSessionModule):
             return self._redis.ping()  # type: ignore[return-value]
         except Exception as e:
             if self._logger:
-                self._logger.error(f"Redis ping failed: {e}")
+                self._logger.error("Redis ping failed: %s", e)
             return False
 
     def create(self, session_key: str, data: dict) -> str:
@@ -142,7 +142,7 @@ class RedisSessions(BaseSessionModule):
             dict | None: The session data if found, otherwise None.
         """
         if self._logger:
-            self._logger.debug(f"Getting session with ID: {session_id}")
+            self._logger.debug("Getting session with ID: %s", session_id)
         decoded_session_key = self.__decode_session_id_if_needed__(
             session_id
         ).split(":", 1)
@@ -156,7 +156,7 @@ class RedisSessions(BaseSessionModule):
         )
         if not session:
             if self._logger:
-                self._logger.debug(f"Session {session_id} not found in Redis")
+                self._logger.debug("Session %s not found in Redis", session_id)
             return None
 
         try:
@@ -178,7 +178,7 @@ class RedisSessions(BaseSessionModule):
             session_id (str): The session ID.
         """
         if self._logger:
-            self._logger.debug(f"Deleting session with ID: {session_id}")
+            self._logger.debug("Deleting session with ID: %s", session_id)
         decoded_session_key = self.__decode_session_id_if_needed__(
             session_id
         ).split(":", 1)

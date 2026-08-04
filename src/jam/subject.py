@@ -3,7 +3,7 @@
 """Base subject for auth flows."""
 
 from dataclasses import asdict
-from typing import Any, ClassVar
+from typing import Any
 
 
 class BaseSubject:
@@ -21,8 +21,7 @@ class BaseSubject:
     dependencies required.
     """
 
-    id: ClassVar[Any]
-    __abstract_methods__: ClassVar[bool] = True
+    id: Any
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Validate that subclasses declare an ``id`` field.
@@ -48,10 +47,13 @@ class BaseSubject:
     def from_dict(cls, data: dict[str, Any]) -> "BaseSubject":
         """Build a subject instance from a dict.
 
+        Unknown keys are ignored.
+
         Args:
             data (dict[str, Any]): Subject fields.
 
         Returns:
             BaseSubject: New subject instance.
         """
-        return cls(**data)
+        field_names = set(getattr(cls, "__dataclass_fields__", {}))
+        return cls(**{k: v for k, v in data.items() if k in field_names})
