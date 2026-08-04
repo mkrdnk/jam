@@ -14,7 +14,7 @@ class DEFAULTS:
     TEMP_DIR: str = os.getenv("JAM_TMP_DIR", "/tmp/jam/")
     """tmp directory for storing temporary files and blobs."""
 
-    ENABLE_PLUGINS: bool = os.getenv("JAM_ENABLE_PLUGINS", "1") == "0"
+    ENABLE_PLUGINS: bool = os.getenv("JAM_ENABLE_PLUGINS", "1") == "1"
     """Enabling experimental plugin features."""
 
 
