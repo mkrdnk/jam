@@ -44,6 +44,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `BaseSubject` (or raw payload dict)
   - `authorize(subject, permission)` — checks the `[jam.authz]` policy
   - `subject` / `config` as class attributes overridable via `__init__`
+- Config caching — config files are parsed once and cached per
+  path + pointer (`JAM_CONFIG_CACHING=true`, default). Set
+  `JAM_CONFIG_CACHING=false` to re-read config on every instance creation
+  for runtime config updates. Manual invalidation via
+  `jam.utils.config_maker.__config_cache_clear__`
 - `jam.utils.redaction.SensitiveDataFilter` — attached to the `"jam"`
   logger by default; redacts JWT/JWE/PASETO tokens, PEM private keys and
   `key=value` secrets from log records (disable with `JAM_DEBUG=True`)
