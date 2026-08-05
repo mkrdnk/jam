@@ -179,3 +179,4 @@ sessions.json
 *.pem
 *.aes
 *.key
+plan.md
