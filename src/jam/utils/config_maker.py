@@ -1,17 +1,21 @@
 # -*- coding: utf-8 -*-
 
 from collections.abc import Callable
+import copy
 from importlib import import_module
 import os
 import re
 import sys
 from typing import Any
 
+from jam.__defaults__ import defaults
 from jam.encoders import BaseEncoder, JsonEncoder
 from jam.exceptions import JamConfigurationError
 
 
 GENERIC_POINTER = "jam"
+
+CONFIG_CACHE: dict[tuple[str, str], dict[str, Any]] = {}
 
 
 def __yaml_config_parser(
@@ -335,6 +339,11 @@ def __json_config_parser(
     return config
 
 
+def __config_cache_clear__() -> None:
+    """Clear the parsed config cache."""
+    CONFIG_CACHE.clear()
+
+
 def __config_maker__(
     config: str | dict[str, Any], pointer: str = GENERIC_POINTER
 ) -> dict[str, Any]:
@@ -348,6 +357,10 @@ def __config_maker__(
         dict[str, Any]: Parsed config
     """
     if isinstance(config, str):
+        key = (config, pointer)
+        if defaults.CONFIG_CACHING and key in CONFIG_CACHE:
+            return copy.deepcopy(CONFIG_CACHE[key])
+
         ext = config.split(".")[-1].lower()
         match ext:
             case "yml" | "yaml":
@@ -365,6 +378,9 @@ def __config_maker__(
                     message="YML/YAML, TOML or JSON configs only!",
                     error_code="configuration.invalid_config_type",
                 )
+
+        if defaults.CONFIG_CACHING:
+            CONFIG_CACHE[key] = copy.deepcopy(result)
     else:
         result = config.copy()
 
