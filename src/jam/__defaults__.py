@@ -8,7 +8,7 @@ import os
 class DEFAULTS:
     """Jam defaults vars."""
 
-    DEBUG: bool = os.getenv("JAM_DEBUG", "False") == "True"
+    DEBUG: bool = os.getenv("JAM_DEBUG", "false").lower() == "true"
     """Debug flag. Use only while developing jam module."""
 
     TEMP_DIR: str = os.getenv("JAM_TMP_DIR", "/tmp/jam/")
@@ -16,6 +16,11 @@ class DEFAULTS:
 
     ENABLE_PLUGINS: bool = os.getenv("JAM_ENABLE_PLUGINS", "1") == "1"
     """Enabling experimental plugin features."""
+
+    CONFIG_CACHING: bool = (
+        os.getenv("JAM_CONFIG_CACHING", "true").lower() == "true"
+    )
+    """Enabling config caching."""
 
 
 defaults = DEFAULTS()
