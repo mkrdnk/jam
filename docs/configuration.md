@@ -179,3 +179,18 @@ secret_key = "$JWT_SECRET"
 
 !!! note
     Some modules read certain environment variables by default, as described in detail in each module.
+
+#### `JAM_CONFIG_CACHING`
+
+Controls whether config files are parsed once and cached, or re-read on
+every new instance. Defaults to `true`.
+
+- `true` — the config file is parsed once when the first `Jam(config_path)`
+  (or any config-driven module) is created. Later instances reuse the cached
+  value. Use this in production: config is fixed at startup.
+- `false` — each new instance re-reads the config file (including
+  `$ENV` substitution), so you can change config at runtime without
+  restarting the process.
+
+The cache is keyed by config path and pointer. To invalidate it manually,
+call `jam.utils.config_maker.__config_cache_clear__()`.
