@@ -75,7 +75,7 @@ config = {
     "paseto": {
         "version": "v4",
         "purpose": "local",
-        "key": os.getenv("PASETO_KEY")
+        "secret_key": os.getenv("PASETO_KEY")
     }
 }
 

@@ -64,7 +64,7 @@ HKDF-SHA256 with salt `jwe-encryption` and info `encryption-key`.
 ```toml
 [jam.jose.jwt]
 alg = "RS256"
-secret = "$RSA_PRIVATE_KEY"
+secret_key = "$RSA_PRIVATE_KEY"
 
 [jam.jose.jwt.list]
 type = "black"
@@ -75,7 +75,9 @@ redis_uri = "redis://localhost:6379"
 Args:
 
 * `alg`: `str` - JWT signing algorithm. Supports: `HS256`, `HS384`, `HS512`, `RS256`, `RS384`, `RS512`, `ES256`, `ES384`, `ES512`, `PS256`, `PS384`, `PS512`.
-* `secret`: `str` - Secret key for token signing. Default reads from `JAM_JWT_SECRET_KEY` environment variable.
+* `enc`: `str | None` - Content encryption algorithm. Configures JWE mode (see [Token modes](#token-modes)).
+* `secret_key`: `str` - Key for signing/encryption. Default reads from `JAM_JWT_SECRET_KEY` environment variable.
+* `password`: `str | None` - Password for encrypted private keys.
 * `list`: `dict[str, Any] | None` - Token list config. See: [Lists](lists.md).
 
 ### Usage
@@ -86,120 +88,51 @@ from jam import Jam
 jam = Jam(config="config.toml")
 ```
 
-### Encode token
+### Issue a token
 
-Method: `jam.jwt_encode`
-
-Args:
-
-* `iss`: `str | None = None` - Token issuer.
-* `sub`: `str | None = None` - Token subject.
-* `aud`: `str | None = None` - Token audience.
-* `exp`: `int | None = None` - Token lifetime in seconds.
-* `nbf`: `int | None = None` - Token not-before time in seconds.
-* `jti`: `str | None = None` - Unique token ID. If `None`, auto-generated.
-* `header`: `dict[str, Any] | None = None` - Additional header fields.
-* `payload`: `dict[str, Any] | None = None` - Custom payload data.
-
-Returns:
-
-`str`: Encoded JWT.
+Method: `jam.issue`
 
 ```python
-token = jam.jwt_encode(
+token = jam.issue(
+    {"id": 1, "role": "admin"},
+    via="jwt",
     iss="YourService",
-    sub="user@mail.com",
     exp=3600,
-    payload={"role": "admin"}
 )
 print(token)
->>> eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQ...
+>>> eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIi...
 ```
 
-### Decode token
+### Authenticate a token
 
-Method: `jam.jwt_decode`
-
-Args:
-
-* `token`: `str` - JWT token.
-* `validate_claims`: `bool = True` - Validate exp and nbf claims.
-
-Returns:
-
-`dict[str, Any]`: Decoded payload with header.
-
-Raises:
-
-* `JamJWTExpired` - Token has expired.
-* `JamJWTNotYetValid` - Token is not yet valid (nbf).
-* `JamJWSVerificationError` - Invalid signature.
+Method: `jam.authenticate`
 
 ```python
-data = jam.jwt_decode(
-    token=token,
-    validate_claims=True
-)
+data = jam.authenticate(token, via="jwt")
 print(data)
->>> {
-    'header': {'alg': 'RS256', 'typ': 'JWT'},
-    'payload': {
-        'iss': 'YourService',
-        'sub': 'user@mail.com',
-        'exp': 1772132706,
-        'iat': 1772129106,
-        'jti': '0c2c38d2-5dcb-4294-bb2d-0820f6ff787d',
-        'role': 'admin'
-    }
-}
+>>> {'sub': '1', 'id': 1, 'role': 'admin', 'exp': 1772132706, ...}
 ```
 
-### Encrypt token
+### Encrypt a token
 
-Method: `jam.jwt_encrypt`
-
-Creates encrypted JWT (JWS+JWE or JWE only).
-
-Args:
-
-* `payload`: `dict[str, Any] | str` - Data to encrypt.
-* `header`: `dict[str, Any] | None = None` - Additional JWE header fields.
-
-Returns:
-
-`str`: Encrypted JWT.
+Method: `jam.authenticate` with `via="jwe"` (JWE mode) or `jam.jwt.encrypt`.
 
 ```python
-encrypted = jam.jwt_encrypt(
-    payload={"user_id": 123, "role": "admin"},
-    header={"custom": "value"}
-)
-print(encrypted)
->>> eyJhbGciOiJSU0ExLjI1NiIsImVuYyI6IkExMjhHQ1Mtc2hhMjU2In0...
-```
-
-### Decrypt token
-
-Method: `jam.jwt_decrypt`
-
-Decrypts encrypted JWT.
-
-Args:
-
-* `token`: `str` - Encrypted JWT token.
-
-Returns:
-
-`dict[str, Any]`: Decrypted payload.
-
-Raises:
-
-* `JamJWEDecryptionError` - Decryption failed.
-
-```python
-data = jam.jwt_decrypt(token=encrypted)
+encrypted = jam.jwt.encrypt(payload={"user_id": 123, "role": "admin"})
+data = jam.jwt.decrypt(encrypted)
 print(data)
 >>> {'user_id': 123, 'role': 'admin'}
+```
+
+### Access the module directly
+
+`jam.jwt` exposes the configured `jam.jose.JWT` instance — every module
+method is available on it:
+
+```python
+payload = jam.jwt.decode(token, validate_claims=True)
+print(payload["payload"]["role"])
+>>> "admin"
 ```
 
 ## Use out of instance
@@ -254,19 +187,6 @@ When using pre-built instances:
 - If `jwe` is provided, `enc` must be `None` (otherwise raises
   `JamConfigurationError`)
 - At least one of `alg`, `enc`, `jws`, or `jwe` must be provided
-
-### Factory functions
-
-```python
-from jam.jose import create_jwt_instance, create_instance
-
-# create_instance is an alias for create_jwt_instance
-jwt = create_jwt_instance(
-    alg="RS256",
-    secret=private_key,  # or secret_key=private_key
-    password=None,
-)
-```
 
 ### Encode token
 

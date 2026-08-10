@@ -4,21 +4,26 @@ title: JWE
 
 ## Instance (jam.Jam)
 
+### Config
+
+```toml
+[jam.jose.jwe]
+alg = "RSA-OAEP"
+enc = "A128CBC-HS256"
+key = "$JWE_PUBLIC_KEY"
+```
+
+The configured `jam.jose.JWE` instance is exposed as `jam.jwe`:
+
 ### Encrypt data
 
-Method: `jam.jwe_encrypt`
+Method: `jam.jwe.encrypt`
 
 Creates JWE Compact Serialization - encrypted data.
 
 Args:
 
-* `alg`: `str` - Key management algorithm. Available: `RSA-OAEP`,
-  `RSA-OAEP-256`, `RSA1_5`, `A128KW`, `A192KW`, `A256KW`, `ECDH-ES`,
-  `ECDH-ES+A128KW`, `ECDH-ES+A192KW`, `ECDH-ES+A256KW`, `A128GCMKW`,
-  `A256GCMKW`, `PBES2-HS256+A128KW`, `PBES2-HS384+A192KW`,
-  `PBES2-HS512+A256KW`.
-* `enc`: `str` - Content encryption algorithm. Available: `A128CBC-HS256`, `A192CBC-HS384`, `A256CBC-HS512`, `A128GCM`, `A256GCM`.
-* `payload`: `dict[str, Any] | str | bytes` - Data to encrypt.
+* `plaintext`: `dict[str, Any] | str | bytes` - Data to encrypt. If dict, will be JSON serialized.
 * `header`: `dict[str, Any] | None = None` - Additional header fields.
 
 Returns:
@@ -30,10 +35,8 @@ from jam import Jam
 
 jam = Jam(config="config.toml")
 
-jwe_token = jam.jwe_encrypt(
-    alg="RSA-OAEP",
-    enc="A128CBC-HS256",
-    payload={"secret": "data"},
+jwe_token = jam.jwe.encrypt(
+    plaintext={"secret": "data"},
     header={"custom": "value"}
 )
 print(jwe_token)
@@ -42,29 +45,33 @@ print(jwe_token)
 
 ### Decrypt data
 
-Method: `jam.jwe_decrypt`
+Method: `jam.jwe.decrypt`
 
 Decrypts JWE token.
 
 Args:
 
 * `token`: `str` - JWE token.
-* `alg`: `str` - Key management algorithm.
-* `enc`: `str` - Content encryption algorithm.
 
 Returns:
 
-`bytes | str`: Decrypted data.
+`bytes`: Decrypted data.
 
 Raises:
 
 * `JamJWEDecryptionError` - Decryption failed.
+* `JamJWEInvalidFormatError` - Invalid token format.
 
 ```python
-data = jam.jwe_decrypt(token=jwe_token)
+data = jam.jwe.decrypt(token=jwe_token)
 print(data)
 >>> b'{"secret": "data"}'
 ```
+
+### Encrypted tokens in the facade
+
+Encrypted JWTs issued with `jam.issue` are authenticated with
+`jam.authenticate(via="jwe")` when JWE mode is configured on `[jam.jose.jwt]`:
 
 ## Standalone (module)
 

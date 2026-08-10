@@ -18,15 +18,24 @@ key = "$JWS_SECRET_KEY"
 password = "$JWS_PASSWORD"
 ```
 
+### Usage
+
+```python
+from jam import Jam
+
+jam = Jam(config="config.toml")
+```
+
+The configured `jam.jose.JWS` instance is exposed as `jam.jws`:
+
 ### Sign data
 
-Method: `jam.jws_sign`
+Method: `jam.jws.sign`
 
 Creates JWS Compact Serialization - digital signature of data.
 
 Args:
 
-* `alg`: `str` - Signing algorithm. Available: `HS256`, `HS384`, `HS512`, `RS256`, `RS384`, `RS512`, `ES256`, `ES384`, `ES512`, `PS256`, `PS384`, `PS512`.
 * `header`: `dict[str, Any] | None = None` - Additional header fields.
 * `data`: `dict[str, Any] | str | bytes` - Data to sign.
 
@@ -35,12 +44,7 @@ Returns:
 `str`: JWS in Compact Serialization format.
 
 ```python
-from jam import Jam
-
-jam = Jam(config="config.toml")
-
-jws_token = jam.jws_sign(
-    alg="RS256",
+jws_token = jam.jws.sign(
     header={"custom": "header_value"},
     data={"message": "Hello, World!"}
 )
@@ -50,13 +54,12 @@ print(jws_token)
 
 ### Verify token
 
-Method: `jam.jws_verify`
+Method: `jam.jws.verify`
 
 Verifies JWS token and returns data.
 
 Args:
 
-* `alg`: `str` - Algorithm for signature verification.
 * `token`: `str` - JWS token.
 * `validate`: `bool = True` - Validate signature.
 
@@ -69,8 +72,7 @@ Raises:
 * `JamJWSVerificationError` - Invalid signature.
 
 ```python
-data = jam.jws_verify(
-    alg="RS256",
+data = jam.jws.verify(
     token=jws_token,
     validate=True
 )

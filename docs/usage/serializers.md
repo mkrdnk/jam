@@ -6,11 +6,14 @@ Jam makes it easy to replace the JSON serializer in your code; all you need to d
 
 
 ```python
-from jam import Jam, BaseEncoder
+from abc import abstractmethod
+import os
+from typing import Any
+
+from jam import BaseEncoder, Jam
 
 
-class SomeEncoder(BaseEncoder)
-    
+class SomeEncoder(BaseEncoder):
     @classmethod
     @abstractmethod
     def dumps(cls, var: dict[str, Any]) -> bytes:

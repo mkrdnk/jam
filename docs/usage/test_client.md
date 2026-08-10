@@ -11,7 +11,7 @@ For example, you have a service for generating JWT tokens.
 
 ```python
 from jam import Jam
-form jam.exceptions import JamError
+from jam.exceptions import JamError
 
 
 class AuthService:
@@ -22,13 +22,13 @@ class AuthService:
         self.jam = jam
 
     # Generate token
-    def generate_token(self, user: User) -> str:
-        token = jam.jwt_encode(sub=user.email)
+    def generate_token(self, user) -> str:
+        return self.jam.issue(user, via="jwt", exp=3600)
 
-    # Validate token and return user or None
-    def validate_token(self, token) -> User | None:
+    # Validate token and return payload or None
+    def validate_token(self, token) -> dict | None:
         try:
-            payload = self.jam.jwt_decode(token)
+            return self.jam.authenticate(token, via="jwt")
         except JamError:
             return None
 ```
@@ -49,17 +49,19 @@ def auth_service() -> AuthService:
     )
 
 def test_auth_user(auth_service):
-    user = User(id=1, username="test_user")
+    user = {"id": 1, "username": "test_user"}
     token = auth_service.generate_token(user)  # Generate token
     assert token is not None
 
-    validated_user = auth_service.validate_token(token)  # Validate token
-    assert validated_user is not None
-    assert validated_user.id == user.id
-    assert validated_user.username == user.username
+    validated = auth_service.validate_token(token)  # Validate token
+    assert validated is not None
+    assert validated["id"] == user["id"]
 
     # if you want to test invalid token
     from jam.tests.fakers import invalid_token
-    invalid_user = auth_service.validate_token(invalid_token())
-    assert invalid_user is None
+    invalid_payload = auth_service.validate_token(invalid_token())
+    assert invalid_payload is None
 ```
+
+`TestJam` always succeeds: `authorize` returns `True`, tokens are fake but
+well-formed. `TestAsyncJam` mirrors the same methods as awaitables.

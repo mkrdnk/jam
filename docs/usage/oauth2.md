@@ -13,7 +13,7 @@ Args:
   * `client_secret`: `str` - Client secret in your app.
   * `auth_url`: `str` - Authorization URL.
   * `token_url`: `str` - Token URL.
-  * `redirect_uri`: `str` - Redirect URI.
+  * `redirect_url`: `str` - Redirect URL.
 
 Example:
 
@@ -32,34 +32,42 @@ redirect_url = "https://example.com/callback/github"
 ```
 
 
+### Usage
+
+Configured providers are exposed as `jam.oauth2`, a dict of
+`provider_name -> OAuth2Client`:
+
+```python
+from jam import Jam
+
+jam = Jam(config="config.toml")
+
+github = jam.oauth2["github"]
+```
+
 ### Get auth url
 
-Method: `jam.oauth2_get_authorized_url`
+Method: `jam.oauth2[provider].get_authorization_url`
 
 Args:
 
-* `provider`: `str` - Provider name from config.
 * `scope`: `list[str]` - Scope for provider.
+* `**extra_params` - Extra query params (e.g. `access_type="offline"`, `state="xyz"`).
 
 Returns:
 
-`str`: URL for authoriaztion.
+`str`: URL for authorization.
 
 ```python
-url = jam.oauth2_get_authorized_url(
-    provider="github",
-    scope=["gist"],
-#    **extra_params
-)
+url = jam.oauth2["github"].get_authorization_url(scope=["gist"])
 ```
 
 ### Fetch token
 
-Method: `jam.oauth2_fetch_token`
+Method: `jam.oauth2[provider].fetch_token`
 
 Args:
 
-* `provider`: `str` - Provider name from config.
 * `code`: `str` - OAuth2 code.
 * `grant_type`: `str = authorization_code` - Type of oauth2 grant.
 
@@ -68,41 +76,32 @@ Returns:
 `dict[str, Any]` - Tokens.
 
 ```python
-tokens = jam.oauth2_fetch_token(
-    provider="github",
-    code="HGvdskHG",
-    grant_type="authorization_code"
-)
+tokens = jam.oauth2["github"].fetch_token(code="HGvdskHG")
 ```
 
 ### Refresh token
 
-Method: `jam.oauth2_refresh_token`
+Method: `jam.oauth2[provider].refresh_token`
 
 Args:
 
-* `provider`: `str` - Provider name from config.
 * `refresh_token`: `str` - Refresh token.
 * `grant_type`: `str = "refresh_token"` - Grant type.
 
 Returns:
 
-`dict[str, Any]`: Refresh token.
+`dict[str, Any]`: Tokens.
 
 ```python
-tokens = jam.oauth2_refresh_token(
-    provider="github",
-    refresh_token=token,
-)
+tokens = jam.oauth2["github"].refresh_token(refresh_token=token)
 ```
 
 ### Client credentials flow
 
-Method: `jam.oauth2_client_credentials_flow`
+Method: `jam.oauth2[provider].client_credentials_flow`
 
 Args:
 
-* `provider`: `str` - Provider name from config.
 * `scope`: `list[str]` - Scope for provider.
 
 Returns:
@@ -110,10 +109,7 @@ Returns:
 `dict[str, Any]`: Data.
 
 ```python
-tokens = jam.oauth2_client_credentials(
-    provider="github",
-    scope=["gist"]
-)
+tokens = jam.oauth2["github"].client_credentials_flow(scope=["gist"])
 ```
 
 ## Use out of instance
@@ -130,7 +126,7 @@ Args:
 * `client_secret`: `str` - Client secret from oauth2 provider.
 * `auth_url`: `str` - URL for authentication.
 * `token_url`: `str` - URL for token exchange.
-* `redirect_uri`: `str` - Redirect URI for oauth2 flow.
+* `redirect_url`: `str` - Redirect URI for oauth2 flow.
 * `serializer`: `BaseEncoder | type[BaseEncoder] = JsonEncoder` - JSON Serializer.
 
 ```python
@@ -142,7 +138,7 @@ custom_service = OAuth2Client(
     client_secret="SECRET",
     auth_url="https://example.com/oauth2/auth",
     token_url="https://example.com/oauth2/token",
-    redirect_uri="https://example.com/oauth2/callback",
+    redirect_url="https://example.com/oauth2/callback",
 )
 ```
 
@@ -159,23 +155,23 @@ Args:
 
 * `client_id`: `str` - Client ID from oauth2 provider.
 * `client_secret`: `str` - Client secret from oauth2 provider.
-* `redirect_uri`: `str` - Redirect URI for oauth2 flow.
+* `redirect_url`: `str` - Redirect URL for oauth2 flow.
 
 
 ```python
-from jam.aouth2 import GitHubOAuth2Client
+from jam.oauth2 import GitHubOAuth2Client
 
 github_oauth2 = GitHubOAuth2Client(
     client_id="ID",
     client_secret="SECRET",
-    redirect_uri="https://example.com/oauth2/callback",
+    redirect_url="https://example.com/oauth2/callback",
 )
 ```
 
 
 ### Get auth url
 
-Method: `oauth2.get_auth_url`
+Method: `oauth2.get_authorization_url`
 
 Args:
 
@@ -186,7 +182,7 @@ Returns:
 `str` - Authorization URL for the oauth2 flow.
 
 ```python
-url = oauth2.get_auth_url(scope=["user", "email", "avatar"])
+url = oauth2.get_authorization_url(scope=["user", "email", "avatar"])
 ```
 
 ### Fetch token

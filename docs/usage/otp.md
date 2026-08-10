@@ -26,47 +26,66 @@ interval = 30
 
 ### Usage
 
-#### Get code
-
-Method: `jam.otp_code`
-
-Args:
-
-* `secret`: `str` - Secret key for the OTP code.
-* `factor`: `int | None = None` - Factor for HOTP codes. Defaults to `None` for TOTP codes.
-
-Returns:
-
-`str` - Code
+`jam.otp` holds the configured OTP **class** (`jam.otp.TOTP` or
+`jam.otp.HOTP`). Instantiate it with the user's secret to work with codes:
 
 ```python
-code = jam.otp_code(
-    secret="CCCUULFTIG5YMEX3HMNHEDCLFM"
-)
+from jam import Jam
+
+jam = Jam(config="config.toml")
+
+totp = jam.otp(secret="CCCUULFTIG5YMEX3HMNHEDCLFM")
+```
+
+#### Get code
+
+Method: `totp.now`
+
+Returns: `str` - Current OTP code.
+
+```python
+code = totp.now
 print(code)
 >>> 379982
 ```
 
-#### Gen OTP uri
+#### Code for a specified time / counter
 
-Method: `jam.otp_uri`
+Method: `totp.at`
 
 Args:
 
-* `secret`: `str` - Secret key for the OTP code.
+* `factor`: `int | None = None` - UNIX time in seconds (TOTP) or counter (HOTP). Defaults to `None` (current time / next counter).
+
+Returns:
+
+`str` - OTP code.
+
+```python
+code = totp.at()
+print(code)
+>>> 379982
+```
+
+#### Generate otpauth URI
+
+Method: `totp.provisioning_uri`
+
+Args:
+
 * `name`: `str` - Account name.
 * `issuer`: `str` - Issuer for the OTP code.
-* `counter`: `int | None = None` - Counter for HOTP codes. Defaults to `None` for TOTP codes.
+* `type_`: `str = "totp"` - OTP type: `"totp"` or `"hotp"`.
+* `counter`: `int | None = None` - Counter for HOTP codes.
 
 Returns:
 
 `str` - URI.
 
 ```python
-uri = jam.otp_uri(
-    secret="CCCUULFTIG5YMEX3HMNHEDCLFM",
+uri = totp.provisioning_uri(
+    name="user@example.com",
     issuer="MyApp",
-    name="user@example.com"
 )
 print(uri)
 >>> otpauth://totp/MyApp%3Auser%40example.com?secret=CCCUULFTIG5YMEX3HMNHEDCLFM&issuer=MyApp&algorithm=SHA256&digits=6
@@ -74,11 +93,10 @@ print(uri)
 
 #### Verify code
 
-Method: `jam.otp_verify_code`
+Method: `totp.verify`
 
 Args:
 
-* `secret`: `str` - Secret key for the OTP code.
 * `code`: `str` - OTP code to verify.
 * `factor`: `int | None = None` - Factor for HOTP codes. Defaults to `None` for TOTP codes.
 * `look_ahead`: `int = 1` - Acceptable deviation in intervals (±window(totp) / ±look ahead(hotp)). Default is `1`.
@@ -88,10 +106,7 @@ Returns:
 `bool` - Whether the code is valid.
 
 ```python
-valid = jam.otp_verify_code(
-    secret="CCCUULFTIG5YMEX3HMNHEDCLFM",
-    code="379982"
-)
+valid = totp.verify(code="379982")
 print(valid)
 >>> True
 ```

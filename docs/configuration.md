@@ -42,14 +42,13 @@ config = {
     "paseto": {
         "version": "v4",
         "purpose": "local",
-        "key": os.getenv("PASETO_SECRET_KEY")
-    }
+        "secret_key": os.getenv("PASETO_SECRET_KEY")
     }
 }
 
 jam = Jam(config=config)
-jwt = jam.jwt_encode(payload={"user": 1})
-paseto = jam.paseto_create(payload={"user": 1}, footer=None)
+jwt = jam.issue({"user": 1}, via="jwt")
+paseto = jam.issue({"user": 1}, via="paseto")
 ```
 
 ##### TOML
@@ -61,14 +60,14 @@ secret_key = "$JWT_SECRET_KEY"
 [jam.paseto]
 version = "v4"
 purpose = "local"
-key = "$PASETO_SECRET_KEY"
+secret_key = "$PASETO_SECRET_KEY"
 ```
 ```python
 from jam import Jam
 
 jam = Jam(config="config.toml")
-jwt = jam.jwt_encode(payload={"user": 1})
-paseto = jam.paseto_create(payload={"user": 1}, footer=None)
+jwt = jam.issue({"user": 1}, via="jwt")
+paseto = jam.issue({"user": 1}, via="paseto")
 ```
 
 ##### YAML
@@ -81,14 +80,14 @@ jam:
   paseto:
     version: v4
     purpose: local
-    key: $PASETO_SECRET_KEY
+    secret_key: $PASETO_SECRET_KEY
 ```
 ```python
 from jam import Jam
 
 jam = Jam(config="config.yaml")
-jwt = jam.jwt_encode(payload={"user": 1})
-paseto = jam.paseto_create(payload={"user": 1}, footer=None)
+jwt = jam.issue({"user": 1}, via="jwt")
+paseto = jam.issue({"user": 1}, via="paseto")
 ```
 
 ##### Json
@@ -103,7 +102,7 @@ paseto = jam.paseto_create(payload={"user": 1}, footer=None)
   "paseto": {
     "version": "v4",
     "purpose": "local",
-    "key": "$PASETO_SECRET_KEY"
+    "secret_key": "$PASETO_SECRET_KEY"
   }
 }
 ```
@@ -111,8 +110,8 @@ paseto = jam.paseto_create(payload={"user": 1}, footer=None)
 from jam import Jam
 
 jam = Jam(config="config.json")
-jwt = jam.jwt_encode(payload={"user": 1})
-paseto = jam.paseto_create(payload={"user": 1}, footer=None)
+jwt = jam.issue({"user": 1}, via="jwt")
+paseto = jam.issue({"user": 1}, via="paseto")
 ```
 
 ---
@@ -127,8 +126,8 @@ jam = Jam(
     config="config.toml",
     pointer="anotherpointer" # <- Another pointer
 )
-jwt = jam.jwt_encode(payload={"user": 1})
-paseto = jam.paseto_create(payload={"user": 1}, footer=None)
+jwt = jam.issue({"user": 1}, via="jwt")
+paseto = jam.issue({"user": 1}, via="paseto")
 ```
 
 Our config file will look like this:
@@ -140,7 +139,7 @@ secret_key = "$JWT_SECRET_KEY"
 [anotherpointer.paseto]  # pointer
 version = "v4"
 purpose = "local"
-key = "$PASETO_SECRET_KEY"
+secret_key = "$PASETO_SECRET_KEY"
 ```
 
 !!! tip
@@ -163,6 +162,26 @@ secret_key = "$JWT_SECRET_KEY"
 ```
 
 For more details, see the [documentation on serialization](/usage/serializers.md).
+
+### Config sections
+
+The config is a dict of sections; each section builds one module (or the
+policy). The full list:
+
+| Section | Module | Docs |
+|---------|--------|------|
+| `jose.jwt` | `jam.jose.JWT` | [JWT](/usage/jose/jwt) |
+| `jose.jws` | `jam.jose.JWS` | [JWS](/usage/jose/jws) |
+| `jose.jwe` | `jam.jose.JWE` | [JWE](/usage/jose/jwe) |
+| `paseto` | `jam.paseto.PASETOv1`–`v4` | [PASETO](/usage/paseto) |
+| `session` | `RedisSessions` / `JSONSessions` | [Sessions](/usage/sessions) |
+| `otp` | `HOTP` / `TOTP` | [OTP](/usage/otp) |
+| `oauth2` | `dict[str, OAuth2Client]` | [OAuth2](/usage/oauth2) |
+| `authz` | `jam.Policy` (or custom) | [Authorization](/usage/authz) |
+| `serializer` | `BaseEncoder` | [Serialization](/usage/serializers) |
+
+Each section is optional — configure only what you use. Modules are then
+available as attributes on the instance, e.g. `jam.jwt`, `jam.paseto`.
 
 ### Environment variables
 

@@ -10,7 +10,7 @@ Out of the box, Jam provides two types of sessions: `redis` and `json`.
 To select the session type, you need to specify it in the configuration.
 Different session types have different configuration parameters.
 
-* `session_type`: `str` - `redis` / `json`
+* `type`: `str` - `redis` / `json`
 * `is_session_crypt`: `bool`:
 
 Sometimes you need to encrypt the session ID so that it cannot be forged. If you want to encrypt the session ID, set this parameter to True and pass the encryption key in the session_aes_secret parameter.
@@ -20,21 +20,21 @@ Sometimes you need to encrypt the session ID so that it cannot be forged. If you
 #### Redis
 
 In Redis, sessions are stored as HASH,
-where name is constructed from `<session_path>:<session_key>`. The session ID is used as the key,
+where name is constructed from `<redis_sessions_key>:<session_key>`. The session ID is used as the key,
 and a serialized JSON object with session data is used as the `value`.
 
 Args:
 
 * `redis_uri`: `str` - Redis address.
-* `default_ttl`: `int` - Session lifetime in seconds.
-* `session_path`: `str` - Prefix for session keys in Redis. The default is `sessions`.
+* `ttl`: `int` - Session lifetime in seconds.
+* `redis_sessions_key`: `str` - Prefix for session keys in Redis. The default is `sessions`.
 
 ```toml
 [jam.session]
-session_type = "redis"
+type = "redis"
 redis_uri = "redis://0.0.0.0:6379/0"
 ttl = 3600
-session_path = "sessions
+redis_sessions_key = "sessions"
 ```
 
 #### JSON
@@ -47,7 +47,7 @@ Args:
 
 ```toml
 [jam.session]
-session_type = "json"
+type = "json"
 json_path = "sessions.json"
 ```
 
@@ -67,10 +67,36 @@ from jam import Jam
 jam = Jam(config="config.toml")
 ```
 
+#### Create a session via the facade
 
-#### Create session
+Method: `jam.issue` with `via="session"`
 
-Method: `jam.session_create`
+```python
+session_id = jam.issue({"role": "admin"}, via="session")
+print(session_id)
+>>> 565df195-b963-4ebb-8978-318998ef191c
+```
+
+The `session_key` is read from `config.session.session_key` (defaults to
+`"auth"`).
+
+#### Authenticate a session
+
+Method: `jam.authenticate` with `via="session"`
+
+```python
+data = jam.authenticate(session_id, via="session")
+print(data)
+>>> {"role": "admin"}
+```
+
+#### Session CRUD via the module
+
+`jam.session` exposes the configured session module directly:
+
+##### Create session
+
+Method: `jam.session.create`
 
 Args:
 
@@ -82,19 +108,17 @@ Returns:
 `str`: Session ID.
 
 ```python
-session_id = jam.session_create(
+session_id = jam.session.create(
     session_key="user1",
     data={
         "role": "admin"
     }
 )
-print(session_id)
->>> 565df195-b963-4ebb-8978-318998ef191c
 ```
 
-#### Get session data
+##### Get session data
 
-Method: `jam.session_get`
+Method: `jam.session.get`
 
 Args:
 
@@ -105,18 +129,16 @@ Returns:
 `dict[str, Any] | None`: Session data if session exists.
 
 ```python
-data = jam.session_get(
-    session_id=session_id
-)
+data = jam.session.get(session_id)
 print(data)
 >>> {
         "role": "admin"
     }
 ```
 
-#### Update session data
+##### Update session data
 
-Method: `jam.session_update`
+Method: `jam.session.update`
 
 Args:
 
@@ -126,7 +148,7 @@ Args:
 Returns: `None`
 
 ```python
-jam.session_update(
+jam.session.update(
     session_id=session_id,
     data={
         "role": "banned"
@@ -134,9 +156,9 @@ jam.session_update(
 )
 ```
 
-#### Delete session
+##### Delete session
 
-Method: `jam.session_delete`
+Method: `jam.session.delete`
 
 Args:
 
@@ -145,14 +167,12 @@ Args:
 Returns: `None`
 
 ```python
-jam.session_delete(
-    session_id=session_id
-)
+jam.session.delete(session_id)
 ```
 
-#### Clear all user sessions
+##### Clear all user sessions
 
-Method: `jam.session_clear`
+Method: `jam.session.clear`
 
 Args:
 
@@ -161,14 +181,12 @@ Args:
 Returns: `None`
 
 ```python
-jam.session_clear(
-    session_key="user1"
-)
+jam.session.clear(session_key="user1")
 ```
 
-#### Session rework
+##### Session rework
 
-Method: `jam.session_rework`
+Method: `jam.session.rework`
 
 Args:
 
@@ -179,9 +197,7 @@ Returns:
 `str`: New session ID.
 
 ```python
-new_session_id = jam.session_rework(
-    old_session_id=session_id
-)
+new_session_id = jam.session.rework(session_id)
 ```
 
 ## Use out of instance
@@ -201,10 +217,12 @@ Args:
 * `serializer`: `BaseEncoder | type[BaseEncoder] = JsonEncoder` - JSON serializer.
 
 ```python
+from jam.sessions import RedisSessions
+
 session = RedisSessions(
     redis_uri="redis://localhost:6379",
     redis_sessions_key="sessions",
-    default_ttl=3600,
+    ttl=3600,
 )
 ```
 

@@ -28,95 +28,45 @@ from jam import Jam
 jam = Jam(config="config.toml")
 ```
 
-#### Generate payload
+#### Issue a token
 
-Method: `jam.paseto_make_payload`
-
-Args:
-
-* `exp`: `int | None = Non`: Token lifetime.
-* `data`: `dict[str, Any]`: Data to payload.
-
-Returns:
-
-`dict[str, Any]`: Payload.
+Method: `jam.issue`
 
 ```python
-payload = jam.paseto_make_payload(
+token = jam.issue(
+    {"id": 1, "role": "admin"},
+    via="paseto",
     exp=3600,
-    data={
-        "id": 1,
-        "role": "admin"
-    }
-)
-print(token)
->>> {
-        'iat': 1772129106.102009,
-        'exp': 1772132706.102009,
-        'pit': '0c2c38d2-5dcb-4294-bb2d-0820f6ff787d',
-        'data': {'id': 1, 'role': 'admin'}
-    }
-```
-
-#### Create token
-
-Method: `jam.paset_create`
-
-Args:
-
-* `payload`: `dict[str, Any]` - Token payload.
-* `footer`: `dict[str, Any] | str | None` - Token footer.
-
-Returns:
-
-`str`: PASETO.
-
-```python
-token = jam.paseto_create(
-    payload=payload,
-    footer={
-        "some": "footer",
-        "as": "dict"
-    }
 )
 print(token)
 >>> v4.local.wTgWfsaSTjBcuZSqI7mT...
 ```
 
+#### Authenticate a token
 
-#### Decode token
-
-Method: `jam.paseto_decode`
-
-Args:
-
-* `token`: `str` - PASETO.
-* `check_exp`: `bool = True` - Check token expiration.
-* `check_list`: `bool = True` - Check token list.
-
-Returns:
-
-`dict[str, dict[str, Any] | str | None]` - dict like `{"payload": {<payload_data>}, "footer": <footer_data>`.
+Method: `jam.authenticate`
 
 ```python
-data = jam.paseto_decode(
-    token=token,
-    check_exp=True,
-    check_list=False
-)
+data = jam.authenticate(token, via="paseto")
 print(data)
->>> {
-        'payload': {
-            'data': {'id': 1, 'role': 'admin'},
-            'exp': 1772132706.102009,
-            'iat': 1772129106.102009,
-            'pit': '0c2c38d2-5dcb-4294-bb2d-0820f6ff787d'
-            },
-        'footer': {
-            'as': 'dict',
-            'some': 'footer'
-        }
-    }
+>>> {'sub': '1', 'id': 1, 'role': 'admin', 'exp': 1772132706, ...}
+```
+
+#### Access the module directly
+
+`jam.paseto` exposes the configured `PASETOv*` instance. Encode/decode with
+a custom payload and footer:
+
+```python
+token = jam.paseto.encode(
+    payload={"id": 1, "role": "admin"},
+    footer={"some": "footer", "as": "dict"},
+)
+payload, footer = jam.paseto.decode(token)
+print(payload)
+>>> {'id': 1, 'role': 'admin'}
+print(footer)
+>>> {'as': 'dict', 'some': 'footer'}
 ```
 
 ## Use out of instance
@@ -144,7 +94,7 @@ Returns:
 `PASETOv4`: Built PASETOv4 instance.
 
 ```python
-from jam.paseto import PASETOv4`
+from jam.paseto import PASETOv4
 
 paseto = PASETOv4.key(
     purpose="local",

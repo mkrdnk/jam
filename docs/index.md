@@ -27,23 +27,32 @@ Installed!
 
 
 ## Quick example
+
 ```python
-from jam import Jam
+from dataclasses import dataclass
 
-jam = Jam(config="config.toml")
-payload = {
-    "user": 1
-}
+from jam import BaseSubject, Jam
 
-jwt = jam.jwt_encode(payload=payload)
-session_id = jam.session_create("user@mail.com", payload)
-otp_code = jam.otp_code(secret="7K2HVNA3IQCYFFDX76IXKNCZHQ")
+
+@dataclass
+class User(BaseSubject):
+    id: str
+    email: str = ""
+
+
+jam = Jam(config="config.toml", subject=User)
+
+token = jam.issue(User(id="1", email="user@example.com"), via="jwt")
+user = jam.authenticate(token, via="jwt")
 ```
+
+See the [Quickstart](/usage/quickstart) for a step-by-step walkthrough.
 
 ## Asynchronous support
 !!! note
-    You can use `jam.aio` module to work with async functions. **The methods are the same**, but you need to use `await` keyword.
-
+    The async facade is available in the `jam.aio` module. The methods are
+    awaitable versions of the historical sync API (`jwt_encode`,
+    `session_create`, `otp_code`, ...).
 
 ```python
 from jam.aio import Jam
