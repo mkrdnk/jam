@@ -27,7 +27,6 @@ class BaseExtension:
 
         Args:
             app (flask.Flask | None): Flask application instance
-            auth (Any | None): Pre-created auth module instance
             **kwargs: Configuration arguments
         """
         self.app = app

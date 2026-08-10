@@ -42,7 +42,7 @@ class BasePlugin(InitPlugin):
         bearer: bool = False,
         middleware: bool = True,
         user: type[BaseUser] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Initialize the plugin.
 
@@ -120,7 +120,7 @@ class JWTPlugin(BasePlugin):
         bearer: bool = False,
         use_list: bool = False,
         user: type[BaseUser] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Initialize the plugin.
 
@@ -178,7 +178,7 @@ class OAuth2Plugin(BasePlugin):
         self,
         config: str | dict[str, Any] | None = None,
         pointer: str = GENERIC_POINTER,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Initialize the OAuth2 plugin.
 
