@@ -50,6 +50,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `authorize(principal, permission, context=None)` — checks credential
     grants and the `[jam.authz]` policy
   - `subject` / `config` as class attributes overridable via `__init__`
+- Independent `jam.aio.AsyncJam` facade with awaitable `issue()` and
+  `authenticate()`, native async Redis sessions/token lists and async OAuth2
+  HTTP; `jam.aio.Jam` remains an import-compatible alias
+- Async context management closes Redis and OAuth2 clients created by
+  `AsyncJam`
 - Config caching — config files are parsed once and cached per
   path + pointer (`JAM_CONFIG_CACHING=true`, default). Set
   `JAM_CONFIG_CACHING=false` to re-read config on every instance creation

@@ -107,7 +107,9 @@ def test_authorize_with_policy():
     jam = Jam(
         config={
             "jose": {"jwt": {"alg": "HS256", "secret_key": "SECRET"}},
-            "authz": {"rules": {"post:read": ["*"], "post:edit": ["id=user123"]}},
+            "authz": {
+                "rules": {"post:read": ["*"], "post:edit": ["id=user123"]}
+            },
         },
         subject=User,
     )

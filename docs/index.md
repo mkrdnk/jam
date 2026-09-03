@@ -15,7 +15,7 @@ image: assets/logo_n_title.png
 [![GitHub License](https://img.shields.io/github/license/mkrdnk/jam)](https://github.com/mkrdnk/jam/blob/master/LICENSE.md)
 
 ## About
-**Jam (Jam Auth Module)** - A universal auth* combine that provides popular auth mechanisms strictly according to the specification.
+**Jam (Jam Auth Module)** - A universal auth* framework that provides popular auth mechanisms strictly according to the specification.
 
 ## Installation
 <!-- termynal -->
@@ -51,18 +51,19 @@ See the [Quickstart](/usage/quickstart) for a step-by-step walkthrough.
 
 ## Asynchronous support
 !!! note
-    The async facade is available in the `jam.aio` module. The methods are
-    awaitable versions of the historical sync API (`jwt_encode`,
-    `session_create`, `otp_code`, ...).
+    `AsyncJam` uses native async session, token-list, and OAuth2 backends.
+    Stateless cryptographic modules and authorization remain synchronous.
 
 ```python
-from jam.aio import Jam
+from jam.aio import AsyncJam
 
-jam = Jam(config="config.toml")
-token = await jam.jwt_encode(
+jam = AsyncJam(config="config.toml")
+token = await jam.issue(
+    {"id": "username@example.com"},
+    via="jwt",
     iss="Jam",
-    sub="username@example.com"
 )
+principal = await jam.authenticate(token)
 ```
 
 

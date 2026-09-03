@@ -2,9 +2,10 @@
 
 """Async OAuth2 module."""
 
+import inspect
 from typing import Any
 
-from jam.oauth2.__base__ import BaseOAuth2Client
+from jam.aio.oauth2.__base__ import BaseAsyncOAuth2Client
 from jam.aio.oauth2.client import OAuth2Client
 from jam.aio.oauth2.builtin.github import GitHubOAuth2Client
 from jam.aio.oauth2.builtin.gitlab import GitLabOAuth2Client
@@ -21,11 +22,11 @@ BUILTIN_PROVIDERS = {
 }
 
 
-def create_instance(
+def build_clients(
     providers: dict[str, dict],
     serializer: BaseEncoder | type[BaseEncoder] = JsonEncoder,
-    **kwargs: Any
-) -> dict[str, BaseOAuth2Client]:
+    **kwargs: Any,
+) -> dict[str, BaseAsyncOAuth2Client]:
     """Create async OAuth2 clients for configured providers.
 
     Args:
@@ -48,8 +49,10 @@ def create_instance(
             module_path = BUILTIN_PROVIDERS.get(name, "jam.aio.oauth2.client.OAuth2Client")
             module_cls = __module_loader__(module_path)
 
-        # Add serializer to config if not already present
-        if "serializer" not in cfg:
+        if (
+            "serializer" not in cfg
+            and "serializer" in inspect.signature(module_cls.__init__).parameters
+        ):
             cfg["serializer"] = serializer
 
         result[name] = module_cls(**cfg)
@@ -57,12 +60,16 @@ def create_instance(
     return result
 
 
+create_instance = build_clients
+
+
 __all__ = [
-    "BaseOAuth2Client",
+    "BaseAsyncOAuth2Client",
     "OAuth2Client",
     "GitHubOAuth2Client",
     "GitLabOAuth2Client",
     "GoogleOAuth2Client",
     "YandexOAuth2Client",
+    "build_clients",
     "create_instance",
 ]

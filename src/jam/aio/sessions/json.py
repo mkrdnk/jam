@@ -207,3 +207,7 @@ class JSONSessions(BaseAsyncSessionModule):
         )
         logger.debug("Session ID %s reworked to %s", session_id, new_session_id)
         return new_session_id
+
+    async def aclose(self) -> None:
+        """Close the TinyDB file without blocking the event loop."""
+        await asyncio.to_thread(self._db.close)

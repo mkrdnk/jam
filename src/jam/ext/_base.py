@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from jam import Jam
+from jam.aio import AsyncJam
 from jam.authz import Principal
 from jam.exceptions import JamConfigurationError, JamError
 
@@ -25,9 +27,7 @@ class CredentialSource:
         return cls("header", name, "Bearer")
 
     @classmethod
-    def header(
-        cls, name: str, scheme: str | None = None
-    ) -> CredentialSource:
+    def header(cls, name: str, scheme: str | None = None) -> CredentialSource:
         """Create a header credential source."""
         return cls("header", name, scheme)
 
@@ -43,6 +43,42 @@ class CredentialSource:
 
 
 DEFAULT_SOURCES = (CredentialSource.bearer(),)
+
+
+def _extract_credential(
+    sources: Sequence[CredentialSource],
+    *,
+    headers: Mapping[str, str],
+    cookies: Mapping[str, str],
+    query: Mapping[str, str] | None,
+) -> tuple[str | None, CredentialSource | None]:
+    """Extract the first available credential in configured order."""
+    normalized_headers = {
+        key.casefold(): value for key, value in headers.items()
+    }
+    for source in sources:
+        if source.kind == "header":
+            value = normalized_headers.get(source.name.casefold())
+        elif source.kind == "cookie":
+            value = cookies.get(source.name)
+        elif query is not None:
+            value = query.get(source.name)
+        else:
+            continue
+        if not value:
+            continue
+        if source.scheme is not None:
+            scheme, separator, credential = value.partition(" ")
+            if (
+                not separator
+                or scheme.casefold() != source.scheme.casefold()
+                or not credential
+            ):
+                continue
+            value = credential.strip()
+        if value:
+            return value, source
+    return None, None
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,32 +120,12 @@ class Authenticator:
         query: Mapping[str, str] | None = None,
     ) -> tuple[str | None, CredentialSource | None]:
         """Extract the first available credential in configured order."""
-        normalized_headers = {
-            key.casefold(): value for key, value in headers.items()
-        }
-        for source in self.sources:
-            if source.kind == "header":
-                value = normalized_headers.get(source.name.casefold())
-            elif source.kind == "cookie":
-                value = cookies.get(source.name)
-            elif query is not None:
-                value = query.get(source.name)
-            else:
-                continue
-            if not value:
-                continue
-            if source.scheme is not None:
-                scheme, separator, credential = value.partition(" ")
-                if (
-                    not separator
-                    or scheme.casefold() != source.scheme.casefold()
-                    or not credential
-                ):
-                    continue
-                value = credential.strip()
-            if value:
-                return value, source
-        return None, None
+        return _extract_credential(
+            self.sources,
+            headers=headers,
+            cookies=cookies,
+            query=query,
+        )
 
     def authenticate(self, token: str) -> AuthenticationResult:
         """Authenticate one credential without leaking expected failures."""
@@ -137,6 +153,81 @@ class Authenticator:
         if token is None:
             return AuthenticationResult()
         result = self.authenticate(token)
+        return AuthenticationResult(
+            principal=result.principal,
+            token=result.token,
+            source=source,
+            error=result.error,
+        )
+
+
+class AsyncAuthenticator:
+    """Framework-independent adapter for asynchronous HTTP frameworks."""
+
+    def __init__(
+        self,
+        jam: AsyncJam | Jam,
+        *,
+        sources: Sequence[CredentialSource] = DEFAULT_SOURCES,
+        via: str | None = None,
+    ) -> None:
+        """Initialize an async adapter.
+
+        Synchronous Jam instances are run in a worker thread for compatibility.
+        New ASGI applications should pass :class:`jam.aio.AsyncJam`.
+        """
+        self.jam = jam
+        self.sources = tuple(sources)
+        self.via = via
+
+    def extract(
+        self,
+        *,
+        headers: Mapping[str, str],
+        cookies: Mapping[str, str],
+        query: Mapping[str, str] | None = None,
+    ) -> tuple[str | None, CredentialSource | None]:
+        """Extract a request credential using the common source rules."""
+        return _extract_credential(
+            self.sources,
+            headers=headers,
+            cookies=cookies,
+            query=query,
+        )
+
+    async def authenticate(self, token: str) -> AuthenticationResult:
+        """Authenticate without blocking the event loop."""
+        try:
+            if isinstance(self.jam, AsyncJam):
+                principal = await self.jam.authenticate(token, via=self.via)
+            else:
+                principal = await asyncio.to_thread(
+                    self.jam.authenticate,
+                    token,
+                    via=self.via,
+                )
+        except JamConfigurationError:
+            raise
+        except JamError as error:
+            return AuthenticationResult(token=token, error=error)
+        return AuthenticationResult(principal=principal, token=token)
+
+    async def authenticate_request(
+        self,
+        *,
+        headers: Mapping[str, str],
+        cookies: Mapping[str, str],
+        query: Mapping[str, str] | None = None,
+    ) -> AuthenticationResult:
+        """Extract and asynchronously authenticate a request credential."""
+        token, source = self.extract(
+            headers=headers,
+            cookies=cookies,
+            query=query,
+        )
+        if token is None:
+            return AuthenticationResult()
+        result = await self.authenticate(token)
         return AuthenticationResult(
             principal=result.principal,
             token=result.token,

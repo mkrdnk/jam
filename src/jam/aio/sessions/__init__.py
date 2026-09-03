@@ -12,6 +12,9 @@ from jam.aio.sessions.__base__ import BaseAsyncSessionModule
 from jam.encoders import BaseEncoder, JsonEncoder
 
 
+SUPPORTED_SESSION_TYPES = ("redis", "json", "custom")
+
+
 def create_instance(
     session_type: str | None = None,
     sessions_type: str | None = None,
@@ -100,4 +103,4 @@ def create_instance(
         raise ValueError(f"Unknown session_type: {session_type}")
 
 
-__all__ = ["create_instance"]
+__all__ = ["SUPPORTED_SESSION_TYPES", "create_instance"]

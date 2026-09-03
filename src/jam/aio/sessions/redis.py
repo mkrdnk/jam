@@ -51,8 +51,10 @@ class RedisSessions(BaseAsyncSessionModule):
         )
         if isinstance(redis_uri, str):
             self._redis = Redis.from_url(redis_uri, decode_responses=True)
+            self._owns_redis = True
         else:
             self._redis = redis_uri
+            self._owns_redis = False
         logger.debug("Redis async connection established at %s", redis_uri)
 
         self.ttl = default_ttl
@@ -240,3 +242,8 @@ class RedisSessions(BaseAsyncSessionModule):
 
         await self.delete(session_id)
         return new_session_id
+
+    async def aclose(self) -> None:
+        """Close an internally-created Redis client."""
+        if self._owns_redis:
+            await self._redis.aclose()

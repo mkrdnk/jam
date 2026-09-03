@@ -7,8 +7,10 @@ import uuid
 
 from jam.__deprecated__ import deprecated
 from jam.aio import Jam as AioJam
+from jam.authz import AuthorizationContext, Principal
 from jam.instance import Jam
 from jam.jose.utils import __base64url_decode__ as base64url_decode
+from jam.subject import BaseSubject
 from jam.tests.fakers import (
     fake_jwe_token,
     fake_jws_token,
@@ -70,14 +72,20 @@ class TestJam(Jam):
         self._sessions: dict[str, dict[str, Any]] = {}
         self._session_keys: dict[str, str] = {}
 
-    def authorize(self, subject: Any, permission: str) -> bool:
+    def authorize(
+        self,
+        principal: Principal[Any] | BaseSubject | dict[str, Any],
+        permission: str,
+        context: AuthorizationContext | None = None,
+    ) -> bool:
         """Check whether a subject is allowed to perform a permission.
 
         Always succeeds for test purposes.
 
         Args:
-            subject (Any): Subject instance.
+            principal: Authenticated principal or subject.
             permission (str): Permission name.
+            context: Dynamic authorization context.
 
         Returns:
             bool: Always True.
@@ -86,13 +94,14 @@ class TestJam(Jam):
 
     def issue(
         self,
-        subject: Any,
+        subject: BaseSubject | dict[str, Any],
         via: str | None = None,
         exp: int | None = None,
         iss: str | None = None,
         aud: str | None = None,
         nbf: int | None = None,
         jti: str | None = None,
+        permissions: list[str] | None = None,
         **claims: Any,
     ) -> str:
         """Issue a fake token or session for a subject.
@@ -105,15 +114,13 @@ class TestJam(Jam):
             aud (str | None): Audience.
             nbf (int | None): Not-before in seconds.
             jti (str | None): Token ID.
+            permissions: Permissions granted to this credential.
             **claims: Extra payload claims.
 
         Returns:
             str: Issued fake token or session ID.
         """
-        payload = (
-            subject.to_dict() if hasattr(subject, "to_dict") else dict(subject)
-        )
-        payload.update(claims)
+        payload = self._prepare_payload(subject, permissions, claims)
         if via == "paseto":
             return fake_paseto_token(payload, None)
         if via == "session":
@@ -128,7 +135,11 @@ class TestJam(Jam):
             payload=payload,
         )
 
-    def authenticate(self, token: str, via: str | None = None) -> Any:
+    def authenticate(
+        self,
+        token: str,
+        via: str | None = None,
+    ) -> Principal[Any]:
         """Authenticate a fake token or session.
 
         Args:
@@ -136,9 +147,29 @@ class TestJam(Jam):
             via (str | None): Token type.
 
         Returns:
-            Any: Decoded payload dict.
+            Principal: Fake authenticated principal.
         """
-        return self.jwt_decode(token, check_exp=False, check_list=False)
+        via = via or self._detect_token_type(token)
+        if via == "session":
+            payload = self.session_get(token)
+            if payload is None:
+                raise ValueError("Session not found.")
+        elif via == "paseto":
+            result = self.paseto_decode(token, check_exp=False)
+            payload = result["payload"]
+            if not isinstance(payload, dict):
+                raise ValueError("Invalid PASETO payload.")
+        else:
+            payload = self.jwt_decode(
+                token,
+                check_exp=False,
+                check_list=False,
+            )
+        return Principal(
+            subject=self._subject_from_payload(payload),
+            claims=dict(payload),
+            token_type=via,
+        )
 
     @deprecated(
         "This method is deprecated; the JWT payload is generated automatically in accordance with the specification."
@@ -1195,3 +1226,72 @@ class TestAsyncJam(AioJam):
             UnicodeDecodeError,
         ) as e:
             raise ValueError("Invalid PASETO token format.") from e
+
+    def authorize(
+        self,
+        principal: Principal[Any] | BaseSubject | dict[str, Any],
+        permission: str,
+        context: AuthorizationContext | None = None,
+    ) -> bool:
+        """Allow authorization checks in tests."""
+        return True
+
+    async def issue(
+        self,
+        subject: BaseSubject | dict[str, Any],
+        via: str | None = None,
+        exp: int | None = None,
+        iss: str | None = None,
+        aud: str | None = None,
+        nbf: int | None = None,
+        jti: str | None = None,
+        permissions: list[str] | None = None,
+        **claims: Any,
+    ) -> str:
+        """Issue a fake credential through the 4.0 async facade."""
+        payload = self._prepare_payload(subject, permissions, claims)
+        via = via or "jwt"
+        if via == "jwt":
+            return await self.jwt_encode(
+                iss=iss,
+                aud=aud,
+                exp=exp,
+                nbf=nbf,
+                jti=jti,
+                payload=payload,
+            )
+        if via == "session":
+            return await self.session_create("auth", payload)
+        if via == "paseto":
+            return await self.paseto_create(payload, None)
+        raise ValueError(f"Unknown credential type: {via}")
+
+    async def authenticate(
+        self,
+        token: str,
+        via: str | None = None,
+    ) -> Principal[Any]:
+        """Authenticate a fake credential through the 4.0 async facade."""
+        via = via or self._detect_token_type(token)
+        if via == "jwt":
+            payload = await self.jwt_decode(
+                token,
+                check_exp=False,
+                check_list=False,
+            )
+        elif via == "session":
+            payload = await self.session_get(token)
+            if payload is None:
+                raise ValueError("Session not found.")
+        elif via == "paseto":
+            result = await self.paseto_decode(token, check_exp=False)
+            payload = result["payload"]
+            if not isinstance(payload, dict):
+                raise ValueError("Invalid PASETO payload.")
+        else:
+            raise ValueError(f"Unknown credential type: {via}")
+        return Principal(
+            subject=self._subject_from_payload(payload),
+            claims=dict(payload),
+            token_type=via,
+        )

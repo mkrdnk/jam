@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from typing import Any
 
-from anyio import to_thread
 from litestar.config.app import AppConfig
 from litestar.connection import ASGIConnection
 from litestar.di import Provide
@@ -21,8 +20,13 @@ from litestar.middleware import (
 from litestar.plugins import InitPlugin
 
 from jam import Jam
+from jam.aio import AsyncJam
 from jam.authz import Principal
-from jam.ext._base import DEFAULT_SOURCES, Authenticator, CredentialSource
+from jam.ext._base import (
+    DEFAULT_SOURCES,
+    AsyncAuthenticator,
+    CredentialSource,
+)
 
 
 class JamAuthenticationMiddleware(AbstractAuthenticationMiddleware):
@@ -32,7 +36,7 @@ class JamAuthenticationMiddleware(AbstractAuthenticationMiddleware):
         self,
         app: Any,
         *,
-        jam: Jam,
+        jam: AsyncJam | Jam,
         sources: Sequence[CredentialSource] = DEFAULT_SOURCES,
         via: str | None = None,
         reject_invalid: bool = True,
@@ -40,7 +44,11 @@ class JamAuthenticationMiddleware(AbstractAuthenticationMiddleware):
     ) -> None:
         """Initialize middleware for one application instance."""
         self.jam = jam
-        self.authenticator = Authenticator(jam, sources=sources, via=via)
+        self.authenticator = AsyncAuthenticator(
+            jam,
+            sources=sources,
+            via=via,
+        )
         self.reject_invalid = reject_invalid
         super().__init__(app, **kwargs)
 
@@ -49,12 +57,10 @@ class JamAuthenticationMiddleware(AbstractAuthenticationMiddleware):
         connection: ASGIConnection,
     ) -> AuthenticationResult:
         """Authenticate a request and expose its principal as ``user``."""
-        result = await to_thread.run_sync(
-            lambda: self.authenticator.authenticate_request(
-                headers=dict(connection.headers),
-                cookies=dict(connection.cookies),
-                query=dict(connection.query_params),
-            )
+        result = await self.authenticator.authenticate_request(
+            headers=dict(connection.headers),
+            cookies=dict(connection.cookies),
+            query=dict(connection.query_params),
         )
         connection.state.jam = self.jam
         connection.state.principal = result.principal
@@ -69,7 +75,7 @@ class JamPlugin(InitPlugin):
 
     def __init__(
         self,
-        jam: Jam,
+        jam: AsyncJam | Jam,
         *,
         sources: Sequence[CredentialSource] = DEFAULT_SOURCES,
         via: str | None = None,
@@ -106,7 +112,7 @@ class JamPlugin(InitPlugin):
 
 
 def permission_guard(
-    jam: Jam,
+    jam: AsyncJam | Jam,
     permission: str,
     *,
     context: Callable[[ASGIConnection], Any] | None = None,

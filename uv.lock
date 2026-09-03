@@ -712,6 +712,9 @@ json = [
 litestar = [
     { name = "litestar" },
 ]
+oauth2 = [
+    { name = "httpx" },
+]
 redis = [
     { name = "redis" },
 ]
@@ -757,6 +760,7 @@ requires-dist = [
     { name = "cryptography", specifier = ">=48.0.0" },
     { name = "fastapi", marker = "extra == 'fastapi'", specifier = ">=0.135.1" },
     { name = "flask", marker = "extra == 'flask'", specifier = ">=3.1.2" },
+    { name = "httpx", marker = "extra == 'oauth2'", specifier = ">=0.28.1" },
     { name = "litestar", marker = "extra == 'litestar'", specifier = ">=2.21.1" },
     { name = "pyyaml", marker = "extra == 'yaml'", specifier = ">=6.0.3" },
     { name = "redis", marker = "extra == 'redis'", specifier = ">=7.3.0" },
@@ -764,7 +768,7 @@ requires-dist = [
     { name = "tinydb", marker = "extra == 'json'", specifier = ">=4.8.2" },
     { name = "toml", marker = "extra == 'toml'", specifier = ">=0.10.2" },
 ]
-provides-extras = ["cli", "redis", "json", "yaml", "toml", "litestar", "starlette", "fastapi", "flask"]
+provides-extras = ["cli", "redis", "json", "oauth2", "yaml", "toml", "litestar", "starlette", "fastapi", "flask"]
 
 [package.metadata.requires-dev]
 dev = [

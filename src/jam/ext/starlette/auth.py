@@ -11,14 +11,14 @@ from starlette.authentication import (
     AuthenticationError,
     BaseUser,
 )
-from starlette.concurrency import run_in_threadpool
 from starlette.requests import HTTPConnection
 
 from jam import Jam
+from jam.aio import AsyncJam
 from jam.authz import Principal
 from jam.ext._base import (
     DEFAULT_SOURCES,
-    Authenticator,
+    AsyncAuthenticator,
     CredentialSource,
     permissions_from,
 )
@@ -60,7 +60,7 @@ class JamAuthBackend(AuthenticationBackend):
 
     def __init__(
         self,
-        jam: Jam,
+        jam: AsyncJam | Jam,
         *,
         sources: Sequence[CredentialSource] = DEFAULT_SOURCES,
         via: str | None = None,
@@ -68,7 +68,11 @@ class JamAuthBackend(AuthenticationBackend):
     ) -> None:
         """Initialize the backend with one shared Jam instance."""
         self.jam = jam
-        self.authenticator = Authenticator(jam, sources=sources, via=via)
+        self.authenticator = AsyncAuthenticator(
+            jam,
+            sources=sources,
+            via=via,
+        )
         self.reject_invalid = reject_invalid
 
     async def authenticate(
@@ -76,8 +80,7 @@ class JamAuthBackend(AuthenticationBackend):
         conn: HTTPConnection,
     ) -> tuple[AuthCredentials, BaseUser] | None:
         """Authenticate a connection using Starlette's native contract."""
-        result = await run_in_threadpool(
-            self.authenticator.authenticate_request,
+        result = await self.authenticator.authenticate_request(
             headers=dict(conn.headers),
             cookies=dict(conn.cookies),
             query=dict(conn.query_params),

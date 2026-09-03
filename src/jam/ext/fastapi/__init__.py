@@ -7,11 +7,14 @@ from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Request, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from starlette.concurrency import run_in_threadpool
-
 from jam import Jam
+from jam.aio import AsyncJam
 from jam.authz import Principal
-from jam.ext._base import DEFAULT_SOURCES, Authenticator, CredentialSource
+from jam.ext._base import (
+    DEFAULT_SOURCES,
+    AsyncAuthenticator,
+    CredentialSource,
+)
 
 
 _bearer = HTTPBearer(auto_error=False)
@@ -26,13 +29,17 @@ class JamAuth:
 
     def __init__(
         self,
-        jam: Jam,
+        jam: AsyncJam | Jam,
         *,
         sources: Sequence[CredentialSource] = DEFAULT_SOURCES,
         via: str | None = None,
     ) -> None:
         self.jam = jam
-        self.authenticator = Authenticator(jam, sources=sources, via=via)
+        self.authenticator = AsyncAuthenticator(
+            jam,
+            sources=sources,
+            via=via,
+        )
 
     async def optional(
         self,
@@ -45,8 +52,7 @@ class JamAuth:
             headers["Authorization"] = (
                 f"{credential.scheme} {credential.credentials}"
             )
-        result = await run_in_threadpool(
-            self.authenticator.authenticate_request,
+        result = await self.authenticator.authenticate_request(
             headers=headers,
             cookies=dict(request.cookies),
             query=dict(request.query_params),
@@ -86,8 +92,7 @@ class JamAuth:
             authz_context = (
                 context(request, principal) if context is not None else None
             )
-            allowed = await run_in_threadpool(
-                self.jam.authorize,
+            allowed = self.jam.authorize(
                 principal,
                 permission,
                 authz_context,

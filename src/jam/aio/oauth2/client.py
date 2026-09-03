@@ -1,32 +1,50 @@
 # -*- coding: utf-8 -*-
 
-import asyncio
-from contextlib import contextmanager
-from http.client import HTTPSConnection
 import json
 from typing import Any
 import urllib.parse
 
+
+try:
+    import httpx
+except ImportError:
+    raise ImportError(
+        "Async OAuth2 support requires 'pip install jamlib[oauth2]'."
+    )
+
 from jam.aio.oauth2.__base__ import BaseAsyncOAuth2Client
+from jam.encoders import BaseEncoder, JsonEncoder
 from jam.exceptions import JamOAuth2EmptyRaw, JamOAuth2Error
 
 
 class OAuth2Client(BaseAsyncOAuth2Client):
     """Async universal OAuth2 client implementation."""
 
-    @contextmanager
-    def __http(self, url: str):
-        """Create HTTPS connection context manager."""
-        parsed = urllib.parse.urlparse(url)
-        connection = HTTPSConnection(parsed.netloc)
-        try:
-            yield connection, parsed
-        finally:
-            connection.close()
+    def __init__(
+        self,
+        client_id: str,
+        client_secret: str,
+        auth_url: str,
+        token_url: str,
+        redirect_url: str,
+        serializer: BaseEncoder | type[BaseEncoder] = JsonEncoder,
+        client: httpx.AsyncClient | None = None,
+    ) -> None:
+        """Initialize the client with an optional user-owned HTTP client."""
+        super().__init__(
+            client_id=client_id,
+            client_secret=client_secret,
+            auth_url=auth_url,
+            token_url=token_url,
+            redirect_url=redirect_url,
+            serializer=serializer,
+        )
+        self._client = client or httpx.AsyncClient()
+        self._owns_client = client is None
 
-    async def get_authorization_url(  # type: ignore[override]
+    def get_authorization_url(
         self, scope: list[str], **extra_params: Any
-    ) -> str:  # type: ignore[override]
+    ) -> str:
         """Generate full OAuth2 authorization URL.
 
         Args:
@@ -130,46 +148,37 @@ class OAuth2Client(BaseAsyncOAuth2Client):
     async def __post_form(
         self, url: str, params: dict[str, Any]
     ) -> dict[str, Any]:
-        """Send POST form and parse JSON response (async version)."""
-        encoded = urllib.parse.urlencode(params)
+        """Send a non-blocking POST form request and parse its response."""
+        response = await self._client.post(url, data=params)
+        raw = response.text
+        if not raw:
+            raise JamOAuth2EmptyRaw(
+                details={
+                    "endpoint": url,
+                    "method": "POST",
+                    "params": params,
+                }
+            )
 
-        def _sync_post():
-            """Synchronous POST operation wrapped for async execution."""
-            with self.__http(url) as (conn, parsed):
-                conn.request(
-                    "POST",
-                    parsed.path,
-                    body=encoded,
-                    headers={
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    },
-                )
-                response = conn.getresponse()
-                raw = response.read().decode("utf-8")
+        try:
+            data = self._serializer.loads(raw)
+        except (json.JSONDecodeError, AttributeError):
+            data = {
+                key: value[0]
+                for key, value in urllib.parse.parse_qs(raw).items()
+            }
 
-            if not raw:
-                raise JamOAuth2EmptyRaw(
-                    details={
-                        "endpoint": url,
-                        "methid": "POST",
-                        "params": params,
-                    }
-                )
+        if response.is_error:
+            raise JamOAuth2Error(
+                details={
+                    "status": response.status_code,
+                    "reason": response.reason_phrase,
+                    "data": data,
+                }
+            )
+        return data
 
-            try:
-                data = self._serializer.loads(raw)
-            except (json.JSONDecodeError, AttributeError):
-                data = {k: v[0] for k, v in urllib.parse.parse_qs(raw).items()}
-
-            if response.status >= 400:
-                raise JamOAuth2Error(
-                    details={
-                        "status": response.status,
-                        "reason": response.reason,
-                        "data": data,
-                    }
-                )
-
-            return data
-
-        return await asyncio.to_thread(_sync_post)
+    async def aclose(self) -> None:
+        """Close the internally-created HTTP client."""
+        if self._owns_client:
+            await self._client.aclose()

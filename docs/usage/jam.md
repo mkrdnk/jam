@@ -171,12 +171,32 @@ See [Authorization](/usage/authz) for the policy syntax.
 
 ## Async
 
-The async facade lives in `jam.aio`. It keeps the historical `jwt_encode`,
-`session_create`, `otp_code`, etc. methods and returns awaitables:
+The async facade is independent from the synchronous `Jam` contract. Its
+high-level credential operations are always awaitable because a credential
+may use an I/O-backed session store or token list:
 
 ```python
-from jam.aio import Jam
+from jam.aio import AsyncJam
 
-jam = Jam(config="config.toml")
-token = await jam.jwt_encode(sub="user@example.com", exp=3600)
+jam = AsyncJam(config="config.toml")
+token = await jam.issue({"id": "user@example.com"}, via="jwt", exp=3600)
+principal = await jam.authenticate(token)
 ```
+
+Pure module operations remain synchronous in both facades:
+
+```python
+token = jam.jwt.encode(payload={"sub": "user@example.com"})
+allowed = jam.authorize(principal, "post:edit")
+```
+
+Session stores, token lists, and OAuth2 network operations use native async
+implementations. Prefer `async with AsyncJam(...)` when the configuration
+creates Redis or HTTP clients:
+
+```python
+async with AsyncJam(config="config.toml") as jam:
+    principal = await jam.authenticate(token)
+```
+
+`jam.aio.Jam` remains an alias for `AsyncJam` for import compatibility.

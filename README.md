@@ -9,7 +9,7 @@
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/mkrdnk/jam)
 [![GitHub License](https://img.shields.io/github/license/mkrdnk/jam)](https://github.com/mkrdnk/jam/blob/master/LICENSE.md)
 
-**Jam (Jam Auth Module)** - A universal auth* combine that provides popular auth mechanisms strictly according to the specification.
+**Jam (Jam Auth Module)** - A universal auth* framework that provides popular auth mechanisms strictly according to the specification.
 
 * Documentation: [jam.makridenko.ru](https://jam.makridenko.ru)
 * Changelog: [CHANGELOG.md](https://github.com/mkrdnk/jam/blob/master/CHANGELOG.md)
@@ -26,9 +26,9 @@ from jam import Jam
 
 jam = Jam(config="config.toml")
 
-jwt = jam.jwt_encode(payload={"user": 1})
-session_id = jam.session_create(session_key="username", data={"user": 1})
-otp_code = jam.otp_code(secret="3DB7FOAOFBCI3WFDRE7EPF43CA")
+jwt = jam.issue({"id": "user-1"}, via="jwt")
+principal = jam.authenticate(jwt)
+allowed = jam.authorize(principal, "profile:read")
 ```
 
 ## Why Jam?

@@ -2,22 +2,15 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-import logging
 from typing import Any
 from uuid import uuid4
 
-from cryptography.fernet import Fernet
-
 from jam.__base_encoder__ import BaseEncoder
 from jam.encoders import JsonEncoder
-from jam.exceptions import JamSessionEmptyAESKey
-from jam.utils.config_maker import __key_loader__
+from jam.sessions._codec import _SessionCodec
 
 
-logger = logging.getLogger(__name__)
-
-
-class BaseAsyncSessionModule(ABC):
+class BaseAsyncSessionModule(_SessionCodec, ABC):
     """Abstract base class for async session management modules."""
 
     def __init__(
@@ -28,74 +21,12 @@ class BaseAsyncSessionModule(ABC):
         serializer: type[BaseEncoder] | BaseEncoder = JsonEncoder,
     ) -> None:
         """Initialize the async session module."""
-        self._id = id_factory
-        self._sk_mark_symbol = "J$_"
-        self._serializer = serializer
-        if is_session_crypt and not session_aes_secret:
-            raise JamSessionEmptyAESKey
-        if is_session_crypt:
-            assert session_aes_secret is not None
-            if isinstance(session_aes_secret, str):
-                session_aes_secret = __key_loader__(session_aes_secret)
-            self._code_session_key = Fernet(session_aes_secret)
-
-    def __encode_session_id__(self, data: str) -> str:
-        """Encode the session using AES encryption."""
-        if not hasattr(self, "_code_session_key"):
-            raise AttributeError("Session key encoding is not enabled.")
-        return f"{self._sk_mark_symbol}{self._code_session_key.encrypt(data.encode()).decode()}"
-
-    def __decode_session_id__(self, data: str) -> str:
-        """Decode the session using AES decryption."""
-        if not hasattr(self, "_code_session_key"):
-            raise AttributeError("Session key encoding is not enabled.")
-        if not data.startswith(self._sk_mark_symbol):
-            raise ValueError("Session key is not encoded or is invalid.")
-        return self._code_session_key.decrypt(
-            data[len(self._sk_mark_symbol) :].encode()
-        ).decode()
-
-    def __encode_session_id_if_needed__(self, data: str) -> str:
-        """Encode the session ID if it is not already encoded."""
-        if hasattr(self, "_code_session_key"):
-            try:
-                data = self.__encode_session_id__(data)
-            except ValueError as e:
-                logger.error(f"Failed to encode session ID: {e}")
-            return data
-        else:
-            return data
-
-    def __decode_session_id_if_needed__(self, data: str) -> str:
-        """Decode the session ID if it is encoded."""
-        if hasattr(self, "_code_session_key"):
-            try:
-                data = self.__decode_session_id__(data)
-            except ValueError as e:
-                logger.error(f"Failed to decode session ID: {e}")
-            return data
-        else:
-            return data
-
-    def __encode_session_data__(self, data: dict) -> str:
-        """Encode session data."""
-        if not hasattr(self, "_code_session_key"):
-            raise AttributeError("Session data encoding is not enabled.")
-
-        data_json = self._serializer.dumps(data).decode("utf-8")
-        return self.__encode_session_id__(data_json)
-
-    def __decode_session_data__(self, data: str) -> dict:
-        """Decode session data."""
-        if not hasattr(self, "_code_session_key"):
-            raise AttributeError("Session key encoding is not enabled.")
-        data = self.__decode_session_id__(data)
-        return self._serializer.loads(data)
-
-    @property
-    def id(self) -> str:
-        """Return the unique ID use id_factory."""
-        return self._id()
+        super().__init__(
+            id_factory=id_factory,
+            is_session_crypt=is_session_crypt,
+            session_aes_secret=session_aes_secret,
+            serializer=serializer,
+        )
 
     @abstractmethod
     async def create(self, session_key: str, data: dict[str, Any]) -> str:
