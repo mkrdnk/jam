@@ -46,7 +46,7 @@ nav:
   - API Reference: api/SUMMARY.md
   - Breaking changes:
       - Deprecated: breaking_changes/deprecated.md
-      - 3.0.0 -> 4.0.0: breaking_changes/jam300_to_400.md
+      - 3.3.0 -> 4.0.0: breaking_changes/jam300_to_400.md
       - 2.5.6 -> 3.0.0: breaking_changes/jam256_to_300.md
       - 1.1.4 -> 2.0.0: breaking_changes/jam114_to_200.md
   - Contributing: contributing.md
