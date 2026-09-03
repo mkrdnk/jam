@@ -1,18 +1,9 @@
 # -*- coding: utf-8 -*-
 
-"""Starlette integration.
+"""Starlette authentication integration."""
 
-Starlette docs: https://starlette.dev
-"""
-
-from .objects import BaseUser, SimpleUser
-from .backends import JWTBackend, SessionBackend, PASETOBackend
+from jam.ext._base import CredentialSource
+from jam.ext.starlette.auth import JamAuthBackend, JamUser
 
 
-__all__ = [
-    "BaseUser",
-    "SimpleUser",
-    "JWTBackend",
-    "SessionBackend",
-    "PASETOBackend",
-]
+__all__ = ["CredentialSource", "JamAuthBackend", "JamUser"]

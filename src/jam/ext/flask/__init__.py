@@ -1,26 +1,9 @@
 # -*- coding: utf-8 -*-
 
-"""Flask integration.
+"""Flask authentication and authorization integration."""
 
-Flask docs: https://flask.palletsprojects.com
-"""
-
-from .extensions import (
-    JWTExtension,
-    OAuth2Extension,
-    PASETOExtension,
-    SessionExtension,
-)
-
-from .objects import (
-    Token,
-)
+from jam.ext._base import CredentialSource
+from jam.ext.flask.auth import JamAuth, current_principal, get_jam
 
 
-__all__ = [
-    "Token",
-    "JWTExtension",
-    "SessionExtension",
-    "PASETOExtension",
-    "OAuth2Extension",
-]
+__all__ = ["CredentialSource", "JamAuth", "current_principal", "get_jam"]

@@ -119,44 +119,32 @@ redirect_url = "https://example.com/callback"
 
 ## Custom modules via framework integrations
 
-Framework integrations expose a `MODULE` class attribute that can be
-replaced. For example, replacing the `JWT` implementation in the
-[Starlette integration](/framework_integrations/starlette/):
+Framework integrations use the public `Jam.authenticate()` and
+`Jam.authorize()` methods. To customize authentication globally, subclass
+`Jam` once and pass the same instance to any integration:
 
 ```python
-from starlette.applications import Starlette
-from starlette.middleware import Middleware
-from starlette.middleware.authentication import AuthenticationMiddleware
+from jam import Jam
+from jam.authz import Principal
+from jam.ext.starlette import JamAuthBackend
 
-from jam.ext.starlette import JWTBackend
-from jam.jose import BaseJWT
 
-class MyJWT(BaseJWT):
-    def __init__(
-        self,
-        secret_key: str,
-    ):
-        self.secret_key = secret_key
+class MyJam(Jam):
+    def authenticate(self, token: str, via: str | None = None) -> Principal:
+        if token.startswith("custom."):
+            return Principal(
+                subject={"id": token.removeprefix("custom.")},
+                claims={},
+                token_type="custom",
+            )
+        return super().authenticate(token, via=via)
 
-    def encode(self, payload: dict) -> str:
-        # your logic
-        return token
 
-    def decode(self, token: str) -> dict:
-        # your logic
-        return payload
-
-JWTBackend.MODULE = MyJWT
-
-app = Starlette(
-    middleware=[
-        Middleware(
-            AuthenticationMiddleware,
-            backend=JWTBackend(config="config.toml")
-        ),
-    ],
-)
+backend = JamAuthBackend(MyJam("config.toml"))
 ```
+
+Unlike the old integration-specific `MODULE` class attributes, this is
+instance-scoped and cannot leak configuration between applications.
 
 ## Extending modules standalone
 
