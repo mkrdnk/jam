@@ -61,7 +61,12 @@ jam = Jam(config="config.toml", subject=User)
 ```python
 user = User(id="1", email="user@example.com", role="admin")
 
-token = jam.issue(user, via="jwt", exp=3600)
+token = jam.issue(
+    user,
+    via="jwt",
+    exp=3600,
+    permissions=["profile:read", "post:create"],
+)
 print(token)
 >>> eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
@@ -69,16 +74,17 @@ print(token)
 ## 6. Authenticate
 
 ```python
-user = jam.authenticate(token, via="jwt")
-print(type(user))  # -> <class '__main__.User'>
-print(user.email)  # -> "user@example.com"
+principal = jam.authenticate(token, via="jwt")
+print(type(principal.subject))  # -> <class '__main__.User'>
+print(principal.subject.email)  # -> "user@example.com"
+print(principal.permissions)    # -> frozenset({"profile:read", "post:create"})
 ```
 
 ## 7. Authorize
 
 ```python
-print(jam.authorize(user, "post:create"))    # -> True
-print(jam.authorize(user, "post:delete"))    # -> False (deny by default)
+print(jam.authorize(principal, "post:create"))  # -> True
+print(jam.authorize(principal, "post:delete"))  # -> False (not in token)
 ```
 
 ## Next steps

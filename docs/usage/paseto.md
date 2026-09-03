@@ -47,9 +47,11 @@ print(token)
 Method: `jam.authenticate`
 
 ```python
-data = jam.authenticate(token, via="paseto")
-print(data)
->>> {'sub': '1', 'id': 1, 'role': 'admin', 'exp': 1772132706, ...}
+principal = jam.authenticate(token, via="paseto")
+print(principal.subject["role"])
+>>> admin
+print(principal.claims["exp"])
+>>> 1772132706
 ```
 
 #### Access the module directly

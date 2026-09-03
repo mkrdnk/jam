@@ -48,9 +48,11 @@ print(token)
 Method: `jam.authenticate`
 
 ```python
-data = jam.authenticate(token, via="jwt")
-print(data)
->>> {'sub': '1', 'user': 1, 'role': 'admin', 'exp': 1772120451, ...}
+principal = jam.authenticate(token, via="jwt")
+print(principal.subject["role"])
+>>> admin
+print(principal.claims["exp"])
+>>> 1772120451
 ```
 
 ### Access the module directly

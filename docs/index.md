@@ -43,7 +43,8 @@ class User(BaseSubject):
 jam = Jam(config="config.toml", subject=User)
 
 token = jam.issue(User(id="1", email="user@example.com"), via="jwt")
-user = jam.authenticate(token, via="jwt")
+principal = jam.authenticate(token, via="jwt")
+user = principal.subject
 ```
 
 See the [Quickstart](/usage/quickstart) for a step-by-step walkthrough.

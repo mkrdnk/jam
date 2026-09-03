@@ -8,7 +8,12 @@ import logging
 from typing import Any, cast
 
 from jam.__base_encoder__ import BaseEncoder
-from jam.authz import BasePolicy, Policy
+from jam.authz import (
+    AuthorizationContext,
+    BasePolicy,
+    Policy,
+    Principal,
+)
 from jam.encoders import JsonEncoder
 from jam.exceptions import JamConfigurationError
 from jam.plugins.__base__ import BasePlugin
@@ -33,7 +38,7 @@ class BaseJam(ABC):
     oauth2: dict[str, Any] | None = None
     otp: Any = None
     paseto: Any = None
-    _policy: BasePolicy | None = None
+    _policy: BasePolicy
 
     def __init__(
         self,
@@ -74,7 +79,7 @@ class BaseJam(ABC):
         self.oauth2: dict[str, Any] | None = None
         self.otp = None
         self.paseto = None
-        self._policy: BasePolicy | None = None
+        self._policy: BasePolicy = Policy()
 
         logger.debug("Initializing BaseJam with serializer=%s", serializer)
         self.__build_instance(config)
@@ -222,19 +227,28 @@ class BaseJam(ABC):
         Returns:
             Any: Subject instance or dict if no subject class is configured.
         """
+        data = dict(payload)
+        if "id" not in data and "sub" in data:
+            data["id"] = data["sub"]
         if not dataclasses.is_dataclass(self.subject):
-            return payload
+            return data
         field_names = {f.name for f in dataclasses.fields(self.subject)}
-        data = {k: v for k, v in payload.items() if k in field_names}
-        return self.subject.from_dict(data)
+        subject_data = {k: v for k, v in data.items() if k in field_names}
+        return self.subject.from_dict(subject_data)
 
     @abstractmethod
-    def authorize(self, subject: BaseSubject, permission: str) -> bool:
+    def authorize(
+        self,
+        principal: Principal[Any] | BaseSubject | dict[str, Any],
+        permission: str,
+        context: AuthorizationContext | None = None,
+    ) -> bool:
         """Check whether a subject is allowed to perform a permission.
 
         Args:
-            subject (BaseSubject): Subject instance.
+            principal: Authenticated principal, subject or subject mapping.
             permission (str): Permission name.
+            context: Dynamic authorization context.
 
         Returns:
             bool: True if allowed, False otherwise.
@@ -244,13 +258,14 @@ class BaseJam(ABC):
     @abstractmethod
     def issue(
         self,
-        subject: BaseSubject,
+        subject: BaseSubject | dict[str, Any],
         via: str | None = None,
         exp: int | None = None,
         iss: str | None = None,
         aud: str | None = None,
         nbf: int | None = None,
         jti: str | None = None,
+        permissions: list[str] | None = None,
         **claims: Any,
     ) -> str:
         """Issue a token or session for a subject.
@@ -264,6 +279,7 @@ class BaseJam(ABC):
             aud (str | None): Audience.
             nbf (int | None): Not-before in seconds.
             jti (str | None): Token ID.
+            permissions: Permissions granted to this credential.
             **claims: Extra payload claims.
 
         Returns:
@@ -274,7 +290,7 @@ class BaseJam(ABC):
     @abstractmethod
     def authenticate(
         self, token: str, via: str | None = None
-    ) -> BaseSubject | dict[str, Any]:
+    ) -> Principal[Any]:
         """Authenticate a token or session and return a subject.
 
         Args:
@@ -283,7 +299,7 @@ class BaseJam(ABC):
                 for auto-detect.
 
         Returns:
-            BaseSubject | dict[str, Any]: Subject instance or raw payload dict.
+            Principal: Authenticated subject and credential claims.
         """
         raise NotImplementedError
 

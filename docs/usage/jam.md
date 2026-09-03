@@ -67,6 +67,8 @@ Args:
 * `aud`: `str | None = None` - Audience.
 * `nbf`: `int | None = None` - Not-before in seconds.
 * `jti`: `str | None = None` - Token ID.
+* `permissions`: `list[str] | None = None` - Permissions granted to this
+  specific token or session.
 * `**claims` - Extra payload claims.
 
 Returns:
@@ -87,7 +89,12 @@ class User(BaseSubject):
 
 jam = Jam(config="config.toml")
 
-jwt_token = jam.issue(User(id="1", role="admin"), via="jwt", exp=3600)
+jwt_token = jam.issue(
+    User(id="1", role="admin"),
+    via="jwt",
+    exp=3600,
+    permissions=["profile:read", "user:delete"],
+)
 paseto_token = jam.issue({"id": "1", "role": "admin"}, via="paseto")
 session_id = jam.issue(User(id="1"), via="session")
 ```
@@ -96,7 +103,8 @@ session_id = jam.issue(User(id="1"), via="session")
 
 Method: `jam.authenticate`
 
-Verifies a token or a session and returns a subject.
+Verifies a token or session and returns a `Principal`. The principal preserves
+the reconstructed subject and all verified credential claims.
 
 Args:
 
@@ -108,8 +116,8 @@ Args:
 
 Returns:
 
-`BaseSubject | dict[str, Any]` - Subject instance when a dataclass subject
-is configured, otherwise the raw payload dict.
+`Principal` with `subject`, `claims`, `permissions`, optional JWT `jti` and
+`token_type`.
 
 Raises:
 
@@ -125,36 +133,37 @@ class User(BaseSubject):
 
 jam = Jam(config="config.toml", subject=User)
 
-user = jam.authenticate(jwt_token, via="jwt")
-print(user.id)   # -> "1"
-print(user.role) # -> "admin"
+principal = jam.authenticate(jwt_token, via="jwt")
+print(principal.subject.id)   # -> "1"
+print(principal.subject.role) # -> "admin"
+print(principal.permissions)  # -> frozenset({"profile:read", "user:delete"})
 ```
 
 ## authorize
 
 Method: `jam.authorize`
 
-Checks whether a subject is allowed to perform a permission. Requires the
-`[jam.authz]` section in the config. Deny by default.
+Checks whether a principal is allowed to perform a permission. Credential
+grants are combined with the configured `[jam.authz]` policy. Deny rules take
+precedence and unmatched permissions are denied.
 
 Args:
 
-* `subject`: `BaseSubject` - Subject instance.
+* `principal`: `Principal | BaseSubject | Mapping` - Authentication result or
+  standalone subject.
 * `permission`: `str` - Permission name, e.g. `"post:edit"`.
+* `context`: `AuthorizationContext | None = None` - Current time, resource,
+  request and application attributes used by dynamic conditions.
 
 Returns:
 
 `bool` - True if allowed, False otherwise.
 
-Raises:
-
-* `JamConfigurationError` - No authz policy is configured.
-
 ```python
 jam = Jam(config="config.toml")
 
-user = jam.authenticate(token)
-if jam.authorize(user, "post:edit"):
+principal = jam.authenticate(token)
+if jam.authorize(principal, "post:edit"):
     ...
 ```
 

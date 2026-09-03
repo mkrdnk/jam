@@ -80,13 +80,15 @@ class User(BaseSubject):
 jam = Jam(config="config.toml", subject=User)
 
 token = jam.issue(User(id="1", email="user@example.com"), via="jwt")
-user = jam.authenticate(token, via="jwt")
+principal = jam.authenticate(token, via="jwt")
+user = principal.subject
 
 print(type(user))  # -> <class '__main__.User'>
 ```
 
 Without a subject class (or when `subject` is not a dataclass),
-`authenticate` returns the raw payload dict.
+`principal.subject` contains the payload mapping. `principal.claims` always
+contains the complete verified claims.
 
 You can also pass a plain dict with an `"id"` key to `issue` — the `id`
 becomes the `sub` claim.

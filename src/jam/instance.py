@@ -5,6 +5,7 @@ import time
 from typing import Any
 
 from jam.__base__ import BaseJam
+from jam.authz import AuthorizationContext, Principal
 from jam.exceptions import (
     JamConfigurationError,
     JamJWSVerificationError,
@@ -16,40 +17,37 @@ from jam.subject import BaseSubject
 class Jam(BaseJam):
     """Main instance."""
 
-    def authorize(self, subject: BaseSubject, permission: str) -> bool:
+    def authorize(
+        self,
+        principal: Principal[Any] | BaseSubject | dict[str, Any],
+        permission: str,
+        context: AuthorizationContext | None = None,
+    ) -> bool:
         """Check whether a subject is allowed to perform a permission.
 
         Uses the policy configured under ``[jam.authz]``. Deny by default.
 
         Args:
-            subject (BaseSubject): Subject instance.
+            principal: Authenticated principal, subject or subject mapping.
             permission (str): Permission name, e.g. ``"post:edit"``.
+            context: Dynamic authorization context.
 
         Returns:
             bool: True if allowed, False otherwise.
 
-        Raises:
-            JamConfigurationError: If no authz policy is configured.
         """
-        if self._policy is None:
-            raise JamConfigurationError(
-                message=(
-                    "Authz policy is not configured. Add a [jam.authz] "
-                    "section to your config."
-                ),
-                error_code="authz.not_configured",
-            )
-        return self._policy.check(subject, permission)
+        return self._policy.check(principal, permission, context)
 
     def issue(
         self,
-        subject: BaseSubject,
+        subject: BaseSubject | dict[str, Any],
         via: str | None = None,
         exp: int | None = None,
         iss: str | None = None,
         aud: str | None = None,
         nbf: int | None = None,
         jti: str | None = None,
+        permissions: list[str] | None = None,
         **claims: Any,
     ) -> str:
         """Issue a token or session for a subject.
@@ -63,6 +61,7 @@ class Jam(BaseJam):
             aud (str | None): Audience.
             nbf (int | None): Not-before in seconds.
             jti (str | None): Token ID.
+            permissions: Permissions granted to this credential.
             **claims: Extra payload claims.
 
         Returns:
@@ -78,10 +77,26 @@ class Jam(BaseJam):
             subject_id = subject.id
             payload = subject.to_dict()
 
+        payload.update(claims)
+        payload.pop("id", None)
+        for registered_claim in ("exp", "iss", "aud", "nbf", "jti"):
+            payload.pop(registered_claim, None)
         if subject_id is not None:
             payload["sub"] = subject_id
-        payload.update(claims)
-
+        if permissions is not None:
+            payload["permissions"] = list(dict.fromkeys(permissions))
+        credential_permissions = payload.get("permissions")
+        if credential_permissions is not None and (
+            not isinstance(credential_permissions, list)
+            or not all(
+                isinstance(permission, str) and permission
+                for permission in credential_permissions
+            )
+        ):
+            raise JamConfigurationError(
+                message="Permissions must be a list of non-empty strings.",
+                error_code="configuration.authz.invalid_permissions",
+            )
         if via is None:
             if self.jwt is not None:
                 return self.jwt.encode(
@@ -145,7 +160,7 @@ class Jam(BaseJam):
 
     def authenticate(
         self, token: str, via: str | None = None
-    ) -> BaseSubject | dict[str, Any]:
+    ) -> Principal[Any]:
         """Authenticate a token or session and return a subject.
 
         Args:
@@ -154,8 +169,7 @@ class Jam(BaseJam):
                 for auto-detect.
 
         Returns:
-            BaseSubject | dict[str, Any]: Subject instance if a subject class
-                is configured, otherwise the raw payload dict.
+            Principal: Authenticated subject and credential claims.
 
         Raises:
             JamConfigurationError: If no matching module is configured.
@@ -208,7 +222,11 @@ class Jam(BaseJam):
                     error_code="configuration.authenticate_unknown_via",
                 )
 
-        return self._subject_from_payload(payload)
+        return Principal(
+            subject=self._subject_from_payload(payload),
+            claims=dict(payload),
+            token_type=via,
+        )
 
     @staticmethod
     def __detect(token: str) -> str:

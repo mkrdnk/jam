@@ -85,8 +85,8 @@ The `session_key` is read from `config.session.session_key` (defaults to
 Method: `jam.authenticate` with `via="session"`
 
 ```python
-data = jam.authenticate(session_id, via="session")
-print(data)
+principal = jam.authenticate(session_id, via="session")
+print(principal.subject)
 >>> {"role": "admin"}
 ```
 

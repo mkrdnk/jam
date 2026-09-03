@@ -25,8 +25,8 @@ class AuthService:
     def generate_token(self, user) -> str:
         return self.jam.issue(user, via="jwt", exp=3600)
 
-    # Validate token and return payload or None
-    def validate_token(self, token) -> dict | None:
+    # Validate token and return a principal or None
+    def validate_token(self, token):
         try:
             return self.jam.authenticate(token, via="jwt")
         except JamError:

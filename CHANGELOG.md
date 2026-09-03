@@ -32,17 +32,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `jam.subject.BaseSubject` — dataclass contract for auth subjects (mandatory
   `id` field) with generic `to_dict()` / `from_dict()` serialization
 - `jam.authz` — `BasePolicy` interface and declarative `Policy` built from
-  `{permission: [predicates]}` rules (`"*"` wildcard, `field=value`, `field`),
-  deny by default
+  compact predicates or structured allow/deny rules; supports credential
+  permissions, permission wildcards, dynamic authorization context,
+  `all` / `any` / `not` conditions and deny-by-default evaluation
+- `Principal` authentication result preserves the typed subject and verified
+  credential claims; `AuthorizationContext` supplies the current time,
+  resource, request and application attributes to authorization policies
 - Config-driven module init: JWT/JWS/JWE, PASETO (`v1`-`v4`), sessions
   (`redis`/`json`), OAuth2 providers and authz are built directly from
   `[jam]` config sections
 - New `Jam` facade API:
-  - `issue(subject, via=None, exp/iss/aud/nbf/jti, **claims)` — issues a
-    JWT, PASETO or session (auto-detects when `via=None`)
+  - `issue(subject, via=None, exp/iss/aud/nbf/jti, permissions, **claims)` —
+    issues a JWT, PASETO or session with per-credential permission grants
+    (auto-detects when `via=None`)
   - `authenticate(token, via=None)` — verifies a token/session and returns a
-    `BaseSubject` (or raw payload dict)
-  - `authorize(subject, permission)` — checks the `[jam.authz]` policy
+    `Principal`
+  - `authorize(principal, permission, context=None)` — checks credential
+    grants and the `[jam.authz]` policy
   - `subject` / `config` as class attributes overridable via `__init__`
 - Config caching — config files are parsed once and cached per
   path + pointer (`JAM_CONFIG_CACHING=true`, default). Set

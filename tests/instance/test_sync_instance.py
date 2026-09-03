@@ -6,7 +6,6 @@ import pytest
 from fakeredis import FakeRedis
 
 from jam import Jam
-from jam.exceptions import JamConfigurationError
 from jam.subject import BaseSubject
 
 
@@ -45,15 +44,16 @@ def test_jwt_instance(jam_jwt_instance):
     assert len(token.split(".")) == 3  # JWT has three parts separated by dots
 
     decoded = jam_jwt_instance.authenticate(token)
-    assert decoded == user
-    assert decoded.id == "user123"
+    assert decoded.subject == user
+    assert decoded.subject.id == "user123"
+    assert decoded.claims["sub"] == "user123"
 
 
 def test_jwt_autodetect(jam_jwt_instance):
     user = User(id="user123", name="test")
     token = jam_jwt_instance.issue(user)
     decoded = jam_jwt_instance.authenticate(token, via=None)
-    assert decoded == user
+    assert decoded.subject == user
 
 
 def test_jwe_autodetect():
@@ -73,7 +73,7 @@ def test_jwe_autodetect():
     token = jam.jwt.encrypt({"id": user.id, "name": user.name})
     assert token.count(".") == 4
     decoded = jam.authenticate(token)
-    assert decoded == user
+    assert decoded.subject == user
 
 
 def test_session_instance(jam_session_instance):
@@ -94,13 +94,13 @@ def test_issue_via_session(jam_session_instance):
         {"id": "user123", "role": "admin"}, via="session"
     )
     decoded = jam_session_instance.authenticate(session_id)
-    assert decoded["id"] == "user123"
+    assert decoded.subject["id"] == "user123"
+    assert "jti" not in decoded.claims
 
 
 def test_authorize(jam_jwt_instance):
     user = User(id="user123", name="test")
-    with pytest.raises(JamConfigurationError):
-        jam_jwt_instance.authorize(user, "any")
+    assert not jam_jwt_instance.authorize(user, "any")
 
 
 def test_authorize_with_policy():

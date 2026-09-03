@@ -37,16 +37,21 @@ See [Subjects](/usage/subject).
 Implement `jam.BasePolicy` and point `[jam.authz] module` to it:
 
 ```python
-from jam import BasePolicy, BaseSubject
+from jam import AuthorizationContext, BasePolicy, Principal
 
 
 class MyPolicy(BasePolicy):
     def __init__(self, rules: dict) -> None:
         self._rules = rules
 
-    def check(self, subject: BaseSubject, permission: str) -> bool:
+    def check(
+        self,
+        principal: Principal,
+        permission: str,
+        context: AuthorizationContext | None = None,
+    ) -> bool:
         # your logic
-        return permission in self._rules.get(subject.id, [])
+        return permission in self._rules.get(principal.subject.id, [])
 ```
 
 ```toml
