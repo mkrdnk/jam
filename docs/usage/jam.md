@@ -46,6 +46,7 @@ After initialization the configured modules are available as attributes:
 | `jam.oauth2` | `dict[str, OAuth2Client]` | `[jam.oauth2]` |
 | `jam.config` | `dict[str, Any] | None` | - |
 | `jam.subject` | `type[BaseSubject]` | `subject=` argument |
+| `jam.keychains` | `dict[str, BaseKeyChain]` | `[jam.keychains]` |
 
 Unconfigured modules remain `None`. You can always access the underlying
 module directly, e.g. `jam.jwt.encode(payload={...})`.

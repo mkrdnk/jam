@@ -26,6 +26,7 @@ nav:
           - JWK: usage/jose/jwk.md
           - Algorithms: usage/jose/algorithms.md
       - PASETO: usage/paseto.md
+      - KeyChain: usage/keychain.md
       - Server side sessions: usage/sessions.md
       - OAuth2: usage/oauth2.md
       - OTP: usage/otp.md

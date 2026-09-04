@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from jam.jose.jwk import JWK
+    from jam.keychain import KeyChain
 
 
 class JWT(BaseJWT, metaclass=ConfigMeta):
@@ -59,6 +60,7 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         alg: str | None = None,
         enc: str | None = None,
         secret_key: str | bytes | KeyLike | "JWK" | None = None,
+        keychain: "KeyChain | None" = None,
         password: str | bytes | None = None,
         list: dict[str, Any] | BaseList | None = None,
         serializer: BaseEncoder | type[BaseEncoder] = JsonEncoder,
@@ -73,6 +75,7 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
             alg (str | None): JWT algorithm name for signing (JWS). Used if jws is not provided.
             enc (str | None): JWE content encryption algorithm. If provided, creates encrypted JWT.
             secret_key (str | bytes | KeyLike | JWK | None): Key for signing/encryption.
+            keychain (KeyChain | None): Key lifecycle manager for JWS signing.
             password (str | bytes | None): Password for encrypted private keys.
             list (dict[str, Any] | BaseList | None): List config or list instance for token storage.
             serializer (BaseEncoder | type[BaseEncoder]): JSON encoder/decoder.
@@ -91,6 +94,7 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
 
         self.jws: JWS | None = None
         self.jwe: JWE | None = None
+        self.keychain = keychain
         self._alg: str | None = None
         self._enc: str | None = None
 
@@ -112,7 +116,7 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
             self._key = self._normalize_key(secret_key)
             self._password = self._normalize_password(password)
             self._algorithm: BaseAlgorithm | None = None
-            self.jws = self._build_jws()
+            self.jws = self._build_jws() if keychain is None else None
         else:
             self.jws = None
             self._alg = None
@@ -139,7 +143,7 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
             self.jwe = None
             self._enc = None
 
-        if not self.jws and not self.jwe:
+        if not self.jws and not self.jwe and keychain is None:
             raise JamConfigurationError(
                 message="Either 'alg', 'enc', 'jws', or 'jwe' must be provided",
                 error_code="configuration.jwt.no_algorithm",
@@ -454,7 +458,7 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         Raises:
             JamConfigurationError: If alg is not provided.
         """
-        if not self.jws:
+        if not self.jws and self.keychain is None:
             raise JamConfigurationError(
                 message="JWS not configured. Provide 'alg' parameter.",
                 error_code="configuration.jwt.jws_not_configured",
@@ -467,7 +471,14 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         if header:
             _base_header.update(header)
         _payload = self._make_payload(iss, sub, aud, exp, nbf, jti, payload)
-        token = self.jws.sign(header=_base_header, data=_payload)
+        if self.keychain is not None:
+            key_id, material = self.keychain._material_for_issue()
+            _base_header["kid"] = key_id
+            token = JWS(
+                alg=self._alg or "", key=material, password=self._password
+            ).sign(header=_base_header, data=_payload)
+        else:
+            token = self.jws.sign(header=_base_header, data=_payload)
 
         if self.list and self.list.__list_type__ == "white":
             self.list.add(token)
@@ -499,7 +510,7 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
             JamJWTNotInWhiteList: If token is not in the white list.
             JamJWTInBlackList: If token is in the black list.
         """
-        if not self.jws:
+        if not self.jws and self.keychain is None:
             raise JamConfigurationError(
                 message="JWS not configured. Provide 'alg' parameter.",
                 error_code="configuration.jwt.jws_not_configured",
@@ -519,7 +530,21 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
                         error_code="configuration.jwt.unknown_list_type",
                     )
 
-        data = self.jws.verify(token, True)
+        if self.keychain is not None:
+            try:
+                protected = token.split(".", 1)[0]
+                header_data = base64.urlsafe_b64decode(protected + "===")
+                key_id = json.loads(header_data)["kid"]
+            except (IndexError, KeyError, ValueError, json.JSONDecodeError) as exc:
+                raise JamJWSVerificationError(
+                    details={"reason": "missing_or_invalid_kid"}
+                ) from exc
+            material = self.keychain._material_for_verify(key_id)
+            data = JWS(
+                alg=self._alg or "", key=material, password=self._password
+            ).verify(token, True)
+        else:
+            data = self.jws.verify(token, True)
         header = data["header"]
         if header.get("typ") != "JWT":
             raise JamJWSVerificationError(message="Invalid token type")

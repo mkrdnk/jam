@@ -23,8 +23,12 @@ $ jam [OPTIONS] COMMAND [ARGS]...
 * `--help`: Show help message and exit.
 
 ## Commands
+* `keychain`: Administer configured KeyChains.
 * `keys`: Generate cryptographic keys.
 * `password`: Password hashing and verification utilities.
+
+### Keychain
+See [keychain documentation](/usage/keychain/#cli).
 
 ### Keys
 Generate cryptographic keys.

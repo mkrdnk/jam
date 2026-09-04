@@ -42,6 +42,7 @@ class _JamCore:
     oauth2: dict[str, Any] | None = None
     otp: Any = None
     paseto: Any = None
+    keychains: dict[str, Any]
     _jwt_list: Any = None
     _policy: BasePolicy
 
@@ -84,6 +85,7 @@ class _JamCore:
         self.oauth2: dict[str, Any] | None = None
         self.otp = None
         self.paseto = None
+        self.keychains = {}
         self._jwt_list = None
         self._policy: BasePolicy = Policy()
 
@@ -150,9 +152,46 @@ class _JamCore:
         if not isinstance(jose_cfg, dict):
             jose_cfg = {}
         self.jose = {}
+        keychain_cfg = config.get("keychains") or {}
+
+        def get_keychain(name: str, algorithm: str, purpose: str | None = None) -> Any:
+            from jam.keychain import FileStorage, Memory
+
+            if name in self.keychains:
+                return self.keychains[name]
+            cfg = keychain_cfg.get(name)
+            if not isinstance(cfg, dict):
+                raise JamConfigurationError(
+                    message=f"KeyChain '{name}' is not configured.",
+                    error_code="configuration.keychain.not_configured",
+                )
+            chain_type = cfg.get("type")
+            chain_algorithm = cfg.get("algorithm", algorithm)
+            chain_purpose = cfg.get("purpose", purpose)
+            if chain_type == "Memory":
+                chain = Memory(algorithm=chain_algorithm, purpose=chain_purpose)
+            elif chain_type == "FileStorage":
+                path = cfg.get("path")
+                if not path:
+                    raise JamConfigurationError(
+                        message=f"FileStorage KeyChain '{name}' needs a path.",
+                        error_code="configuration.keychain.missing_path",
+                    )
+                chain = FileStorage(
+                    path=path, algorithm=chain_algorithm, purpose=chain_purpose
+                )
+            else:
+                raise JamConfigurationError(
+                    message=f"Unknown KeyChain type: {chain_type}.",
+                    error_code="configuration.keychain.unknown_type",
+                )
+            self.keychains[name] = chain
+            return chain
 
         jwt_cfg = jose_cfg.get("jwt")
         if jwt_cfg is not None:
+            jwt_cfg = jwt_cfg.copy()
+            chain_name = jwt_cfg.pop("keychain", None)
             if self._async:
                 jwt_cfg = jwt_cfg.copy()
                 list_cfg = jwt_cfg.pop("list", None)
@@ -160,7 +199,14 @@ class _JamCore:
                     from jam.aio.lists import build_list
 
                     self._jwt_list = build_list(list_cfg)
-            self.jwt = JWT(config=jwt_cfg)
+            self.jwt = JWT(
+                config=jwt_cfg,
+                keychain=(
+                    get_keychain(chain_name, jwt_cfg.get("alg", "HS256"))
+                    if chain_name
+                    else None
+                ),
+            )
             self.jose["jwt"] = self.jwt
 
         jws_cfg = jose_cfg.get("jws")
@@ -232,6 +278,7 @@ class _JamCore:
         if isinstance(paseto_cfg, dict):
             cfg = paseto_cfg.copy()
             version = cfg.pop("version", None)
+            chain_name = cfg.pop("keychain", None)
             if version not in PASETO_REGISTRY:
                 raise JamConfigurationError(
                     message=(
@@ -241,7 +288,33 @@ class _JamCore:
                     error_code="configuration.paseto.unknown_version",
                 )
             module_cls = PASETO_REGISTRY[version]
-            self.paseto = module_cls(config=cfg)
+            self.paseto = module_cls(
+                config=cfg,
+                keychain=(
+                    get_keychain(
+                        chain_name,
+                        algorithm={
+                            "v1": "RS384",
+                            "v2": "EDDSA",
+                            "v3": "ES384",
+                            "v4": "EDDSA",
+                        }.get(version, "HS256")
+                        if cfg.get("purpose") == "public"
+                        else "HS256",
+                        purpose=cfg.get("purpose"),
+                    )
+                    if chain_name
+                    else None
+                ),
+            )
+
+        for chain_name, chain_config in keychain_cfg.items():
+            if isinstance(chain_config, dict) and chain_name not in self.keychains:
+                get_keychain(
+                    chain_name,
+                    algorithm=chain_config.get("algorithm", "HS256"),
+                    purpose=chain_config.get("purpose"),
+                )
 
         otp_cfg = config.get("otp")
         if isinstance(otp_cfg, dict):

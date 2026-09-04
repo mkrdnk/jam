@@ -301,7 +301,8 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
     def __init__(
         self,
         purpose: Literal["local", "public"],
-        secret_key: str | bytes | Any,
+        secret_key: str | bytes | Any | None = None,
+        keychain: Any | None = None,
         list: dict[str, Any] | BaseList | None = None,
         config: str | dict[str, Any] | None = None,
         pointer: str | None = None,
@@ -313,6 +314,7 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
                 or 'public' (asymmetric signing).
             secret_key (str | bytes | Any): Raw bytes or PEM text depending on
                 purpose. Can be a path to a key file.
+            keychain: Key lifecycle manager for issuing and verification.
             list (dict[str, Any] | BaseList | None): List config or list
                 instance for token storage.
             config (str | dict[str, Any] | None): Configuration dict or file path.
@@ -333,7 +335,9 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
         ) = None
         self._purpose: Literal["local", "public"] = purpose
         self.list: BaseList | None = build_list(list) if list else None
-        self._set_key(secret_key)
+        self._keychain = keychain
+        if keychain is None:
+            self._set_key(secret_key)
 
     def _set_key(self, secret_key: str | bytes | Any) -> None:
         """Process the key for the given purpose.
@@ -519,18 +523,28 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
         """
         header = f"{self._VERSION}.{self._purpose}."
         payload_bytes = serializer.dumps(payload)
+        if self._keychain is not None:
+            key_id, material = self._keychain._material_for_issue()
+            footer = {"_jam": {"kid": key_id}, "footer": footer}
         footer_bytes = self._normalize_footer(footer, serializer)
 
-        if self._purpose == "local":
-            token = self._encode_local(
-                header, payload_bytes, footer_bytes
-            ).decode("utf-8")
-        elif self._purpose == "public":
-            token = self._encode_public(
-                header, payload_bytes, footer_bytes
-            ).decode("utf-8")
-        else:
-            raise JamPASETOInvalidPurpose
+        if self._keychain is not None:
+            old_secret, old_public = self._secret, self._public_key
+            self._set_key(material)
+        try:
+            if self._purpose == "local":
+                token = self._encode_local(
+                    header, payload_bytes, footer_bytes
+                ).decode("utf-8")
+            elif self._purpose == "public":
+                token = self._encode_public(
+                    header, payload_bytes, footer_bytes
+                ).decode("utf-8")
+            else:
+                raise JamPASETOInvalidPurpose
+        finally:
+            if self._keychain is not None:
+                self._secret, self._public_key = old_secret, old_public
 
         self._list_add(token)
         return token
@@ -553,8 +567,29 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
             JamPASETOInvalidPurpose: If the purpose is not "local" or "public".
         """
         self._list_check(token)
-        if token.startswith(f"{self._VERSION}.local."):
-            return self._decode_local(token, serializer)
-        if token.startswith(f"{self._VERSION}.public."):
-            return self._decode_public(token, serializer)
-        raise JamPASETOInvalidPurpose
+        if self._keychain is not None:
+            try:
+                encoded_footer = token.split(".", 3)[3]
+                footer = self._decode_footer(base64url_decode(encoded_footer), serializer)
+                key_id = footer["_jam"]["kid"]
+            except (IndexError, KeyError, TypeError, ValueError) as exc:
+                raise JamPASETOInvalidTokenFormat(
+                    message="PASETO KeyChain token has no valid key identifier."
+                ) from exc
+            old_secret, old_public = self._secret, self._public_key
+            self._set_key(self._keychain._material_for_verify(key_id))
+        try:
+            if token.startswith(f"{self._VERSION}.local."):
+                payload, footer = self._decode_local(token, serializer)
+            elif token.startswith(f"{self._VERSION}.public."):
+                payload, footer = self._decode_public(token, serializer)
+            else:
+                raise JamPASETOInvalidPurpose
+        finally:
+            if self._keychain is not None:
+                self._secret, self._public_key = old_secret, old_public
+        if self._keychain is not None:
+            if not isinstance(footer, dict) or "_jam" not in footer:
+                raise JamPASETOInvalidTokenFormat(message="Invalid KeyChain footer.")
+            footer = footer.get("footer")
+        return payload, footer

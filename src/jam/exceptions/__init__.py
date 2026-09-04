@@ -16,6 +16,7 @@ from .jwt import (
     JamJWTNotYetValid,
     JamJWTUnsupportedAlgorithm,
 )
+from .keychain import JamKeyChainError
 from .oauth2 import (
     JamOAuth2EmptyRaw,
     JamOAuth2Error,
@@ -71,6 +72,7 @@ __all__ = [
     "JamJWKValidationError",
     "JamJWEEncryptionError",
     "JamJWEDecryptionError",
+    "JamKeyChainError",
     "JamPASETOInvalidSymmetricKey",
     "JamPASETOInvalidRSAKey",
     "JamPASETOInvalidED25519Key",

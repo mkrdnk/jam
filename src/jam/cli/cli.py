@@ -13,7 +13,7 @@ except ImportError:
         error_code="jam.cli",
     )
 
-from jam.cli.commands import keys, password
+from jam.cli.commands import keychain, keys, password
 
 
 @click.group()
@@ -24,4 +24,5 @@ def cli() -> None:
 
 
 cli.add_command(keys.keys)
+cli.add_command(keychain.keychain)
 cli.add_command(password.password)
