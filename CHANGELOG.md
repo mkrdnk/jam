@@ -65,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `key=value` secrets from log records (disable with `JAM_DEBUG=True`)
 - `NullHandler` added to the `"jam"` logger so Jam emits no log output
   unless the application configures logging
+- Key rotation manager `jam.keychain`.
 
 ### Changed
 - JWT: `__init__` accepts `config` / `pointer`; `list` parameter accepts
