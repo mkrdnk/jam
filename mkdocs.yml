@@ -1,10 +1,10 @@
 site_name: Jam
 site_url: https://jam.makridenko.ru
 site_description: Simple and universal library for authorization.
-copyright: Adrian Makridenko | <a href="https://github.com/lyaguxafrog/">@lyaguxafrog</a>
+copyright: Adrian Makridenko | <a href="https://github.com/mkrdnk/">@mkrdnk</a>
 
-repo_name: lyaguxafrog/jam
-repo_url: https://github.com/lyaguxafrog/jam
+repo_name: mkrdnk/jam
+repo_url: https://github.com/mkrdnk/jam
 edit_uri: blob/release/docs/
 
 nav:
@@ -44,7 +44,7 @@ nav:
       - 2.5.6 -> 3.0.0: breaking_changes/jam256_to_300.md
       - 1.1.4 -> 2.0.0: breaking_changes/jam114_to_200.md
   - Contributing: contributing.md
-  - Changelog: https://github.com/lyaguxafrog/jam/blob/master/CHANGELOG.md
+  - Changelog: https://github.com/mkrdnk/jam/blob/master/CHANGELOG.md
   - Philosophy: philosophy.md
 
 theme:
@@ -84,7 +84,7 @@ theme:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/lyaguxafrog/jam
+      link: https://github.com/mkrdnk/jam
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/jamlib/
 

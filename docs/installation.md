@@ -9,5 +9,5 @@ pip install jamlib
 
 Stable version(but not released) from github:
 ```bash
-pip install git+https://github.com/lyaguxafrog/jam.git@master
+pip install git+https://github.com/mkrdnk/jam.git@master
 ```

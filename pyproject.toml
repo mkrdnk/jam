@@ -1,6 +1,6 @@
 [project]
 name = "jamlib"
-version = "3.3.0"
+version = "3.3.0.post0"
 description = "Simple and universal library for authorization."
 authors = [
     {name = "Makridenko Adrian",email = "adrianmakridenko@duck.com"},
@@ -49,9 +49,9 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://jam.makridenko.ru"
-Repository = "https://github.com/lyaguxafrog/jam"
-Issues = "https://github.com/lyaguxafrog/jam/issues"
-Changelog = "https://github.com/lyaguxafrog/jam/blob/master/CHANGELOG.md"
+Repository = "https://github.com/mkrdnk/jam"
+Issues = "https://github.com/mkrdnk/jam/issues"
+Changelog = "https://github.com/mkrdnk/jam/blob/master/CHANGELOG.md"
 
 
 [project.scripts]

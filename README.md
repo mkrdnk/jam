@@ -1,18 +1,18 @@
 # Jam
 
-![logo](https://github.com/lyaguxafrog/jam/blob/master/docs/assets/h_logo_n_title.png?raw=true)
+![logo](https://github.com/mkrdnk/jam/blob/master/docs/assets/h_logo_n_title.png?raw=true)
 
 ![Python Version](https://img.shields.io/badge/Python-3.10+-blue?logo=python&logoColor=white)
 [![PyPI - Version](https://img.shields.io/pypi/v/jamlib)](https://pypi.org/project/jamlib/)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/jamlib?period=total&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=RED&left_text=Downloads)](https://pypi.org/project/jamlib/)
-![tests](https://github.com/lyaguxafrog/jam/actions/workflows/run-tests.yml/badge.svg)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/lyaguxafrog/jam)
-[![GitHub License](https://img.shields.io/github/license/lyaguxafrog/jam)](https://github.com/lyaguxafrog/jam/blob/master/LICENSE.md)
+![tests](https://github.com/mkrdnk/jam/actions/workflows/run-tests.yml/badge.svg)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/mkrdnk/jam)
+[![GitHub License](https://img.shields.io/github/license/mkrdnk/jam)](https://github.com/mkrdnk/jam/blob/master/LICENSE.md)
 
 **Jam (Jam Auth Module)** - A universal auth* combine that provides popular auth mechanisms strictly according to the specification.
 
 * Documentation: [jam.makridenko.ru](https://jam.makridenko.ru)
-* Changelog: [CHANGELOG.md](https://github.com/lyaguxafrog/jam/blob/master/CHANGELOG.md)
+* Changelog: [CHANGELOG.md](https://github.com/mkrdnk/jam/blob/master/CHANGELOG.md)
 
 
 ## Install

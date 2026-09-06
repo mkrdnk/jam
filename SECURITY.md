@@ -14,7 +14,7 @@ If you discover a security vulnerability, please **do not** create a public issu
 Instead, report it confidentially via:
 
 - Email: [adrianmakridenko@duck.com](mailto:adrianmakridenko@duck.com)
-- GitHub Security Advisories: [link to repo advisories](https://github.com/lyaguxafrog/jam/security/advisories)
+- GitHub Security Advisories: [link to repo advisories](https://github.com/mkrdnk/jam/security/advisories)
 
 We will acknowledge your report within **48 hours** and provide a timeline for the fix.
 
