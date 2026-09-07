@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from jam.jose.jwk import JWK
-    from jam.keychain import KeyChain
+    from jam.keychain import BaseKeyChain
 
 
 class JWT(BaseJWT, metaclass=ConfigMeta):
@@ -60,7 +60,7 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         alg: str | None = None,
         enc: str | None = None,
         secret_key: str | bytes | KeyLike | "JWK" | None = None,
-        keychain: "KeyChain | None" = None,
+        keychain: "BaseKeyChain | None" = None,
         password: str | bytes | None = None,
         list: dict[str, Any] | BaseList | None = None,
         serializer: BaseEncoder | type[BaseEncoder] = JsonEncoder,
@@ -535,7 +535,12 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
                 protected = token.split(".", 1)[0]
                 header_data = base64.urlsafe_b64decode(protected + "===")
                 key_id = json.loads(header_data)["kid"]
-            except (IndexError, KeyError, ValueError, json.JSONDecodeError) as exc:
+            except (
+                IndexError,
+                KeyError,
+                ValueError,
+                json.JSONDecodeError,
+            ) as exc:
                 raise JamJWSVerificationError(
                     details={"reason": "missing_or_invalid_kid"}
                 ) from exc
