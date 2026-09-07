@@ -97,8 +97,32 @@ Rules can address three data roots:
 | `token.*` | Credential claims such as `jti`, `iss` and `permissions`. |
 | `context.*` | Current time, resource, request and application attributes. |
 
-Only mapping keys and dataclass fields are accessible. Methods, private
-attributes and arbitrary Python object attributes are not evaluated.
+Mapping keys, dataclass fields and public attributes of plain objects are all
+accessible. Methods, callables, private attributes and dunder names are never
+evaluated.
+
+### Comparing two fields
+
+`value` normally holds a constant, but an `@`-prefixed `value` resolves a
+field path against the same roots as `field`. This compares two dynamic
+values:
+
+```python
+{
+    "effect": "allow",
+    "permissions": ["document:delete"],
+    "when": {
+        "field": "subject.id",
+        "operator": "eq",
+        "value": "@context.resource.author_id",
+    },
+}
+```
+
+Any root is usable in a reference: `@subject.*`, `@token.*` and
+`@context.*`. A reference to a missing field raises a configuration error.
+A constant string that must literally start with `@` cannot be expressed in
+a declarative rule.
 
 ### TOML configuration
 
@@ -160,8 +184,10 @@ context.request.*
 context.attributes.*
 ```
 
-`resource` and `request` should be mappings or dataclass instances when their
-fields are used by declarative rules.
+`resource` and `request` accept mappings, dataclasses and arbitrary objects
+(pydantic models, ORM instances, plain classes) when their fields are used by
+declarative rules. Only public attributes are resolved; methods and callables
+are ignored.
 
 ## Logical conditions
 
