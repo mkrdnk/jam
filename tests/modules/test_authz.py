@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import pytest
 
@@ -59,6 +60,23 @@ def test_compact_rules_only_access_subject_data(user):
     assert not policy.check(user, "method")
     with pytest.raises(JamConfigurationError, match="Invalid subject field"):
         Policy({"private": ["__class__"]})
+
+
+def test_strict_rule_does_not_invoke_methods(user):
+    """Structured rules must not evaluate callable attributes."""
+    policy = Policy(
+        [
+            {
+                "permissions": ["account:use"],
+                "when": {
+                    "field": "subject.to_dict",
+                    "operator": "truthy",
+                },
+            }
+        ]
+    )
+
+    assert not policy.check(user, "account:use")
 
 
 def test_token_permission_grants_access_without_policy_rules(user):
@@ -339,3 +357,190 @@ def test_paseto_does_not_get_an_implicit_jwt_id():
 
     assert "jti" not in principal.claims
     assert principal.permissions == {"user:delete"}
+
+
+@dataclass
+class Document(BaseSubject):
+    """Dataclass resource with an ownership field."""
+
+    id: str
+    author_id: str
+
+
+class PlainResource:
+    """Non-dataclass resource accessed through public attributes."""
+
+    def __init__(self, author_id: str) -> None:
+        """Initialize a plain resource owner."""
+        self.author_id = author_id
+        self.locked: bool = False
+
+    def is_public(self) -> bool:
+        """Methods must stay hidden from rule evaluation."""
+        return True
+
+
+def test_value_reference_compares_subject_and_resource_fields():
+    """An @-prefixed value resolves a field path against context roots."""
+    policy = Policy(
+        [
+            {
+                "effect": "allow",
+                "permissions": ["document:delete"],
+                "when": {
+                    "field": "subject.id",
+                    "operator": "eq",
+                    "value": "@context.resource.author_id",
+                },
+            }
+        ]
+    )
+    owner = User(id="42")
+    document = Document(id="doc-1", author_id="42")
+
+    assert policy.check(
+        owner, "document:delete", AuthorizationContext(resource=document)
+    )
+
+    stranger = User(id="43")
+    assert not policy.check(
+        stranger, "document:delete", AuthorizationContext(resource=document)
+    )
+
+
+def test_value_reference_missing_field_raises():
+    """A reference to a missing field is a configuration error."""
+    policy = Policy(
+        [
+            {
+                "permissions": ["document:delete"],
+                "when": {
+                    "field": "subject.id",
+                    "operator": "eq",
+                    "value": "@context.resource.author_id",
+                },
+            }
+        ]
+    )
+    resource = User(id="42")
+
+    with pytest.raises(
+        JamConfigurationError,
+        match="value reference has no value",
+    ):
+        policy.check(
+            user, "document:delete", AuthorizationContext(resource=resource)
+        )
+
+
+def test_value_reference_invalid_path_fails_initialization():
+    """A reference path without a data root is rejected at build time."""
+    with pytest.raises(
+        JamConfigurationError,
+        match="Invalid authorization value reference",
+    ):
+        Policy(
+            [
+                {
+                    "permissions": ["document:delete"],
+                    "when": {
+                        "field": "subject.id",
+                        "operator": "eq",
+                        "value": "@resource.author_id",
+                    },
+                }
+            ]
+        )
+
+
+def test_value_reference_supports_plain_class_resource(user):
+    """Non-dataclass resource objects resolve through public attributes."""
+    policy = Policy(
+        [
+            {
+                "permissions": ["document:delete"],
+                "when": {
+                    "field": "subject.id",
+                    "operator": "eq",
+                    "value": "@context.resource.author_id",
+                },
+            }
+        ]
+    )
+    resource = PlainResource(author_id="42")
+
+    assert policy.check(
+        user, "document:delete", AuthorizationContext(resource=resource)
+    )
+    assert not policy.check(
+        User(id="7"), "document:delete", AuthorizationContext(resource=resource)
+    )
+
+
+def test_plain_resource_methods_are_not_evaluated():
+    """Callable attributes on plain resources must not grant access."""
+    policy = Policy(
+        [
+            {
+                "permissions": ["document:read"],
+                "when": {
+                    "field": "context.resource.is_public",
+                    "operator": "eq",
+                    "value": True,
+                },
+            }
+        ]
+    )
+    resource = PlainResource(author_id="42")
+
+    assert not policy.check(
+        user, "document:read", AuthorizationContext(resource=resource)
+    )
+
+
+def test_value_reference_supports_nested_plain_class_resource():
+    """Nested plain objects resolve through public attribute chains."""
+    resource = PlainResource(author_id="42")
+    resource.owner = SimpleNamespace(id="7")
+    policy = Policy(
+        [
+            {
+                "permissions": ["document:delete"],
+                "when": {
+                    "field": "subject.id",
+                    "operator": "eq",
+                    "value": "@context.resource.owner.id",
+                },
+            }
+        ]
+    )
+
+    assert policy.check(
+        User(id="7"), "document:delete", AuthorizationContext(resource=resource)
+    )
+    assert not policy.check(
+        user, "document:delete", AuthorizationContext(resource=resource)
+    )
+
+
+def test_value_reference_supports_token_and_subject_roots():
+    """References resolve against the same roots available to fields."""
+    principal = Principal(
+        subject=User(id="42"),
+        claims={"permissions": ["account:use"], "tenant": "42"},
+        token_type="jwt",
+    )
+    policy = Policy(
+        [
+            {
+                "permissions": ["account:use"],
+                "when": {
+                    "field": "token.tenant",
+                    "operator": "eq",
+                    "value": "@subject.id",
+                },
+            }
+        ]
+    )
+
+    assert policy.check(principal, "account:use")
