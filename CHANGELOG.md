@@ -65,6 +65,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `key=value` secrets from log records (disable with `JAM_DEBUG=True`)
 - `NullHandler` added to the `"jam"` logger so Jam emits no log output
   unless the application configures logging
+- `authz.Policy` supports `@`-prefixed `value` references that resolve another
+  field path (e.g. `subject.id == @context.resource.author_id`) for
+  field-to-field comparisons
+- `authz.Policy` field resolution supports arbitrary objects (pydantic models,
+  ORM instances, plain classes) via public attributes, not just mappings and
+  dataclasses; methods, callables and private attributes are never evaluated.
+  Structured rules fail closed when a referenced `field` or `@`-value is
+  missing (`exists` still reports absence explicitly)
 - Key rotation manager `jam.keychain`.
 
 ### Changed
@@ -116,9 +124,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `paseto_create`, `paseto_decode` — use the module attributes and the new
   `issue` / `authenticate` / `authorize` API
 - `BaseJam` old abstract interface and the `MODULES` factory map
-- Dead code: `jam.utils.version_check`, the `jam.jose.lists` package alias,
-  `MsgspecJsonEncoder`, `paseto.utils.__b64url_nopad__`, and the never-raised
-  exceptions `JamJWTEmptySecretKey`, `JamJWTEmptyPrivateKey`,
+- Dead code: the `jam.jose.lists` package alias, `MsgspecJsonEncoder`,
+  `paseto.utils.__b64url_nopad__`, and the never-raised exceptions
+  `JamJWTEmptySecretKey`, `JamJWTEmptyPrivateKey`,
   `JamJWTValidationError`, `JamJWKMissingParameterError`
 
 ### Fixed
