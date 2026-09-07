@@ -412,8 +412,16 @@ class _RuleCompiler:
         if condition_operator is None:
             _invalid(f"Unknown authorization operator: {operator_name}")
 
-        expected = condition.get("value")
-        condition_operator.validate(expected)
+        raw_value = condition.get("value")
+        ref_path = None
+        if isinstance(raw_value, str) and raw_value.startswith("@"):
+            ref_path = raw_value[1:]
+        if ref_path is not None and not _valid_path(
+            ref_path, require_root=True
+        ):
+            _invalid(f"Invalid authorization value reference: {raw_value}")
+        if ref_path is None:
+            condition_operator.validate(raw_value)
         selected_timezone = _compile_timezone(condition.get("timezone"))
 
         def matches(
@@ -424,8 +432,22 @@ class _RuleCompiler:
                 _condition_roots(principal, context),
                 path.split("."),
             )
+            if ref_path is not None:
+                expected = _resolve(
+                    _condition_roots(principal, context),
+                    ref_path.split("."),
+                )
+                if expected is _MISSING:
+                    _invalid(
+                        f"Authorization value reference has no value: "
+                        f"{raw_value}"
+                    )
+            else:
+                expected = raw_value
             if selected_timezone is not None and isinstance(actual, datetime):
                 actual = actual.astimezone(selected_timezone)
+            if actual is _MISSING and operator_name != "exists":
+                return False
             try:
                 return condition_operator.evaluate(actual, expected)
             except (TypeError, ValueError, re.error):
@@ -481,16 +503,16 @@ def _validate_permissions(permissions: Sequence[Any]) -> None:
             _invalid(f"Invalid permission wildcard: {permission}")
 
 
-def _subject_data(subject: Subject) -> Mapping[str, Any]:
+def _subject_data(subject: Subject) -> object:
     if isinstance(subject, Mapping):
         return subject
     if is_dataclass(subject):
         return asdict(subject)
-    return {}
+    return subject
 
 
-def _resolve(value: Any, path: Sequence[str]) -> Any:
-    current = value
+def _resolve(value: object, path: Sequence[str]) -> Any:
+    current: object = value
     for part in path:
         if not part or part.startswith("_"):
             return _MISSING
@@ -500,7 +522,13 @@ def _resolve(value: Any, path: Sequence[str]) -> Any:
             names = {item.name for item in fields(current)}
             current = getattr(current, part) if part in names else _MISSING
         else:
-            return _MISSING
+            try:
+                candidate = getattr(current, part, _MISSING)
+            except Exception:
+                return _MISSING
+            if candidate is _MISSING or callable(candidate):
+                return _MISSING
+            current = candidate
         if current is _MISSING:
             return _MISSING
     return current
