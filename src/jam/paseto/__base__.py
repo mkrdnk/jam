@@ -5,7 +5,7 @@ import hashlib
 import hmac
 import logging
 import secrets
-from typing import Any, Literal, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, rsa
@@ -34,6 +34,10 @@ from jam.utils.xchacha20poly1305 import (
     xchacha20poly1305_decrypt,
     xchacha20poly1305_encrypt,
 )
+
+
+if TYPE_CHECKING:
+    from jam.keychain import BaseKeyChain
 
 
 logger = logging.getLogger(__name__)
@@ -302,7 +306,7 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
         self,
         purpose: Literal["local", "public"],
         secret_key: str | bytes | Any | None = None,
-        keychain: Any | None = None,
+        keychain: "BaseKeyChain | None" = None,
         list: dict[str, Any] | BaseList | None = None,
         config: str | dict[str, Any] | None = None,
         pointer: str | None = None,
@@ -570,7 +574,9 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
         if self._keychain is not None:
             try:
                 encoded_footer = token.split(".", 3)[3]
-                footer = self._decode_footer(base64url_decode(encoded_footer), serializer)
+                footer = self._decode_footer(
+                    base64url_decode(encoded_footer), serializer
+                )
                 key_id = footer["_jam"]["kid"]
             except (IndexError, KeyError, TypeError, ValueError) as exc:
                 raise JamPASETOInvalidTokenFormat(
@@ -590,6 +596,8 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
                 self._secret, self._public_key = old_secret, old_public
         if self._keychain is not None:
             if not isinstance(footer, dict) or "_jam" not in footer:
-                raise JamPASETOInvalidTokenFormat(message="Invalid KeyChain footer.")
+                raise JamPASETOInvalidTokenFormat(
+                    message="Invalid KeyChain footer."
+                )
             footer = footer.get("footer")
         return payload, footer
