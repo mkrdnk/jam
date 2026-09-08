@@ -36,15 +36,22 @@ from jam import BaseSubject, Jam
 
 @dataclass
 class User(BaseSubject):
-    id: str
+    id: int
     email: str = ""
 
 
 jam = Jam(config="config.toml", subject=User)
 
-token = jam.issue(User(id="1", email="user@example.com"), via="jwt")
-principal = jam.authenticate(token, via="jwt")
+user = User(id=1, email="user@example.com")
+
+token = jam.issue(subject=user, via="jwt")
+principal = jam.authenticate(token)
 user = principal.subject
+
+allowed: bool = jam.authorize(
+    principal=principal,
+    permission="post:create"
+)
 ```
 
 See the [Quickstart](/usage/quickstart) for a step-by-step walkthrough.

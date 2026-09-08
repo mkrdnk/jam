@@ -22,13 +22,29 @@ pip install jamlib
 
 ## Quick example
 ```python
-from jam import Jam
+from dataclasses import dataclass
 
-jam = Jam(config="config.toml")
+from jam import BaseSubject, Jam
 
-jwt = jam.issue({"id": "user-1"}, via="jwt")
-principal = jam.authenticate(jwt)
-allowed = jam.authorize(principal, "profile:read")
+
+@dataclass
+class User(BaseSubject):
+    id: int
+    email: str = ""
+
+
+jam = Jam(config="config.toml", subject=User)
+
+user = User(id=1, email="user@example.com")
+
+token = jam.issue(subject=user, via="jwt")
+principal = jam.authenticate(token)
+user = principal.subject
+
+allowed: bool = jam.authorize(
+    principal=principal,
+    permission="post:create"
+)
 ```
 
 ## Why Jam?
