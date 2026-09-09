@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from jam.__base__ import JamAuthType
 from jam.aio.__base__ import BaseAsyncJam
 from jam.authz import AuthorizationContext, Principal
 from jam.exceptions import (
@@ -33,7 +34,7 @@ class AsyncJam(BaseAsyncJam):
     async def issue(
         self,
         subject: BaseSubject | dict[str, Any],
-        via: str | None = None,
+        via: JamAuthType,
         exp: int | None = None,
         iss: str | None = None,
         aud: str | None = None,
@@ -44,27 +45,6 @@ class AsyncJam(BaseAsyncJam):
     ) -> str:
         """Issue a token or create a session."""
         payload = self._prepare_payload(subject, permissions, claims)
-
-        if via is None:
-            if self.jwt is not None:
-                return await self._issue_jwt(payload, exp, iss, aud, nbf, jti)
-            if self.paseto is not None:
-                return self._issue_paseto(
-                    payload,
-                    exp,
-                    iss,
-                    aud,
-                    nbf,
-                    jti,
-                )
-            raise JamConfigurationError(
-                message=(
-                    "Cannot issue a token: no jwt or paseto module configured. "
-                    "Pass 'via' explicitly or configure a module."
-                ),
-                error_code="configuration.issue_not_configured",
-            )
-
         match via:
             case "jwt":
                 if self.jwt is None:
@@ -107,14 +87,9 @@ class AsyncJam(BaseAsyncJam):
                 )
 
     async def authenticate(
-        self,
-        token: str,
-        via: str | None = None,
+        self, token: str, via: JamAuthType
     ) -> Principal[Any]:
         """Authenticate a token or session and return its principal."""
-        if via is None:
-            via = self._detect_token_type(token)
-
         match via:
             case "jwt":
                 if self.jwt is None:

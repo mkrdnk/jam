@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from jam.__base__ import BaseJam
+from jam.__base__ import BaseJam, JamAuthType
 from jam.authz import AuthorizationContext, Principal
 from jam.exceptions import (
     JamConfigurationError,
@@ -39,7 +39,7 @@ class Jam(BaseJam):
     def issue(
         self,
         subject: BaseSubject | dict[str, Any],
-        via: str | None = None,
+        via: JamAuthType,
         exp: int | None = None,
         iss: str | None = None,
         aud: str | None = None,
@@ -52,8 +52,7 @@ class Jam(BaseJam):
 
         Args:
             subject (BaseSubject): Subject instance or dict with an "id".
-            via (str | None): Token type: "jwt", "paseto", "session" or None
-                for auto-detect (jwt first, then paseto).
+            via (JamAuthType): Token type: "jwt", "paseto" or "session".
             exp (int | None): Expiration in seconds.
             iss (str | None): Issuer.
             aud (str | None): Audience.
@@ -69,26 +68,6 @@ class Jam(BaseJam):
             JamConfigurationError: If no matching module is configured.
         """
         payload = self._prepare_payload(subject, permissions, claims)
-        if via is None:
-            if self.jwt is not None:
-                return self.jwt.encode(
-                    payload=payload,
-                    exp=exp,
-                    iss=iss,
-                    aud=aud,
-                    nbf=nbf,
-                    jti=jti,
-                )
-            if self.paseto is not None:
-                return self._issue_paseto(payload, exp, iss, aud, nbf, jti)
-            raise JamConfigurationError(
-                message=(
-                    "Cannot issue a token: no jwt or paseto module configured. "
-                    "Pass 'via' explicitly or configure a module."
-                ),
-                error_code="configuration.issue_not_configured",
-            )
-
         match via:
             case "jwt":
                 if self.jwt is None:
@@ -130,15 +109,12 @@ class Jam(BaseJam):
                     error_code="configuration.issue_unknown_via",
                 )
 
-    def authenticate(
-        self, token: str, via: str | None = None
-    ) -> Principal[Any]:
+    def authenticate(self, token: str, via: JamAuthType) -> Principal[Any]:
         """Authenticate a token or session and return a subject.
 
         Args:
             token (str): Token or session ID.
-            via (str | None): Token type: "jwt", "paseto", "session" or None
-                for auto-detect.
+            via (str | None): Token type: "jwt", "paseto" or "session".
 
         Returns:
             Principal: Authenticated subject and credential claims.
@@ -147,9 +123,6 @@ class Jam(BaseJam):
             JamConfigurationError: If no matching module is configured.
             JamSessionNotFound: If a session does not exist.
         """
-        if via is None:
-            via = self._detect_token_type(token)
-
         match via:
             case "jwt":
                 if self.jwt is None:

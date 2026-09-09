@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from jam.__base__ import _JamCore
+from jam.__base__ import JamAuthType, _JamCore
 from jam.authz import AuthorizationContext, Principal
 from jam.subject import BaseSubject
 
@@ -31,7 +31,7 @@ class BaseAsyncJam(_JamCore, ABC):
     async def issue(
         self,
         subject: BaseSubject | dict[str, Any],
-        via: str | None = None,
+        via: JamAuthType,
         exp: int | None = None,
         iss: str | None = None,
         aud: str | None = None,
@@ -47,7 +47,7 @@ class BaseAsyncJam(_JamCore, ABC):
     async def authenticate(
         self,
         token: str,
-        via: str | None = None,
+        via: JamAuthType,
     ) -> Principal[Any]:
         """Authenticate a token or session."""
         raise NotImplementedError
