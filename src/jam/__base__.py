@@ -5,9 +5,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 import dataclasses
 import logging
-import re
 import time
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from jam.__base_encoder__ import BaseEncoder
 from jam.authz import (
@@ -24,6 +23,8 @@ from jam.utils.config_maker import __config_maker__, __module_loader__
 
 
 logger = logging.getLogger(__name__)
+
+JamAuthType = Literal["jwt", "jwe", "paseto", "session"]
 
 
 class _JamCore:
@@ -154,7 +155,9 @@ class _JamCore:
         self.jose = {}
         keychain_cfg = config.get("keychains") or {}
 
-        def get_keychain(name: str, algorithm: str, purpose: str | None = None) -> Any:
+        def get_keychain(
+            name: str, algorithm: str, purpose: str | None = None
+        ) -> Any:
             from jam.keychain import FileStorage, Memory
 
             if name in self.keychains:
@@ -309,7 +312,10 @@ class _JamCore:
             )
 
         for chain_name, chain_config in keychain_cfg.items():
-            if isinstance(chain_config, dict) and chain_name not in self.keychains:
+            if (
+                isinstance(chain_config, dict)
+                and chain_name not in self.keychains
+            ):
                 get_keychain(
                     chain_name,
                     algorithm=chain_config.get("algorithm", "HS256"),
@@ -394,17 +400,6 @@ class _JamCore:
             )
         return payload
 
-    @staticmethod
-    def _detect_token_type(token: str) -> str:
-        """Detect a credential type from its serialized format."""
-        if re.match(r"^v[1-4]\.(local|public)\.", token):
-            return "paseto"
-        if token.count(".") == 4:
-            return "jwe"
-        if token.count(".") == 2:
-            return "jwt"
-        return "session"
-
     def _issue_paseto(
         self,
         payload: dict[str, Any],
@@ -455,7 +450,7 @@ class BaseJam(_JamCore, ABC):
     def issue(
         self,
         subject: BaseSubject | dict[str, Any],
-        via: str | None = None,
+        via: JamAuthType,
         exp: int | None = None,
         iss: str | None = None,
         aud: str | None = None,
@@ -467,9 +462,8 @@ class BaseJam(_JamCore, ABC):
         """Issue a token or session for a subject.
 
         Args:
-            subject (BaseSubject): Subject instance.
-            via (str | None): Token type: "jwt", "paseto", "session" or None
-                for auto-detect.
+            subject (BaseSubject | dict[str, Any]): Subject instance.
+            via (JamAuthType): Token type: "jwt", "paseto" or "session".
             exp (int | None): Expiration in seconds.
             iss (str | None): Issuer.
             aud (str | None): Audience.
@@ -484,15 +478,12 @@ class BaseJam(_JamCore, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def authenticate(
-        self, token: str, via: str | None = None
-    ) -> Principal[Any]:
+    def authenticate(self, token: str, via: JamAuthType) -> Principal[Any]:
         """Authenticate a token or session and return a subject.
 
         Args:
             token (str): Token or session ID.
-            via (str | None): Token type: "jwt", "paseto", "session" or None
-                for auto-detect.
+            via (JamAuthType): Token type: "jwt", "paseto" or "session".
 
         Returns:
             Principal: Authenticated subject and credential claims.
@@ -509,6 +500,20 @@ class BaseJam(_JamCore, ABC):
         Returns:
             dict[str, Any]: Updated event data.
         """
+        from jam.__defaults__ import defaults
+
+        if not defaults.ENABLE_PLUGINS:
+            raise JamConfigurationError(
+                message="Plugins are disabled."
+                "To enable them, use JAM_ENABLE_PLUGINS=1."
+                "Please note! Plugins are an experimental feature!",
+                error_code="plugins.disable",
+                details={
+                    "plugins": self._plugins,
+                    "plugins_status": defaults.ENABLE_PLUGINS,
+                },
+            )
+        logging.warning("Plugins are an experemental feature!")
         for plugin in self._plugins:
             handler = getattr(plugin, f"on_{event}", None)
 
