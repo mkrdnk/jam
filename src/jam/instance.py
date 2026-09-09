@@ -2,7 +2,8 @@
 
 from typing import Any
 
-from jam.__base__ import BaseJam, JamAuthType
+from jam.__base__ import BaseJam
+from jam.__core__ import JamAuthType
 from jam.authz import AuthorizationContext, Principal
 from jam.exceptions import (
     JamConfigurationError,

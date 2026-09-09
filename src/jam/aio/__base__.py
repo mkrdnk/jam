@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from jam.__base__ import JamAuthType, _JamCore
+from jam.__core__ import JamAuthType, _JamCore
 from jam.authz import AuthorizationContext, Principal
 from jam.subject import BaseSubject
 

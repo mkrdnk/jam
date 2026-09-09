@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from jam.__base__ import JamAuthType
+from jam.__core__ import JamAuthType
 from jam.aio.__base__ import BaseAsyncJam
 from jam.authz import AuthorizationContext, Principal
 from jam.exceptions import (
