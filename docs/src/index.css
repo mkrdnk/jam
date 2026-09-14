@@ -38,29 +38,31 @@
 }
 
 .dark {
-  --bg: #0a0a0a;
-  --bg-subtle: #111111;
-  --bg-surface: #1a1a1a;
-  --border: #222222;
-  --text: #f0f0f0;
-  --text-2: #aaaaaa;
-  --text-3: #666666;
+  --bg: #141414;
+  --bg-subtle: #1b1b1b;
+  --bg-surface: #232323;
+  --border: #2d2d2d;
+  --text: #e4e4e4;
+  --text-2: #b5b5b5;
+  --text-3: #858585;
   --accent: #e05561;
   --accent-2: #f0757e;
   --accent-bg: #1c0808;
   --nav-active-bg: #1c0808;
   --nav-active: #e05561;
-  --ic-bg: #1a1a1a;
+  --code-bg: #101012;
+  --code-text: #cdd3de;
+  --ic-bg: #292929;
   --ic-text: #e05561;
-  --scrollbar: #333333;
-  --tip-bg: #052e16;
-  --tip-border: #16a34a;
-  --warn-bg: #1c1400;
-  --warn-border: #d97706;
-  --info-bg: #0c1a2e;
-  --info-border: #2563eb;
-  --danger-bg: #1a0a0c;
-  --danger-border: #e11d48;
+  --scrollbar: #454545;
+  --tip-bg: #10271b;
+  --tip-border: #3dbb73;
+  --warn-bg: #2b2412;
+  --warn-border: #e2a331;
+  --info-bg: #15263a;
+  --info-border: #5b9bea;
+  --danger-bg: #2b171b;
+  --danger-border: #ed667e;
 }
 
 /* ---- Base ---- */

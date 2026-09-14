@@ -10,6 +10,7 @@ import type { NavItem as MdNavItem, VersionManifest } from "./types"
 
 const MD_MANIFEST = manifest as unknown as VersionManifest
 const DOC_VERSIONS: string[] = MD_MANIFEST.versions
+const DOC_LAYOUT_WIDTH = 980
 
 type Theme = "light" | "dark"
 type PageId = "home" | "search"
@@ -321,8 +322,8 @@ function MdNavItemView({ item, depth, active, onClick }: {
           display: "flex", alignItems: "center", justifyContent: "space-between",
           width: "100%", textAlign: "left", textDecoration: "none",
           background: "none", border: "none",
-          padding: `0.28125rem calc(1rem + 4px + ${depth * 10}px)`,
-          fontSize: 13.5, fontWeight: 400,
+          padding: `0.3125rem calc(1rem + ${depth * 10}px)`,
+          fontSize: 14, fontWeight: 400,
           color: "var(--text-2)",
           fontFamily: "Inter, sans-serif",
           lineHeight: 1.5,
@@ -349,8 +350,8 @@ function MdNavItemView({ item, depth, active, onClick }: {
           border: "none",
           borderLeft: `2px solid ${isActive ? "var(--nav-active)" : "transparent"}`,
           cursor: "pointer",
-          padding: `0.28125rem calc(1rem + 4px + ${depth * 10}px)`,
-          fontSize: 13.5, fontWeight: isActive ? 600 : 400,
+          padding: `0.3125rem calc(1rem + ${depth * 10}px)`,
+          fontSize: 14, fontWeight: isActive ? 600 : 400,
           color: isActive ? "var(--nav-active)" : "var(--text-2)",
           fontFamily: "Inter, sans-serif",
           lineHeight: 1.5,
@@ -367,10 +368,10 @@ function MdNavItemView({ item, depth, active, onClick }: {
   return (
     <div style={{ marginBottom: "0.125rem" }}>
       <div style={{
-        fontSize: 11, fontWeight: 700,
+        fontSize: 12, fontWeight: 800,
         letterSpacing: "0.07em", textTransform: "uppercase",
-        color: "var(--text-3)", padding: `0 ${0.875 + depth * 0.5}rem`,
-        marginBottom: "0.125rem", marginTop: depth > 0 ? "0.375rem" : 0,
+        color: "var(--text-2)", padding: `0 ${1 + depth * 0.625}rem`,
+        lineHeight: 1.4, marginBottom: "0.25rem", marginTop: depth > 0 ? "0.5rem" : 0,
       }}>
         {item.title}
       </div>
@@ -413,9 +414,10 @@ function Sidebar({ open, onClose, mdNav, activeMdSlug, onOpenMd }: {
         {mdNav.length > 0 && (
           <div style={{ marginBottom: "1.375rem" }}>
             <div style={{
-              fontSize: 11, fontWeight: 700,
+              fontSize: 12, fontWeight: 800,
               letterSpacing: "0.07em", textTransform: "uppercase",
               color: "var(--accent)", padding: "0 1rem",
+              lineHeight: 1.4,
               marginBottom: "0.25rem",
             }}>
               Docs
@@ -618,7 +620,7 @@ function MdPage({ version, slug, versions, onVersionChange, onOpenMd, onHome, on
   const { prev, next } = getAdjacentPages(nav, slug)
 
   return (
-    <div style={{ maxWidth: 980, margin: "0 auto", padding: "2.25rem 2rem 4rem", display: "flex", gap: "4rem", alignItems: "flex-start" }}>
+    <div style={{ maxWidth: DOC_LAYOUT_WIDTH, margin: "0 auto", padding: "2.25rem 2rem 4rem", display: "flex", gap: "4rem", alignItems: "flex-start" }}>
       <div ref={contentRef} style={{ width: 700, minWidth: 0 }}>
         <Breadcrumb crumbs={crumbs} onNavigate={onHome} />
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.875rem" }}>
@@ -1127,7 +1129,7 @@ export default function App() {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} mdNav={mdNav} activeMdSlug={mdSlug} onOpenMd={openMd} />
       <main style={{ marginLeft: 248, paddingTop: 56, ...mainStyle }}>{children}</main>
       <footer style={{ marginLeft: 248, padding: "0 2rem 3rem" }}>
-        <div style={{ maxWidth: 700, margin: "0 auto", borderTop: "1px solid var(--border)", paddingTop: "1.5rem" }}>
+        <div style={{ maxWidth: DOC_LAYOUT_WIDTH, margin: "0 auto", borderTop: "1px solid var(--border)", paddingTop: "1.5rem" }}>
           <SiteFooter onOpenMd={openMd} />
         </div>
       </footer>
