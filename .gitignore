@@ -179,3 +179,4 @@ sessions.json
 *.aes
 *.key
 plan.md
+docs/docs-content/*/api/

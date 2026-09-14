@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "docs:build": "tsx scripts/build-docs.ts",
+    "docs:build": "python scripts/gen_api.py && tsx scripts/build-docs.ts",
     "dev": "npm run docs:build && vite",
     "build": "npm run docs:build && vite build && cp dist/index.html dist/404.html",
     "preview": "vite preview",

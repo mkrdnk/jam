@@ -10,6 +10,6 @@ export interface VersionManifest {
   versions: string[];
   docs: Record<
     string,
-    { nav: NavItem[]; pages: { slug: string; title: string }[] }
+    { nav: NavItem[]; pages: { slug: string; title: string }[]; apiModules?: string[] }
   >;
 }

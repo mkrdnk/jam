@@ -131,7 +131,14 @@ async function main() {
     const nav = buildNavFromYml(ymlRoot.nav, versionDir);
     const pages = collectPages(nav);
 
-    manifest.docs[version] = { nav, pages };
+    const apiDir = path.join(versionDir, "api");
+    const apiModules = fs.existsSync(apiDir)
+      ? fs.readdirSync(apiDir, { recursive: true })
+        .filter((entry): entry is string => typeof entry === "string" && entry.endsWith(".md") && entry !== "index.md")
+        .map((entry) => entry.replace(/\\/g, "/").replace(/\.md$/, "").replace(/\//g, "."))
+        .sort()
+      : [];
+    manifest.docs[version] = { nav, pages, apiModules };
 
     for (const page of pages) {
       const filePath = path.join(versionDir, page.slug.replace(/--/g, "/") + ".md");

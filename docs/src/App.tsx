@@ -1057,6 +1057,56 @@ function NotFoundPage({ onHome, onDocs }: { onHome: () => void; onDocs: () => vo
   )
 }
 
+function ApiSidebar({ modules, onBack, open }: { modules: string[]; onBack: () => void; open: boolean }) {
+  const headingId = (module: string) => module.toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, "").replace(/\s+/g, "-")
+
+  return (
+    <nav className={open ? "api-sidebar open" : "api-sidebar"} style={{
+      position: "fixed", top: 56, left: 0, bottom: 0, width: 248,
+      background: "var(--bg-subtle)", borderRight: "1px solid var(--border)",
+      overflowY: "auto", padding: "1rem 0 2rem", zIndex: 95,
+    }}>
+      <button
+        type="button"
+        onClick={onBack}
+        style={{
+          margin: "0 1rem 1rem", padding: 0, background: "none", border: "none",
+          color: "var(--text-3)", cursor: "pointer", font: "12px Inter, sans-serif",
+        }}
+      >
+        ← Documentation
+      </button>
+      <div style={{
+        padding: "0 1rem", marginBottom: "0.5rem", color: "var(--accent)",
+        fontSize: 12, fontWeight: 800, letterSpacing: "0.07em", textTransform: "uppercase",
+      }}>
+        API reference
+      </div>
+      {modules.map((module) => (
+        <a
+          key={module}
+          href={`#${headingId(module)}`}
+          onClick={(event) => {
+            event.preventDefault()
+            const target = Array.from(document.querySelectorAll<HTMLElement>(".prose h2"))
+              .find((heading) => heading.textContent?.trim() === module)
+            if (!target) return
+            target.scrollIntoView({ behavior: "smooth", block: "start" })
+            window.history.replaceState(null, "", `#${headingId(module)}`)
+          }}
+          style={{
+            display: "block", padding: "0.25rem 1rem", color: "var(--text-2)",
+            textDecoration: "none", cursor: "pointer", font: "13px 'JetBrains Mono', monospace",
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          }}
+        >
+          {module}
+        </a>
+      ))}
+    </nav>
+  )
+}
+
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -1097,14 +1147,21 @@ export default function App() {
   const mdSlug = isDocRoute ? pathSegments.slice(1).join("--") : null
   const searchQuery = searchParams.get("q") ?? ""
 
-  let mode: "home" | "doc" | "search" | "notfound"
+  let mode: "home" | "doc" | "api" | "search" | "notfound"
   if (first === "search") mode = "search"
+  else if (first === "api") mode = "api"
   else if (pathSegments.length === 0) mode = "home"
+  else if (isDocRoute && mdSlug === "api--index") mode = "api"
   else if (isDocRoute) mode = "doc"
   else mode = "notfound"
 
   const openMd = useCallback((slug: string, version?: string) => {
     const v = version ?? effectiveVersion
+    if (slug === "api--index") {
+      navigate("/api")
+      setSidebarOpen(false)
+      return
+    }
     navigate(`/${v}/${slug.replace(/--/g, "/")}`)
     setSidebarOpen(false)
   }, [effectiveVersion, navigate])
@@ -1141,6 +1198,10 @@ export default function App() {
       navigate(target ? `/${v}/${target.replace(/--/g, "/")}` : "/")
       return
     }
+    if (mode === "api") {
+      setDocVersion(v)
+      return
+    }
     setDocVersion(v)
   }, [mdSlug, mode, navigate, searchQuery])
 
@@ -1161,6 +1222,27 @@ export default function App() {
       <style>{RESPONSIVE_CSS}</style>
     </div>
   )
+
+  const apiPage = mdPages[`${effectiveVersion}/api--index`]
+
+  if (mode === "api" && apiPage) {
+    const ApiPage = apiPage
+    return (
+      <div style={{ minHeight: "100%", background: "var(--bg)" }}>
+        <Header {...sharedHeaderProps} />
+        <ApiSidebar modules={MD_MANIFEST.docs[effectiveVersion]?.apiModules || []} onBack={goDocs} open={sidebarOpen} />
+        <main style={{ marginLeft: 248, paddingTop: 56, minHeight: "100vh" }}>
+          <div style={{ maxWidth: DOC_LAYOUT_WIDTH, margin: "0 auto", padding: "2.25rem 2rem 4rem" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.875rem" }}>
+              <VersionSwitcher versions={DOC_VERSIONS} value={effectiveVersion} onChange={changeVersion} disabled={DOC_VERSIONS.length <= 1} />
+            </div>
+            <ApiPage />
+          </div>
+        </main>
+        <style>{RESPONSIVE_CSS}</style>
+      </div>
+    )
+  }
 
   if (mode === "search") {
     return shell(<SearchPage query={searchQuery} version={effectiveVersion} onOpenMd={openMd} />)
@@ -1200,6 +1282,11 @@ const RESPONSIVE_CSS = `
       transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
     }
     .sidebar.open { transform: translateX(0); }
+    .api-sidebar {
+      transform: translateX(-100%);
+      transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
+    }
+    .api-sidebar.open { transform: translateX(0); }
     main { margin-left: 0 !important; }
     footer { margin-left: 0 !important; }
     .sidebar-overlay { display: block !important; }

@@ -75,6 +75,8 @@ nav:
         file: dev/contributing.md
   - block: Reference
     pages:
+      - label: API reference
+        file: api/index.md
       - label: Authentication utilities
         file: reference/auth-utils.md
       - label: Key generators

@@ -5665,6 +5665,7415 @@ FEAT Validation of a redis session
 \`\`\`
 `} />
   ),
+  "4.0.0/api--index": () => (
+    <MarkdownRenderer content={`# API reference
+
+Generated from the public definitions in \`src/jam\`.
+
+
+## jam.__base__
+
+Source: \`src/jam/__base__.py\`
+
+## \`BaseJam\`
+
+\`\`\`python
+class class BaseJam(_JamCore, ABC)
+\`\`\`
+
+Base synchronous Jam instance.
+
+### \`authorize\`
+
+\`\`\`python
+@abstractmethod
+def authorize(self, principal
+\`\`\`
+
+Check whether a subject is allowed to perform a permission.
+
+Args:
+    principal: Authenticated principal, subject or subject mapping.
+    permission (str): Permission name.
+    context: Dynamic authorization context.
+
+Returns:
+    bool: True if allowed, False otherwise.
+
+### \`issue\`
+
+\`\`\`python
+@abstractmethod
+def issue(self, subject
+\`\`\`
+
+Issue a token or session for a subject.
+
+Args:
+    subject (BaseSubject | dict[str, Any]): Subject instance.
+    via (JamAuthType): Token type: "jwt", "paseto" or "session".
+    exp (int | None): Expiration in seconds.
+    iss (str | None): Issuer.
+    aud (str | None): Audience.
+    nbf (int | None): Not-before in seconds.
+    jti (str | None): Token ID.
+    permissions: Permissions granted to this credential.
+    **claims: Extra payload claims.
+
+Returns:
+    str: Issued token or session ID.
+
+### \`authenticate\`
+
+\`\`\`python
+@abstractmethod
+def authenticate(self, token
+\`\`\`
+
+Authenticate a token or session and return a subject.
+
+Args:
+    token (str): Token or session ID.
+    via (JamAuthType): Token type: "jwt", "paseto" or "session".
+
+Returns:
+    Principal: Authenticated subject and credential claims.
+
+### \`emit\`
+
+\`\`\`python
+def emit(self, event
+\`\`\`
+
+Emit event.
+
+Args:
+    event (str): Event name,
+    **kwargs: Event data
+
+Returns:
+    dict[str, Any]: Updated event data.
+
+## jam.__base_encoder__
+
+Source: \`src/jam/__base_encoder__.py\`
+
+## \`BaseEncoder\`
+
+\`\`\`python
+class class BaseEncoder(ABC)
+\`\`\`
+
+Base encoder instance.
+
+### \`dumps\`
+
+\`\`\`python
+@classmethod
+@abstractmethod
+def dumps(cls, var
+\`\`\`
+
+Dump dict.
+
+### \`loads\`
+
+\`\`\`python
+@classmethod
+@abstractmethod
+def loads(cls, var
+\`\`\`
+
+Load json.
+
+## jam.__core__
+
+Source: \`src/jam/__core__.py\`
+
+This module does not expose documented public definitions.
+
+## jam.__defaults__
+
+Source: \`src/jam/__defaults__.py\`
+
+## \`DEFAULTS\`
+
+\`\`\`python
+class @dataclass(slots=True, frozen=True)
+class DEFAULTS
+\`\`\`
+
+Jam defaults vars.
+
+## jam.__deprecated__
+
+Source: \`src/jam/__deprecated__.py\`
+
+## \`deprecated\`
+
+\`\`\`python
+function def deprecated(replacement
+\`\`\`
+
+Mark funcs are deprecated.
+
+## jam
+
+Source: \`src/jam/__init__.py\`
+
+JAM - Universal auth* library.
+
+Source code: https://github.com/mkrdnk/jam
+Documentation: https://jam.makridenko.ru
+
+This module does not expose documented public definitions.
+
+## jam.aio.__base__
+
+Source: \`src/jam/aio/__base__.py\`
+
+## \`BaseAsyncJam\`
+
+\`\`\`python
+class class BaseAsyncJam(_JamCore, ABC)
+\`\`\`
+
+Base asynchronous Jam instance.
+
+Only operations which can cross an I/O boundary are asynchronous.
+Cryptographic modules, OTP and authorization policies remain synchronous.
+
+### \`authorize\`
+
+\`\`\`python
+@abstractmethod
+def authorize(self, principal
+\`\`\`
+
+Check whether a principal may perform a permission.
+
+### \`issue\`
+
+\`\`\`python
+@abstractmethod
+async def issue(self, subject
+\`\`\`
+
+Issue a token or create a session.
+
+### \`authenticate\`
+
+\`\`\`python
+@abstractmethod
+async def authenticate(self, token
+\`\`\`
+
+Authenticate a token or session.
+
+## jam.aio
+
+Source: \`src/jam/aio/__init__.py\`
+
+Asynchronous Jam facade and I/O modules.
+
+This module does not expose documented public definitions.
+
+## jam.aio.instance
+
+Source: \`src/jam/aio/instance.py\`
+
+## \`AsyncJam\`
+
+\`\`\`python
+class class AsyncJam(BaseAsyncJam)
+\`\`\`
+
+Asynchronous Jam facade.
+
+Stateless modules remain synchronous. High-level credential operations
+are always awaitable because sessions and token registries may perform I/O.
+
+### \`authorize\`
+
+\`\`\`python
+def authorize(self, principal
+\`\`\`
+
+Check whether a principal may perform a permission.
+
+### \`issue\`
+
+\`\`\`python
+async def issue(self, subject
+\`\`\`
+
+Issue a token or create a session.
+
+### \`authenticate\`
+
+\`\`\`python
+async def authenticate(self, token
+\`\`\`
+
+Authenticate a token or session and return its principal.
+
+### \`aclose\`
+
+\`\`\`python
+async def aclose(self) -> None
+\`\`\`
+
+Close I/O clients owned by this instance.
+
+## jam.aio.lists.__base__
+
+Source: \`src/jam/aio/lists/__base__.py\`
+
+## \`BaseAsyncList\`
+
+\`\`\`python
+class class BaseAsyncList(ABC)
+\`\`\`
+
+Asynchronous token allowlist or denylist.
+
+### \`add\`
+
+\`\`\`python
+@abstractmethod
+async def add(self, token
+\`\`\`
+
+Add a token.
+
+### \`add_many\`
+
+\`\`\`python
+@abstractmethod
+async def add_many(self, tokens
+\`\`\`
+
+Add multiple tokens.
+
+### \`check\`
+
+\`\`\`python
+@abstractmethod
+async def check(self, token
+\`\`\`
+
+Check whether a token is present.
+
+### \`check_many\`
+
+\`\`\`python
+@abstractmethod
+async def check_many(self, tokens
+\`\`\`
+
+Check multiple tokens.
+
+### \`delete\`
+
+\`\`\`python
+@abstractmethod
+async def delete(self, token
+\`\`\`
+
+Delete a token.
+
+### \`delete_many\`
+
+\`\`\`python
+@abstractmethod
+async def delete_many(self, tokens
+\`\`\`
+
+Delete multiple tokens.
+
+## jam.aio.lists
+
+Source: \`src/jam/aio/lists/__init__.py\`
+
+Asynchronous JWT allowlists and denylists.
+
+## \`build_list\`
+
+\`\`\`python
+function def build_list(list_config
+\`\`\`
+
+Build an asynchronous token list.
+
+## jam.aio.lists.json
+
+Source: \`src/jam/aio/lists/json.py\`
+
+## \`AsyncJSONList\`
+
+\`\`\`python
+class class AsyncJSONList(BaseAsyncList)
+\`\`\`
+
+Thread-adapted JSON token list.
+
+### \`add\`
+
+\`\`\`python
+async def add(self, token
+\`\`\`
+
+Add a token without blocking the event loop.
+
+### \`add_many\`
+
+\`\`\`python
+async def add_many(self, tokens
+\`\`\`
+
+Add multiple tokens without blocking the event loop.
+
+### \`check\`
+
+\`\`\`python
+async def check(self, token
+\`\`\`
+
+Check a token without blocking the event loop.
+
+### \`check_many\`
+
+\`\`\`python
+async def check_many(self, tokens
+\`\`\`
+
+Check multiple tokens without blocking the event loop.
+
+### \`delete\`
+
+\`\`\`python
+async def delete(self, token
+\`\`\`
+
+Delete a token without blocking the event loop.
+
+### \`delete_many\`
+
+\`\`\`python
+async def delete_many(self, tokens
+\`\`\`
+
+Delete multiple tokens without blocking the event loop.
+
+## jam.aio.lists.memory
+
+Source: \`src/jam/aio/lists/memory.py\`
+
+## \`MemoryList\`
+
+\`\`\`python
+class class MemoryList(BaseAsyncList)
+\`\`\`
+
+In-memory asynchronous token list.
+
+### \`add\`
+
+\`\`\`python
+async def add(self, token
+\`\`\`
+
+Add a token.
+
+### \`add_many\`
+
+\`\`\`python
+async def add_many(self, tokens
+\`\`\`
+
+Add multiple tokens.
+
+### \`check\`
+
+\`\`\`python
+async def check(self, token
+\`\`\`
+
+Check whether a token is present.
+
+### \`check_many\`
+
+\`\`\`python
+async def check_many(self, tokens
+\`\`\`
+
+Check multiple tokens.
+
+### \`delete\`
+
+\`\`\`python
+async def delete(self, token
+\`\`\`
+
+Delete a token.
+
+### \`delete_many\`
+
+\`\`\`python
+async def delete_many(self, tokens
+\`\`\`
+
+Delete multiple tokens.
+
+## jam.aio.lists.redis
+
+Source: \`src/jam/aio/lists/redis.py\`
+
+## \`RedisList\`
+
+\`\`\`python
+class class RedisList(BaseAsyncList)
+\`\`\`
+
+Redis-backed asynchronous token list.
+
+### \`add\`
+
+\`\`\`python
+async def add(self, token
+\`\`\`
+
+Add a token.
+
+### \`add_many\`
+
+\`\`\`python
+async def add_many(self, tokens
+\`\`\`
+
+Add multiple tokens in one Redis pipeline.
+
+### \`check\`
+
+\`\`\`python
+async def check(self, token
+\`\`\`
+
+Check whether a token is present.
+
+### \`check_many\`
+
+\`\`\`python
+async def check_many(self, tokens
+\`\`\`
+
+Check multiple tokens in one Redis pipeline.
+
+### \`delete\`
+
+\`\`\`python
+async def delete(self, token
+\`\`\`
+
+Delete a token.
+
+### \`delete_many\`
+
+\`\`\`python
+async def delete_many(self, tokens
+\`\`\`
+
+Delete multiple tokens.
+
+### \`aclose\`
+
+\`\`\`python
+async def aclose(self) -> None
+\`\`\`
+
+Close an internally-created Redis client.
+
+## jam.aio.oauth2.__base__
+
+Source: \`src/jam/aio/oauth2/__base__.py\`
+
+## \`BaseAsyncOAuth2Client\`
+
+\`\`\`python
+class class BaseAsyncOAuth2Client(ABC)
+\`\`\`
+
+Base async OAuth2 client instance.
+
+### \`get_authorization_url\`
+
+\`\`\`python
+@abstractmethod
+def get_authorization_url(self, scope
+\`\`\`
+
+Get OAuth2 url.
+
+Args:
+    scope (list[str]): Auth scope
+    extra_params (Any): Extra auth params
+
+Returns:
+    str: URL for auth
+
+### \`fetch_token\`
+
+\`\`\`python
+@abstractmethod
+async def fetch_token(self, code
+\`\`\`
+
+Exchange code for access token.
+
+Args:
+    code (str): Auth code
+    grant_type (str): Type of oauth2 grant
+    extra_params (Any): Extra auth params if needed
+
+Returns:
+    dict: OAuth2 token response
+
+### \`refresh_token\`
+
+\`\`\`python
+@abstractmethod
+async def refresh_token(self, refresh_token
+\`\`\`
+
+Update access token.
+
+Args:
+    refresh_token (str): Refresh token
+    grant_type (str): Grant type
+    extra_params (Any): Extra auth params if needed
+
+Returns:
+    dict: New token response
+
+### \`client_credentials_flow\`
+
+\`\`\`python
+@abstractmethod
+async def client_credentials_flow(self, scope
+\`\`\`
+
+Obtain access token using client credentials flow (no user interaction).
+
+Args:
+    scope (list[str] | None): Auth scope
+    extra_params (Any): Extra auth params if needed
+
+Returns:
+    dict: JSON with access token
+
+## jam.aio.oauth2
+
+Source: \`src/jam/aio/oauth2/__init__.py\`
+
+Async OAuth2 module.
+
+## \`build_clients\`
+
+\`\`\`python
+function def build_clients(providers
+\`\`\`
+
+Create async OAuth2 clients for configured providers.
+
+Args:
+    providers: {provider_name: {client_id, client_secret, redirect_uri, ...}}
+    serializer: JSON encoder/decoder
+    **kwargs: Additional params
+
+Returns:
+    dict: {provider_name: OAuth2Client instance (async)}
+
+## jam.aio.oauth2.builtin
+
+Source: \`src/jam/aio/oauth2/builtin/__init__.py\`
+
+Async builtin OAuth2 providers.
+
+This module does not expose documented public definitions.
+
+## jam.aio.oauth2.builtin.github
+
+Source: \`src/jam/aio/oauth2/builtin/github.py\`
+
+## \`GitHubOAuth2Client\`
+
+\`\`\`python
+class class GitHubOAuth2Client(OAuth2Client)
+\`\`\`
+
+Async ready to use GitHub OAuth2 provider.
+
+See: https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps
+
+## jam.aio.oauth2.builtin.gitlab
+
+Source: \`src/jam/aio/oauth2/builtin/gitlab.py\`
+
+## \`GitLabOAuth2Client\`
+
+\`\`\`python
+class class GitLabOAuth2Client(OAuth2Client)
+\`\`\`
+
+Async ready to use GitLab OAuth2 provider.
+
+See: https://docs.gitlab.com/api/oauth2/
+
+## jam.aio.oauth2.builtin.google
+
+Source: \`src/jam/aio/oauth2/builtin/google.py\`
+
+## \`GoogleOAuth2Client\`
+
+\`\`\`python
+class class GoogleOAuth2Client(OAuth2Client)
+\`\`\`
+
+Async ready to use Google OAuth2 provider.
+
+See: https://developers.google.com/identity/protocols/oauth2
+
+## jam.aio.oauth2.builtin.yandex
+
+Source: \`src/jam/aio/oauth2/builtin/yandex.py\`
+
+## \`YandexOAuth2Client\`
+
+\`\`\`python
+class class YandexOAuth2Client(OAuth2Client)
+\`\`\`
+
+Async ready to use yandex oauth2 client.
+
+See: https://yandex.ru/dev/id/doc
+
+## jam.aio.oauth2.client
+
+Source: \`src/jam/aio/oauth2/client.py\`
+
+## \`OAuth2Client\`
+
+\`\`\`python
+class class OAuth2Client(BaseAsyncOAuth2Client)
+\`\`\`
+
+Async universal OAuth2 client implementation.
+
+### \`get_authorization_url\`
+
+\`\`\`python
+def get_authorization_url(self, scope
+\`\`\`
+
+Generate full OAuth2 authorization URL.
+
+Args:
+    scope (list[str]): Auth scope
+    extra_params (Any): Extra auth params
+
+Returns:
+    str: Authorization url
+
+### \`fetch_token\`
+
+\`\`\`python
+async def fetch_token(self, code
+\`\`\`
+
+Exchange authorization code for access token.
+
+Args:
+    code (str): OAuth2 code
+    grant_type (str): Type of oauth2 grant
+    extra_params (Any): Extra auth params if needed
+
+Returns:
+    dict: OAuth2 token
+
+### \`refresh_token\`
+
+\`\`\`python
+async def refresh_token(self, refresh_token
+\`\`\`
+
+Use refresh token to obtain a new access token.
+
+Args:
+    refresh_token (str): Refresh token
+    grant_type (str): Grant type
+    extra_params (Any): Extra auth params if needed
+
+Returns:
+    dict: Refresh token
+
+### \`client_credentials_flow\`
+
+\`\`\`python
+async def client_credentials_flow(self, scope
+\`\`\`
+
+Obtain access token using client credentials flow (no user interaction).
+
+Args:
+    scope (list[str] | None): Auth scope
+    extra_params (Any): Extra auth params if needed
+
+Raises:
+    JamOAuth2EmptyRaw: If response is empty
+    JamOAuth2Error: HTTP error
+
+Returns:
+    dict: JSON with access token
+
+### \`aclose\`
+
+\`\`\`python
+async def aclose(self) -> None
+\`\`\`
+
+Close the internally-created HTTP client.
+
+## jam.aio.sessions.__base__
+
+Source: \`src/jam/aio/sessions/__base__.py\`
+
+## \`BaseAsyncSessionModule\`
+
+\`\`\`python
+class class BaseAsyncSessionModule(_SessionCodec, ABC)
+\`\`\`
+
+Abstract base class for async session management modules.
+
+### \`create\`
+
+\`\`\`python
+@abstractmethod
+async def create(self, session_key
+\`\`\`
+
+Create a new session with the given session key and data.
+
+Args:
+    session_key (str): The key for the session.
+    data (dict[str, Any]): The data to be stored in the session.
+
+Returns:
+    str: The session ID.
+
+### \`get\`
+
+\`\`\`python
+@abstractmethod
+async def get(self, session_id
+\`\`\`
+
+Retrieve a session by its key or ID.
+
+Args:
+    session_id (str): The ID of the session.
+
+Returns:
+    dict[str, Any] | None: The session data if found, otherwise None.
+
+### \`delete\`
+
+\`\`\`python
+@abstractmethod
+async def delete(self, session_id
+\`\`\`
+
+Delete a session by its key or ID.
+
+Args:
+    session_id (str): The ID of the session.
+
+### \`update\`
+
+\`\`\`python
+@abstractmethod
+async def update(self, session_id
+\`\`\`
+
+Update an existing session with new data.
+
+Args:
+    session_id (str): The ID of the session to update.
+    data (dict[str, Any]): The new data to be stored in the session.
+
+Raises:
+    JamSessionNotFound: If the session with the given ID does not exist.
+
+### \`rework\`
+
+\`\`\`python
+@abstractmethod
+async def rework(self, session_id
+\`\`\`
+
+Rework a session and return its new ID.
+
+Args:
+    session_id (str): The ID of the session to rework.
+
+Raises:
+    JamSessionNotFound: If the session with the given ID does not exist.
+
+Returns:
+    str: The new session ID.
+
+### \`clear\`
+
+\`\`\`python
+@abstractmethod
+async def clear(self, session_key
+\`\`\`
+
+Clear all sessions by key.
+
+Args:
+    session_key (str): The key for the sessions to clear.
+
+## jam.aio.sessions
+
+Source: \`src/jam/aio/sessions/__init__.py\`
+
+Async module for making server auth sessions.
+
+## \`create_instance\`
+
+\`\`\`python
+function def create_instance(session_type
+\`\`\`
+
+Create async session module instance.
+
+Args:
+    session_type: "redis" | "json" | "custom"
+    sessions_type: Alias for session_type (deprecated, use 'session_type')
+    serializer: JSON encoder/decoder
+    **kwargs: Config params specific to session type
+
+Returns:
+    BaseSessionModule instance (async-compatible)
+
+## jam.aio.sessions.json
+
+Source: \`src/jam/aio/sessions/json.py\`
+
+## \`JSONSessions\`
+
+\`\`\`python
+class class JSONSessions(BaseAsyncSessionModule)
+\`\`\`
+
+Async session management module for JSON storage.
+
+### \`create\`
+
+\`\`\`python
+async def create(self, session_key
+\`\`\`
+
+Create a new session.
+
+Args:
+    session_key (str): The session key.
+    data (dict): The data to be stored in the session.
+
+Returns:
+    str: The ID of the created session.
+
+### \`get\`
+
+\`\`\`python
+async def get(self, session_id) -> dict | None
+\`\`\`
+
+Retrieve session data by session ID.
+
+Args:
+    session_id (str): The ID of the session to retrieve.
+
+Returns:
+    dict | None: The session data if found, otherwise None.
+
+### \`delete\`
+
+\`\`\`python
+async def delete(self, session_id
+\`\`\`
+
+Delete a session by its ID.
+
+Args:
+    session_id (str): The ID of the session to delete.
+
+Returns:
+    None
+
+### \`update\`
+
+\`\`\`python
+async def update(self, session_id
+\`\`\`
+
+Update session data by its ID.
+
+Args:
+    session_id (str): The ID of the session to update.
+    data (dict): The new data to store in the session.
+
+Raises:
+    JamSessionNotFound: If session not found
+
+Returns:
+    None
+
+### \`clear\`
+
+\`\`\`python
+async def clear(self, session_key
+\`\`\`
+
+Clear all sessions for a given session key.
+
+Args:
+    session_key (str): The session key to clear.
+
+Returns:
+    None
+
+### \`rework\`
+
+\`\`\`python
+async def rework(self, session_id
+\`\`\`
+
+Rework (regenerate) a session ID.
+
+Args:
+    session_id (str): The current session ID to be reworked.
+
+Raises:
+    JamSessionNotFound: If session not found
+
+Returns:
+    str: The new session ID.
+
+### \`aclose\`
+
+\`\`\`python
+async def aclose(self) -> None
+\`\`\`
+
+Close the TinyDB file without blocking the event loop.
+
+## jam.aio.sessions.redis
+
+Source: \`src/jam/aio/sessions/redis.py\`
+
+## \`RedisSessions\`
+
+\`\`\`python
+class class RedisSessions(BaseAsyncSessionModule)
+\`\`\`
+
+Async Redis session management module.
+
+### \`create\`
+
+\`\`\`python
+async def create(self, session_key
+\`\`\`
+
+Create a new session with the given session key and data.
+
+Args:
+    session_key (str): The key for the session.
+    data (dict): The data to be stored in the session.
+
+Returns:
+    str: The unique ID of the created session.
+
+### \`get\`
+
+\`\`\`python
+async def get(self, session_id
+\`\`\`
+
+Retrieve a session by its key or ID.
+
+Args:
+    session_id (str): The session key or ID.
+
+Returns:
+    dict | None: The session data if found, otherwise None.
+
+### \`delete\`
+
+\`\`\`python
+async def delete(self, session_id
+\`\`\`
+
+Delete a session by its ID.
+
+Args:
+    session_id (str): The session ID.
+
+### \`clear\`
+
+\`\`\`python
+async def clear(self, session_key
+\`\`\`
+
+Clear all sessions for a given session key.
+
+Args:
+    session_key (str): The session key to clear.
+
+### \`update\`
+
+\`\`\`python
+async def update(self, session_id
+\`\`\`
+
+Update an existing session with new data.
+
+Args:
+    session_id (str): The ID of the session to update.
+    data (dict): The new data to be stored in the session.
+
+Raises:
+    JamSessionNotFound: If the session with the given ID does not exist.
+
+### \`rework\`
+
+\`\`\`python
+async def rework(self, session_id
+\`\`\`
+
+Rework a session and return its new ID.
+
+Args:
+    session_id (str): The ID of the session to rework.
+
+Raises:
+    JamSessionNotFound: If the session with the given ID does not exist.
+
+Returns:
+    str: The new session ID.
+
+### \`aclose\`
+
+\`\`\`python
+async def aclose(self) -> None
+\`\`\`
+
+Close an internally-created Redis client.
+
+## jam.authz
+
+Source: \`src/jam/authz.py\`
+
+Declarative authorization policies.
+
+## \`Principal\`
+
+\`\`\`python
+class @dataclass
+class Principal(Generic[SubjectT])
+\`\`\`
+
+Authenticated subject together with the claims of its credential.
+
+### \`permissions\`
+
+\`\`\`python
+@property
+def permissions(self) -> frozenset[str]
+\`\`\`
+
+Return permissions declared by this credential.
+
+### \`jti\`
+
+\`\`\`python
+@property
+def jti(self) -> str | None
+\`\`\`
+
+Return the JWT ID claim, if present.
+
+### \`has_permission\`
+
+\`\`\`python
+def has_permission(self, permission
+\`\`\`
+
+Check whether a credential grant covers a permission.
+
+## \`AuthorizationContext\`
+
+\`\`\`python
+class @dataclass
+class AuthorizationContext
+\`\`\`
+
+Dynamic values available while evaluating authorization rules.
+
+## \`BasePolicy\`
+
+\`\`\`python
+class class BasePolicy(ABC)
+\`\`\`
+
+Base policy contract.
+
+### \`check\`
+
+\`\`\`python
+@abstractmethod
+def check(self, principal
+\`\`\`
+
+Check whether a principal may perform a permission.
+
+Args:
+    principal: Authenticated principal, subject or subject mapping.
+    permission: Permission name, e.g. \`\`"post:edit"\`\`.
+    context: Dynamic authorization context.
+
+Returns:
+    bool: True if allowed, False otherwise.
+
+## \`Policy\`
+
+\`\`\`python
+class class Policy(BasePolicy)
+\`\`\`
+
+Declarative allow/deny policy.
+
+Supports compact \`\`{permission: [predicates]}\`\` and structured rules.
+Deny rules always take precedence; unmatched permissions are denied.
+
+### \`check\`
+
+\`\`\`python
+def check(self, principal
+\`\`\`
+
+Evaluate credential grants and matching policy rules.
+
+## jam.cli
+
+Source: \`src/jam/cli/__init__.py\`
+
+CLI tool for Jam.
+
+This module does not expose documented public definitions.
+
+## jam.cli.cli
+
+Source: \`src/jam/cli/cli.py\`
+
+## \`cli\`
+
+\`\`\`python
+function @click.group()
+@click.version_option(version=version('jamlib'))
+def cli() -> None
+\`\`\`
+
+Jam CLI - Key generation and password utilities.
+
+## jam.cli.commands
+
+Source: \`src/jam/cli/commands/__init__.py\`
+
+This module does not expose documented public definitions.
+
+## jam.cli.commands.keychain
+
+Source: \`src/jam/cli/commands/keychain.py\`
+
+KeyChain administration commands.
+
+## \`keychain\`
+
+\`\`\`python
+function @click.group()
+@click.option('--config', type=click.Path(exists=True, dir_okay=False), help='Jam configuration file containing keychains.')
+@click.pass_context
+def keychain(ctx
+\`\`\`
+
+Administer configured KeyChains.
+
+## \`list\`
+
+\`\`\`python
+function @keychain.command()
+@click.argument('name')
+@click.option('--include-revoked', is_flag=True)
+@click.pass_context
+def list(ctx
+\`\`\`
+
+List key metadata.
+
+## \`show\`
+
+\`\`\`python
+function @keychain.command()
+@click.argument('name')
+@click.argument('key_id')
+@click.pass_context
+def show(ctx
+\`\`\`
+
+Show metadata for one key.
+
+## \`add\`
+
+\`\`\`python
+function @keychain.command()
+@click.argument('name')
+@click.argument('key_id')
+@click.pass_context
+def add(ctx
+\`\`\`
+
+Generate a standby key.
+
+## \`activate\`
+
+\`\`\`python
+function @keychain.command()
+@click.argument('name')
+@click.argument('key_id')
+@click.pass_context
+def activate(ctx
+\`\`\`
+
+Make a key current and retire the old current key.
+
+## \`rotate\`
+
+\`\`\`python
+function @keychain.command()
+@click.argument('name')
+@click.option('--key-id', help='ID for the generated key.')
+@click.pass_context
+def rotate(ctx
+\`\`\`
+
+Generate and activate a new key.
+
+## \`retire\`
+
+\`\`\`python
+function @keychain.command()
+@click.argument('name')
+@click.argument('key_id')
+@click.pass_context
+def retire(ctx
+\`\`\`
+
+Retire a key while retaining it for verification.
+
+## \`revoke\`
+
+\`\`\`python
+function @keychain.command()
+@click.argument('name')
+@click.argument('key_id')
+@click.pass_context
+def revoke(ctx
+\`\`\`
+
+Immediately reject credentials using a compromised key.
+
+## \`remove\`
+
+\`\`\`python
+function @keychain.command()
+@click.argument('name')
+@click.argument('key_id')
+@click.option('--yes', is_flag=True, help='Do not ask for confirmation.')
+@click.pass_context
+def remove(ctx
+\`\`\`
+
+Permanently delete a non-current key.
+
+## \`current\`
+
+\`\`\`python
+function @keychain.command()
+@click.argument('name')
+@click.pass_context
+def current(ctx
+\`\`\`
+
+Show the current issuing key.
+
+## jam.cli.commands.keys
+
+Source: \`src/jam/cli/commands/keys.py\`
+
+## \`keys\`
+
+\`\`\`python
+function @click.group()
+def keys() -> None
+\`\`\`
+
+Generate cryptographic keys.
+
+## \`rsa\`
+
+\`\`\`python
+function @keys.command()
+@click.option('--public-out', '-p', default='public.pem', help='Public key output file')
+@click.option('--private-out', '-o', default='private.pem', help='Private key output file')
+def rsa(public_out
+\`\`\`
+
+Generate RSA key pair.
+
+## \`ed25519\`
+
+\`\`\`python
+function @keys.command()
+@click.option('--public-out', '-p', default='public.pem', help='Public key output file')
+@click.option('--private-out', '-o', default='private.pem', help='Private key output file')
+def ed25519(public_out
+\`\`\`
+
+Generate Ed25519 key pair.
+
+## \`ecdsa\`
+
+\`\`\`python
+function @keys.command()
+@click.option('--public-out', '-p', default='public.pem', help='Public key output file')
+@click.option('--private-out', '-o', default='private.pem', help='Private key output file')
+def ecdsa(public_out
+\`\`\`
+
+Generate ECDSA P-384 key pair.
+
+## \`aes\`
+
+\`\`\`python
+function @keys.command()
+@click.option('--out', '-o', default='aes.key', help='AES key output file')
+def aes(out
+\`\`\`
+
+Generate AES key.
+
+## \`symmetric\`
+
+\`\`\`python
+function @keys.command()
+@click.option('--out', '-o', default='symmetric.key', help='Symmetric key output file')
+@click.option('--bytes', '-b', default=32, help='Key size in bytes (default
+\`\`\`
+
+Generate symmetric key.
+
+## jam.cli.commands.password
+
+Source: \`src/jam/cli/commands/password.py\`
+
+## \`password\`
+
+\`\`\`python
+function @click.group()
+def password() -> None
+\`\`\`
+
+Password hashing and verification utilities.
+
+## \`hash\`
+
+\`\`\`python
+function @password.command()
+@click.argument('password')
+@click.option('--out', '-o', default=None, help='Output file (default
+\`\`\`
+
+Hash a password.
+
+## \`verify\`
+
+\`\`\`python
+function @password.command()
+@click.option('--hash', '-h', required=True, help='Hash to verify against (format
+\`\`\`
+
+Verify a password against a hash.
+
+## jam.encoders
+
+Source: \`src/jam/encoders.py\`
+
+## \`JsonEncoder\`
+
+\`\`\`python
+class class JsonEncoder(BaseEncoder)
+\`\`\`
+
+Json encoder.
+
+### \`dumps\`
+
+\`\`\`python
+@classmethod
+def dumps(cls, var
+\`\`\`
+
+Dump dict.
+
+### \`loads\`
+
+\`\`\`python
+@classmethod
+def loads(cls, var
+\`\`\`
+
+Load json.
+
+## jam.exceptions
+
+Source: \`src/jam/exceptions/__init__.py\`
+
+All Jam exceptions
+
+This module does not expose documented public definitions.
+
+## jam.exceptions.base
+
+Source: \`src/jam/exceptions/base.py\`
+
+## \`JamError\`
+
+\`\`\`python
+class class JamError(Exception)
+\`\`\`
+
+Base jam exception.
+
+Support:
+- message: human-readable message
+- error_code: machine-readable error code
+- details: additional data
+
+### \`message\`
+
+\`\`\`python
+@property
+def message(self) -> str
+\`\`\`
+
+Human-readable message.
+
+## \`JamValidationError\`
+
+\`\`\`python
+class class JamValidationError(JamError)
+\`\`\`
+
+Exception raised when a validation error occurs.
+
+## \`JamConfigurationError\`
+
+\`\`\`python
+class class JamConfigurationError(JamError)
+\`\`\`
+
+Exception raised when a configuration error occurs.
+
+## jam.exceptions.jose
+
+Source: \`src/jam/exceptions/jose.py\`
+
+## \`JamJWSVerificationError\`
+
+\`\`\`python
+class class JamJWSVerificationError(JamValidationError)
+\`\`\`
+
+## \`JamJWSValidationError\`
+
+\`\`\`python
+class class JamJWSValidationError(JamValidationError)
+\`\`\`
+
+## \`JamJWSInvalidFormatError\`
+
+\`\`\`python
+class class JamJWSInvalidFormatError(JamValidationError)
+\`\`\`
+
+## \`JamJWSSigningError\`
+
+\`\`\`python
+class class JamJWSSigningError(JamValidationError)
+\`\`\`
+
+## \`JamJWKValidationError\`
+
+\`\`\`python
+class class JamJWKValidationError(JamValidationError)
+\`\`\`
+
+## \`JamJWKInvalidKeyTypeError\`
+
+\`\`\`python
+class class JamJWKInvalidKeyTypeError(JamValidationError)
+\`\`\`
+
+## \`JamJWEEncryptionError\`
+
+\`\`\`python
+class class JamJWEEncryptionError(JamValidationError)
+\`\`\`
+
+## \`JamJWEDecryptionError\`
+
+\`\`\`python
+class class JamJWEDecryptionError(JamValidationError)
+\`\`\`
+
+## \`JamJWEInvalidFormatError\`
+
+\`\`\`python
+class class JamJWEInvalidFormatError(JamValidationError)
+\`\`\`
+
+## \`JamInvalidKeyTypeError\`
+
+\`\`\`python
+class class JamInvalidKeyTypeError(JamConfigurationError)
+\`\`\`
+
+## \`JamAlgorithmError\`
+
+\`\`\`python
+class class JamAlgorithmError(JamConfigurationError)
+\`\`\`
+
+## \`JamInvalidPaddingError\`
+
+\`\`\`python
+class class JamInvalidPaddingError(JamValidationError)
+\`\`\`
+
+## \`JamRedisListConfigurationError\`
+
+\`\`\`python
+class class JamRedisListConfigurationError(JamConfigurationError)
+\`\`\`
+
+## jam.exceptions.jwt
+
+Source: \`src/jam/exceptions/jwt.py\`
+
+## \`JamJWTExpired\`
+
+\`\`\`python
+class class JamJWTExpired(JamError)
+\`\`\`
+
+## \`JamJWTNotYetValid\`
+
+\`\`\`python
+class class JamJWTNotYetValid(JamError)
+\`\`\`
+
+## \`JamJWTInBlackList\`
+
+\`\`\`python
+class class JamJWTInBlackList(JamError)
+\`\`\`
+
+## \`JamJWTNotInWhiteList\`
+
+\`\`\`python
+class class JamJWTNotInWhiteList(JamError)
+\`\`\`
+
+## \`JamJWTUnsupportedAlgorithm\`
+
+\`\`\`python
+class class JamJWTUnsupportedAlgorithm(JamConfigurationError)
+\`\`\`
+
+## jam.exceptions.keychain
+
+Source: \`src/jam/exceptions/keychain.py\`
+
+## \`JamKeyChainError\`
+
+\`\`\`python
+class class JamKeyChainError(JamError)
+\`\`\`
+
+KeyChain operation could not be completed.
+
+## jam.exceptions.oauth2
+
+Source: \`src/jam/exceptions/oauth2.py\`
+
+## \`JamOAuth2Error\`
+
+\`\`\`python
+class class JamOAuth2Error(JamError)
+\`\`\`
+
+## \`JamOAuth2EmptyRaw\`
+
+\`\`\`python
+class class JamOAuth2EmptyRaw(JamError)
+\`\`\`
+
+## \`JamOAuth2ProviderNotConfigured\`
+
+\`\`\`python
+class class JamOAuth2ProviderNotConfigured(JamConfigurationError)
+\`\`\`
+
+## jam.exceptions.paseto
+
+Source: \`src/jam/exceptions/paseto.py\`
+
+## \`JamPASETOInvalidSymmetricKey\`
+
+\`\`\`python
+class class JamPASETOInvalidSymmetricKey(JamConfigurationError)
+\`\`\`
+
+## \`JamPASETOInvalidRSAKey\`
+
+\`\`\`python
+class class JamPASETOInvalidRSAKey(JamConfigurationError)
+\`\`\`
+
+## \`JamPASETOInvalidED25519Key\`
+
+\`\`\`python
+class class JamPASETOInvalidED25519Key(JamConfigurationError)
+\`\`\`
+
+## \`JamPASETOInvalidSecp384r1Key\`
+
+\`\`\`python
+class class JamPASETOInvalidSecp384r1Key(JamConfigurationError)
+\`\`\`
+
+## \`JamPASETOInvalidPurpose\`
+
+\`\`\`python
+class class JamPASETOInvalidPurpose(JamConfigurationError)
+\`\`\`
+
+## \`JamPASETOInvalidTokenFormat\`
+
+\`\`\`python
+class class JamPASETOInvalidTokenFormat(JamValidationError)
+\`\`\`
+
+## \`JamPASETOKeyVerificationError\`
+
+\`\`\`python
+class class JamPASETOKeyVerificationError(JamError)
+\`\`\`
+
+## jam.exceptions.plugins
+
+Source: \`src/jam/exceptions/plugins.py\`
+
+## \`JamLitestarPluginConfigError\`
+
+\`\`\`python
+class class JamLitestarPluginConfigError(JamConfigurationError)
+\`\`\`
+
+Exception raised when a configuration error occurs for a litestar plugin.
+
+## \`JamLitestarPluginError\`
+
+\`\`\`python
+class class JamLitestarPluginError(JamError)
+\`\`\`
+
+Exception raised when an error occurs for a litestar plugin.
+
+## \`JamFlaskPluginConfigError\`
+
+\`\`\`python
+class class JamFlaskPluginConfigError(JamConfigurationError)
+\`\`\`
+
+Exception raised when a configuration error occurs for a flask plugin.
+
+## \`JamFlaskPluginError\`
+
+\`\`\`python
+class class JamFlaskPluginError(JamError)
+\`\`\`
+
+Exception raised when an error occurs for a flask plugin.
+
+## \`JamStarlettePluginConfigError\`
+
+\`\`\`python
+class class JamStarlettePluginConfigError(JamConfigurationError)
+\`\`\`
+
+Exception raised when a configuration error occurs for a starlette plugin.
+
+## \`JamStarlettePluginError\`
+
+\`\`\`python
+class class JamStarlettePluginError(JamError)
+\`\`\`
+
+Exception raised when an error occurs for a starlette plugin.
+
+## jam.exceptions.saml
+
+Source: \`src/jam/exceptions/saml.py\`
+
+## \`JamSAMLError\`
+
+\`\`\`python
+class class JamSAMLError(JamError)
+\`\`\`
+
+## \`JamSAMLExpired\`
+
+\`\`\`python
+class class JamSAMLExpired(JamError)
+\`\`\`
+
+## \`JamSAMLNotYetValid\`
+
+\`\`\`python
+class class JamSAMLNotYetValid(JamError)
+\`\`\`
+
+## \`JamSAMLInvalidAudience\`
+
+\`\`\`python
+class class JamSAMLInvalidAudience(JamError)
+\`\`\`
+
+## \`JamSAMLInvalidIssuer\`
+
+\`\`\`python
+class class JamSAMLInvalidIssuer(JamError)
+\`\`\`
+
+## \`JamSAMLEmptyPrivateKey\`
+
+\`\`\`python
+class class JamSAMLEmptyPrivateKey(JamConfigurationError)
+\`\`\`
+
+## \`JamSAMLEmptyPublicKey\`
+
+\`\`\`python
+class class JamSAMLEmptyPublicKey(JamConfigurationError)
+\`\`\`
+
+## \`JamSAMLUnsupportedAlgorithm\`
+
+\`\`\`python
+class class JamSAMLUnsupportedAlgorithm(JamConfigurationError)
+\`\`\`
+
+## \`JamSAMLValidationError\`
+
+\`\`\`python
+class class JamSAMLValidationError(JamValidationError)
+\`\`\`
+
+## \`JamSAMLInvalidRecipient\`
+
+\`\`\`python
+class class JamSAMLInvalidRecipient(JamError)
+\`\`\`
+
+## \`JamSAMLReplayDetected\`
+
+\`\`\`python
+class class JamSAMLReplayDetected(JamError)
+\`\`\`
+
+## \`JamSAMLSOAPError\`
+
+\`\`\`python
+class class JamSAMLSOAPError(JamError)
+\`\`\`
+
+## jam.exceptions.sessions
+
+Source: \`src/jam/exceptions/sessions.py\`
+
+## \`JamSessionNotFound\`
+
+\`\`\`python
+class class JamSessionNotFound(JamError)
+\`\`\`
+
+## \`JamSessionEmptyAESKey\`
+
+\`\`\`python
+class class JamSessionEmptyAESKey(JamConfigurationError)
+\`\`\`
+
+## jam.ext
+
+Source: \`src/jam/ext/__init__.py\`
+
+Framework integrations built around one configured :class:\`jam.Jam\`.
+
+Framework packages are intentionally not imported here, so installing Jam does
+not require optional web-framework dependencies.
+
+This module does not expose documented public definitions.
+
+## jam.ext._base
+
+Source: \`src/jam/ext/_base.py\`
+
+## \`CredentialSource\`
+
+\`\`\`python
+class @dataclass(frozen=True, slots=True)
+class CredentialSource
+\`\`\`
+
+Describe a place from which an HTTP credential is read.
+
+### \`bearer\`
+
+\`\`\`python
+@classmethod
+def bearer(cls, name
+\`\`\`
+
+Create an HTTP Bearer credential source.
+
+### \`header\`
+
+\`\`\`python
+@classmethod
+def header(cls, name
+\`\`\`
+
+Create a header credential source.
+
+### \`cookie\`
+
+\`\`\`python
+@classmethod
+def cookie(cls, name
+\`\`\`
+
+Create a cookie credential source.
+
+### \`query\`
+
+\`\`\`python
+@classmethod
+def query(cls, name
+\`\`\`
+
+Create a query-string credential source.
+
+## \`AuthenticationResult\`
+
+\`\`\`python
+class @dataclass(frozen=True, slots=True)
+class AuthenticationResult
+\`\`\`
+
+Result of an HTTP authentication attempt.
+
+### \`is_authenticated\`
+
+\`\`\`python
+@property
+def is_authenticated(self) -> bool
+\`\`\`
+
+Whether a credential was successfully authenticated.
+
+## \`Authenticator\`
+
+\`\`\`python
+class class Authenticator
+\`\`\`
+
+Framework-independent adapter between HTTP and :class:\`jam.Jam\`.
+
+### \`extract\`
+
+\`\`\`python
+def extract(self, *, headers
+\`\`\`
+
+Extract the first available credential in configured order.
+
+### \`authenticate\`
+
+\`\`\`python
+def authenticate(self, token
+\`\`\`
+
+Authenticate one credential without leaking expected failures.
+
+### \`authenticate_request\`
+
+\`\`\`python
+def authenticate_request(self, *, headers
+\`\`\`
+
+Extract and authenticate a credential from an HTTP request.
+
+## \`AsyncAuthenticator\`
+
+\`\`\`python
+class class AsyncAuthenticator
+\`\`\`
+
+Framework-independent adapter for asynchronous HTTP frameworks.
+
+### \`extract\`
+
+\`\`\`python
+def extract(self, *, headers
+\`\`\`
+
+Extract a request credential using the common source rules.
+
+### \`authenticate\`
+
+\`\`\`python
+async def authenticate(self, token
+\`\`\`
+
+Authenticate without blocking the event loop.
+
+### \`authenticate_request\`
+
+\`\`\`python
+async def authenticate_request(self, *, headers
+\`\`\`
+
+Extract and asynchronously authenticate a request credential.
+
+## \`permissions_from\`
+
+\`\`\`python
+function def permissions_from(principal
+\`\`\`
+
+Return normalized permissions carried by a principal.
+
+## jam.ext.fastapi
+
+Source: \`src/jam/ext/fastapi/__init__.py\`
+
+FastAPI authentication and authorization dependencies.
+
+## \`JamAuth\`
+
+\`\`\`python
+class class JamAuth
+\`\`\`
+
+Reusable FastAPI dependency backed by a configured Jam instance.
+
+### \`optional\`
+
+\`\`\`python
+async def optional(self, request
+\`\`\`
+
+Return a principal or \`\`None\`\` when no valid credential exists.
+
+### \`require\`
+
+\`\`\`python
+def require(self, permission
+\`\`\`
+
+Build a dependency requiring one Jam permission.
+
+## jam.ext.flask
+
+Source: \`src/jam/ext/flask/__init__.py\`
+
+Flask authentication and authorization integration.
+
+This module does not expose documented public definitions.
+
+## jam.ext.flask.auth
+
+Source: \`src/jam/ext/flask/auth.py\`
+
+## \`JamAuth\`
+
+\`\`\`python
+class class JamAuth
+\`\`\`
+
+Flask extension providing authentication and permission decorators.
+
+### \`init_app\`
+
+\`\`\`python
+def init_app(self, app
+\`\`\`
+
+Register the extension on a Flask application factory.
+
+### \`login_required\`
+
+\`\`\`python
+def login_required(self, view
+\`\`\`
+
+Require an authenticated principal for a view.
+
+### \`permission_required\`
+
+\`\`\`python
+def permission_required(self, permission
+\`\`\`
+
+Require authentication and one Jam permission for a view.
+
+## \`get_jam\`
+
+\`\`\`python
+function def get_jam() -> Jam
+\`\`\`
+
+Return the Jam instance registered on the current Flask app.
+
+## jam.ext.litestar
+
+Source: \`src/jam/ext/litestar/__init__.py\`
+
+Litestar authentication and authorization integration.
+
+This module does not expose documented public definitions.
+
+## jam.ext.litestar.plugin
+
+Source: \`src/jam/ext/litestar/plugin.py\`
+
+## \`JamAuthenticationMiddleware\`
+
+\`\`\`python
+class class JamAuthenticationMiddleware(AbstractAuthenticationMiddleware)
+\`\`\`
+
+Litestar authentication middleware configured per application.
+
+### \`authenticate_request\`
+
+\`\`\`python
+async def authenticate_request(self, connection
+\`\`\`
+
+Authenticate a request and expose its principal as \`\`user\`\`.
+
+## \`JamPlugin\`
+
+\`\`\`python
+class class JamPlugin(InitPlugin)
+\`\`\`
+
+Install Jam DI and optional authentication middleware in Litestar.
+
+### \`on_app_init\`
+
+\`\`\`python
+def on_app_init(self, app_config
+\`\`\`
+
+Add Jam to dependency injection and configure authentication.
+
+## \`permission_guard\`
+
+\`\`\`python
+function def permission_guard(jam
+\`\`\`
+
+Build a Litestar guard requiring one Jam permission.
+
+## jam.ext.starlette
+
+Source: \`src/jam/ext/starlette/__init__.py\`
+
+Starlette authentication integration.
+
+This module does not expose documented public definitions.
+
+## jam.ext.starlette.auth
+
+Source: \`src/jam/ext/starlette/auth.py\`
+
+## \`JamUser\`
+
+\`\`\`python
+class class JamUser(BaseUser)
+\`\`\`
+
+Starlette user exposing the complete Jam principal.
+
+### \`is_authenticated\`
+
+\`\`\`python
+@property
+def is_authenticated(self) -> bool
+\`\`\`
+
+Always true for an instantiated authenticated user.
+
+### \`display_name\`
+
+\`\`\`python
+@property
+def display_name(self) -> str
+\`\`\`
+
+Return a useful display name without requiring a user model.
+
+## \`JamAuthBackend\`
+
+\`\`\`python
+class class JamAuthBackend(AuthenticationBackend)
+\`\`\`
+
+Authenticate Starlette HTTP and WebSocket connections with Jam.
+
+### \`authenticate\`
+
+\`\`\`python
+async def authenticate(self, conn
+\`\`\`
+
+Authenticate a connection using Starlette's native contract.
+
+## jam.instance
+
+Source: \`src/jam/instance.py\`
+
+## \`Jam\`
+
+\`\`\`python
+class class Jam(BaseJam)
+\`\`\`
+
+Main instance.
+
+### \`authorize\`
+
+\`\`\`python
+def authorize(self, principal
+\`\`\`
+
+Check whether a subject is allowed to perform a permission.
+
+Uses the policy configured under \`\`[jam.authz]\`\`. Deny by default.
+
+Args:
+    principal: Authenticated principal, subject or subject mapping.
+    permission (str): Permission name, e.g. \`\`"post:edit"\`\`.
+    context: Dynamic authorization context.
+
+Returns:
+    bool: True if allowed, False otherwise.
+
+### \`issue\`
+
+\`\`\`python
+def issue(self, subject
+\`\`\`
+
+Issue a token or session for a subject.
+
+Args:
+    subject (BaseSubject): Subject instance or dict with an "id".
+    via (JamAuthType): Token type: "jwt", "paseto" or "session".
+    exp (int | None): Expiration in seconds.
+    iss (str | None): Issuer.
+    aud (str | None): Audience.
+    nbf (int | None): Not-before in seconds.
+    jti (str | None): Token ID.
+    permissions: Permissions granted to this credential.
+    **claims: Extra payload claims.
+
+Returns:
+    str: Issued token or session ID.
+
+Raises:
+    JamConfigurationError: If no matching module is configured.
+
+### \`authenticate\`
+
+\`\`\`python
+def authenticate(self, token
+\`\`\`
+
+Authenticate a token or session and return a subject.
+
+Args:
+    token (str): Token or session ID.
+    via (str | None): Token type: "jwt", "paseto" or "session".
+
+Returns:
+    Principal: Authenticated subject and credential claims.
+
+Raises:
+    JamConfigurationError: If no matching module is configured.
+    JamSessionNotFound: If a session does not exist.
+
+## jam.jose.__algorithms__
+
+Source: \`src/jam/jose/__algorithms__.py\`
+
+## \`BaseAlgorithm\`
+
+\`\`\`python
+class class BaseAlgorithm(ABC)
+\`\`\`
+
+Base class for JWT signing algorithms.
+
+### \`sign\`
+
+\`\`\`python
+@abstractmethod
+def sign(self, data
+\`\`\`
+
+Sign data.
+
+Args:
+    data (bytes): Data to sign
+
+Returns:
+    str: Base64url encoded signature
+
+### \`verify\`
+
+\`\`\`python
+@abstractmethod
+def verify(self, sig
+\`\`\`
+
+Verify signature.
+
+Args:
+    sig (bytes): Signature to verify
+    data (bytes): Data that was signed
+    key (KeyLike): Key for verification
+
+Raises:
+    ValueError: If signature is invalid
+
+## \`HSAlgorithm\`
+
+\`\`\`python
+class class HSAlgorithm(BaseAlgorithm)
+\`\`\`
+
+HMAC-based algorithms (HS256, HS384, HS512).
+
+### \`sign\`
+
+\`\`\`python
+def sign(self, data
+\`\`\`
+
+Sign data using HMAC.
+
+Args:
+    data (bytes): Data to sign
+
+Returns:
+    str: Base64url encoded signature
+
+### \`verify\`
+
+\`\`\`python
+def verify(self, sig
+\`\`\`
+
+Verify HMAC signature.
+
+Args:
+    sig (bytes): Signature to verify
+    data (bytes): Data that was signed
+    key (KeyLike): Key for verification
+
+Raises:
+    JamJWSVerificationError: If signature is invalid
+
+## \`RSAlgorithm\`
+
+\`\`\`python
+class class RSAlgorithm(BaseAlgorithm)
+\`\`\`
+
+RSA PKCS1v15 algorithms (RS256, RS384, RS512).
+
+### \`sign\`
+
+\`\`\`python
+def sign(self, data
+\`\`\`
+
+Sign data using RSA PKCS1v15.
+
+Args:
+    data (bytes): Data to sign
+
+Returns:
+    str: Base64url encoded signature
+
+### \`verify\`
+
+\`\`\`python
+def verify(self, sig
+\`\`\`
+
+Verify RSA PKCS1v15 signature.
+
+Args:
+    sig (bytes): Signature to verify
+    data (bytes): Data that was signed
+    key (KeyLike): Key for verification
+
+Raises:
+    JamJWSVerificationError: If signature is invalid
+
+## \`ESAlgorithm\`
+
+\`\`\`python
+class class ESAlgorithm(BaseAlgorithm)
+\`\`\`
+
+ECDSA algorithms (ES256, ES384, ES512).
+
+### \`sign\`
+
+\`\`\`python
+def sign(self, data
+\`\`\`
+
+Sign data using ECDSA.
+
+Args:
+    data (bytes): Data to sign
+
+Returns:
+    str: Base64url encoded signature
+
+### \`verify\`
+
+\`\`\`python
+def verify(self, sig
+\`\`\`
+
+Verify ECDSA signature.
+
+Args:
+    sig (bytes): Signature to verify
+    data (bytes): Data that was signed
+    key (KeyLike): Key for verification
+
+Raises:
+    JamJWSVerificationError: If signature is invalid
+
+## \`PSAlgorithm\`
+
+\`\`\`python
+class class PSAlgorithm(BaseAlgorithm)
+\`\`\`
+
+RSA PSS algorithms (PS256, PS384, PS512).
+
+### \`sign\`
+
+\`\`\`python
+def sign(self, data
+\`\`\`
+
+Sign data using RSA PSS.
+
+Args:
+    data (bytes): Data to sign
+
+Returns:
+    str: Base64url encoded signature
+
+### \`verify\`
+
+\`\`\`python
+def verify(self, sig
+\`\`\`
+
+Verify RSA PSS signature.
+
+Args:
+    sig (bytes): Signature to verify
+    data (bytes): Data that was signed
+    key (KeyLike): Key for verification
+
+Raises:
+    JamJWSVerificationError: If signature is invalid
+
+## \`create_algorithm\`
+
+\`\`\`python
+function def create_algorithm(alg
+\`\`\`
+
+Create algorithm instance based on algorithm name.
+
+Args:
+    alg (str): Algorithm name
+    secret (KeyLike): Secret key
+    password (bytes | None): Password for private key
+
+Returns:
+    BaseAlgorithm: Algorithm instance
+
+Raises:
+    ValueError: If algorithm is not supported
+
+## \`BaseKeyAlgorithm\`
+
+\`\`\`python
+class class BaseKeyAlgorithm(ABC)
+\`\`\`
+
+Base class for JWE key management algorithms - RFC 7518 Section 4.
+
+### \`wrap_key\`
+
+\`\`\`python
+@abstractmethod
+def wrap_key(self, cek
+\`\`\`
+
+Wrap CEK (Content Encryption Key).
+
+Args:
+    cek: Content Encryption Key to wrap.
+
+Returns:
+    Tuple of (encrypted_key, header_updates).
+
+### \`unwrap_key\`
+
+\`\`\`python
+@abstractmethod
+def unwrap_key(self, encrypted_key
+\`\`\`
+
+Unwrap CEK.
+
+Args:
+    encrypted_key: Wrapped CEK.
+    header: JWE header (may contain needed parameters).
+
+Returns:
+    Unwrapped CEK.
+
+## \`RSAKeyAlgorithm\`
+
+\`\`\`python
+class class RSAKeyAlgorithm(BaseKeyAlgorithm)
+\`\`\`
+
+RSA Key Management algorithms - RFC 7518 Section 4.2.
+
+### \`wrap_key\`
+
+\`\`\`python
+def wrap_key(self, cek
+\`\`\`
+
+Wrap CEK using RSA.
+
+### \`unwrap_key\`
+
+\`\`\`python
+def unwrap_key(self, encrypted_key
+\`\`\`
+
+Unwrap CEK using RSA.
+
+## \`AESKeyWrapAlgorithm\`
+
+\`\`\`python
+class class AESKeyWrapAlgorithm(BaseKeyAlgorithm)
+\`\`\`
+
+AES Key Wrap algorithms - RFC 7518 Section 4.4.
+
+### \`wrap_key\`
+
+\`\`\`python
+def wrap_key(self, cek
+\`\`\`
+
+Wrap CEK using AES Key Wrap.
+
+### \`unwrap_key\`
+
+\`\`\`python
+def unwrap_key(self, encrypted_key
+\`\`\`
+
+Unwrap CEK using AES Key Wrap.
+
+## \`ECDHKeyAlgorithm\`
+
+\`\`\`python
+class class ECDHKeyAlgorithm(BaseKeyAlgorithm)
+\`\`\`
+
+ECDH-ES Key Management algorithms - RFC 7518 Section 4.6.
+
+### \`wrap_key\`
+
+\`\`\`python
+def wrap_key(self, cek
+\`\`\`
+
+Wrap CEK using ECDH.
+
+### \`unwrap_key\`
+
+\`\`\`python
+def unwrap_key(self, encrypted_key
+\`\`\`
+
+Unwrap CEK using ECDH.
+
+## \`AESGCMKeyAlgorithm\`
+
+\`\`\`python
+class class AESGCMKeyAlgorithm(BaseKeyAlgorithm)
+\`\`\`
+
+AES-GCM Key Wrap algorithms - RFC 7518 Section 4.7.
+
+### \`wrap_key\`
+
+\`\`\`python
+def wrap_key(self, cek
+\`\`\`
+
+Wrap CEK using AES-GCM.
+
+### \`unwrap_key\`
+
+\`\`\`python
+def unwrap_key(self, encrypted_key
+\`\`\`
+
+Unwrap CEK using AES-GCM.
+
+## \`PBES2KeyAlgorithm\`
+
+\`\`\`python
+class class PBES2KeyAlgorithm(BaseKeyAlgorithm)
+\`\`\`
+
+PBES2 Key Management algorithms - RFC 7518 Section 4.8.
+
+### \`wrap_key\`
+
+\`\`\`python
+def wrap_key(self, cek
+\`\`\`
+
+Wrap CEK using PBES2.
+
+### \`unwrap_key\`
+
+\`\`\`python
+def unwrap_key(self, encrypted_key
+\`\`\`
+
+Unwrap CEK using PBES2.
+
+## \`BaseEncAlgorithm\`
+
+\`\`\`python
+class class BaseEncAlgorithm(ABC)
+\`\`\`
+
+Base class for JWE content encryption algorithms - RFC 7518 Section 5.
+
+### \`get_key_length\`
+
+\`\`\`python
+@abstractmethod
+def get_key_length(self) -> int
+\`\`\`
+
+Return key length in bytes.
+
+### \`get_iv_length\`
+
+\`\`\`python
+@abstractmethod
+def get_iv_length(self) -> int
+\`\`\`
+
+Return IV length in bytes.
+
+### \`encrypt\`
+
+\`\`\`python
+@abstractmethod
+def encrypt(self, plaintext
+\`\`\`
+
+Encrypt plaintext.
+
+Args:
+    plaintext: Data to encrypt.
+    iv: Initialization vector.
+    aad: Additional authenticated data.
+    key: Encryption key.
+
+Returns:
+    Tuple of (ciphertext, tag).
+
+### \`decrypt\`
+
+\`\`\`python
+@abstractmethod
+def decrypt(self, ciphertext
+\`\`\`
+
+Decrypt ciphertext.
+
+Args:
+    ciphertext: Encrypted data.
+    iv: Initialization vector.
+    tag: Authentication tag.
+    aad: Additional authenticated data.
+    key: Encryption key.
+
+Returns:
+    Decrypted plaintext.
+
+## \`AESGCMEncAlgorithm\`
+
+\`\`\`python
+class class AESGCMEncAlgorithm(BaseEncAlgorithm)
+\`\`\`
+
+AES-GCM content encryption - RFC 7518 Section 5.1.
+
+### \`get_key_length\`
+
+\`\`\`python
+def get_key_length(self) -> int
+\`\`\`
+
+Get the key length for the content encryption algorithm.
+
+### \`get_iv_length\`
+
+\`\`\`python
+def get_iv_length(self) -> int
+\`\`\`
+
+Get the IV length for the content encryption algorithm.
+
+### \`encrypt\`
+
+\`\`\`python
+def encrypt(self, plaintext
+\`\`\`
+
+Encrypt using AES-GCM.
+
+### \`decrypt\`
+
+\`\`\`python
+def decrypt(self, ciphertext
+\`\`\`
+
+Decrypt using AES-GCM.
+
+## \`AESCBCEncAlgorithm\`
+
+\`\`\`python
+class class AESCBCEncAlgorithm(BaseEncAlgorithm)
+\`\`\`
+
+AES-CBC + HMAC content encryption - RFC 7518 Section 5.2.
+
+### \`get_key_length\`
+
+\`\`\`python
+def get_key_length(self) -> int
+\`\`\`
+
+Get the key length for the content encryption algorithm.
+
+### \`get_iv_length\`
+
+\`\`\`python
+def get_iv_length(self) -> int
+\`\`\`
+
+Get the IV length for the content encryption algorithm.
+
+### \`encrypt\`
+
+\`\`\`python
+def encrypt(self, plaintext
+\`\`\`
+
+Encrypt using AES-CBC + HMAC.
+
+### \`decrypt\`
+
+\`\`\`python
+def decrypt(self, ciphertext
+\`\`\`
+
+Decrypt using AES-CBC + HMAC.
+
+## \`create_key_algorithm\`
+
+\`\`\`python
+function def create_key_algorithm(alg
+\`\`\`
+
+Create JWE key management algorithm instance.
+
+Args:
+    alg: Algorithm name.
+    key: Key for wrapping/unwrapping.
+    password: Password for encrypted private keys.
+
+Returns:
+    BaseKeyAlgorithm instance.
+
+Raises:
+    ValueError: If algorithm is not supported.
+
+## \`create_enc_algorithm\`
+
+\`\`\`python
+function def create_enc_algorithm(enc
+\`\`\`
+
+Create JWE content encryption algorithm instance.
+
+Args:
+    enc: Algorithm name.
+
+Returns:
+    BaseEncAlgorithm instance.
+
+Raises:
+    ValueError: If algorithm is not supported.
+
+## jam.jose.__base__
+
+Source: \`src/jam/jose/__base__.py\`
+
+## \`BaseJWT\`
+
+\`\`\`python
+class class BaseJWT(ABC)
+\`\`\`
+
+Base JWT.
+
+### \`jti\`
+
+\`\`\`python
+@property
+@abstractmethod
+def jti(self) -> str
+\`\`\`
+
+The JWT ID.
+
+### \`encode\`
+
+\`\`\`python
+@abstractmethod
+def encode(self, iss
+\`\`\`
+
+Encode the JWT with the given expire, header, and payload.
+
+Args:
+    exp (int | None): The expiration time in seconds.
+    nbf (int | None): The not-before time in seconds.
+    iss (str | None): The issuer.
+    sub (str | None): The subject.
+    aud (str | None): The audience.
+    jti (str | None): The JWT ID.
+    header (dict[str, Any] | None): The header to include in the JWT.
+    payload (dict[str, Any] | None): The payload to include in the JWT.
+
+Returns:
+    str: The encoded JWT.
+
+### \`decode\`
+
+\`\`\`python
+@abstractmethod
+def decode(self, token
+\`\`\`
+
+Decode the JWT and return the header and payload.
+
+Args:
+    token (str): JWT
+    validate_claims (bool): Whether to validate exp/nbf claims.
+
+Returns:
+    dict with 'header' and 'payload' keys (both dicts).
+
+Raises:
+    JamJWTExpired: If token is expired.
+    JamJWTNotYetValid: If token is not yet valid.
+
+### \`encrypt\`
+
+\`\`\`python
+@abstractmethod
+def encrypt(self, plaintext
+\`\`\`
+
+Encrypt plaintext.
+
+Produces JWE Compact Serialization:
+BASE64URL(header).BASE64URL(encrypted_key).BASE64URL(iv).BASE64URL(ciphertext).BASE64URL(tag)
+
+Args:
+    plaintext: Data to encrypt. If str, will be encoded to UTF-8.
+        If dict, will be JSON encoded.
+    header: JWE header (must include 'alg' and 'enc').
+
+Returns:
+    JWE compact serialization string.
+
+Raises:
+    JamJWEEncryptionError: If encryption fails.
+
+### \`decrypt\`
+
+\`\`\`python
+@abstractmethod
+def decrypt(self, token
+\`\`\`
+
+Decrypt JWE token.
+
+Args:
+    token: JWE compact serialization string.
+
+Returns:
+    bytes: Decrypted plaintext.
+
+Raises:
+    JamJWEDecryptionError: If decryption fails.
+
+## \`BaseJWS\`
+
+\`\`\`python
+class class BaseJWS(ABC)
+\`\`\`
+
+Base JSON Web Signature - RFC 7515.
+
+### \`serialize_compact\`
+
+\`\`\`python
+@abstractmethod
+def serialize_compact(self, protected
+\`\`\`
+
+Create JWS Compact Serialization.
+
+Args:
+    protected (dict[str, Any]): Protected header.
+    payload (bytes | str): Payload to sign.
+
+Returns:
+    str: JWS in compact serialization format:
+         BASE64URL(protected).BASE64URL(payload).BASE64URL(signature)
+
+### \`deserialize_compact\`
+
+\`\`\`python
+@abstractmethod
+def deserialize_compact(self, s
+\`\`\`
+
+Parse JWS Compact Serialization.
+
+Args:
+    s (str): JWS in compact serialization format.
+    validate (bool): Whether to validate signature. Defaults to True.
+
+Returns:
+    dict[str, Any]: Parsed JWS with keys:
+        - header: Protected header dict
+        - payload: Decoded payload bytes
+        - signature: Raw signature bytes
+
+Raises:
+    JamJWSVerificationError: If validation fails.
+
+### \`sign\`
+
+\`\`\`python
+@abstractmethod
+def sign(self, header
+\`\`\`
+
+Sign data and return JWS compact serialization.
+
+Args:
+    header: JWS header (must include 'alg').
+    data: Data to sign. If dict, will be JSON encoded.
+
+Returns:
+    str: JWS compact serialization string.
+
+### \`verify\`
+
+\`\`\`python
+@abstractmethod
+def verify(self, token
+\`\`\`
+
+Verify JWS token and return header/payload.
+
+Args:
+    token: JWS compact serialization token.
+    validate: Whether to validate signature. Defaults to True.
+
+Returns:
+    dict[str, Any]: Parsed JWS with 'header' and 'payload' keys.
+
+Raises:
+    JamJWSVerificationError: If validation fails.
+
+## \`BaseJWK\`
+
+\`\`\`python
+class class BaseJWK(ABC)
+\`\`\`
+
+JSON Web Key - RFC 7517.
+
+### \`kty\`
+
+\`\`\`python
+@property
+@abstractmethod
+def kty(self) -> str
+\`\`\`
+
+Key type (kty) - RSA, EC, oct, etc.
+
+### \`alg\`
+
+\`\`\`python
+@property
+@abstractmethod
+def alg(self) -> str | None
+\`\`\`
+
+Algorithm (alg) - RS256, ES256, etc.
+
+### \`kid\`
+
+\`\`\`python
+@property
+@abstractmethod
+def kid(self) -> str | None
+\`\`\`
+
+Key ID (kid).
+
+### \`validate\`
+
+\`\`\`python
+@staticmethod
+@abstractmethod
+def validate(data
+\`\`\`
+
+Validate and create JWK from dict.
+
+Args:
+    data: JWK dict to validate.
+
+Returns:
+    JWK instance.
+
+Raises:
+    ValueError: If JWK is invalid.
+
+### \`from_dict\`
+
+\`\`\`python
+@classmethod
+@abstractmethod
+def from_dict(cls, data
+\`\`\`
+
+Create JWK from dict.
+
+Args:
+    data: JWK dict.
+
+Returns:
+    JWK instance.
+
+### \`to_dict\`
+
+\`\`\`python
+@abstractmethod
+def to_dict(self) -> dict[str, Any]
+\`\`\`
+
+Convert JWK to dict.
+
+Returns:
+    JWK dict.
+
+### \`sign\`
+
+\`\`\`python
+@abstractmethod
+def sign(self, data
+\`\`\`
+
+Sign data using JWK.
+
+Args:
+    data: Data to sign.
+    alg: Algorithm to use. If None, uses default for kty.
+
+Returns:
+    JWS compact serialization string.
+
+### \`verify\`
+
+\`\`\`python
+@abstractmethod
+def verify(self, token
+\`\`\`
+
+Verify JWS token and return payload.
+
+Args:
+    token: JWS compact serialization token.
+    alg: Algorithm to use. If None, uses default for kty.
+
+Returns:
+    dict with 'header' and 'payload' keys.
+
+## \`BaseJWKSet\`
+
+\`\`\`python
+class class BaseJWKSet(ABC)
+\`\`\`
+
+JWK Set - RFC 7517 Section 5.
+
+### \`from_dict\`
+
+\`\`\`python
+@classmethod
+@abstractmethod
+def from_dict(cls, data
+\`\`\`
+
+Create JWKSet from dict.
+
+Args:
+    data: JWKSet dict with 'keys' array.
+
+Returns:
+    JWKSet instance.
+
+### \`to_dict\`
+
+\`\`\`python
+@abstractmethod
+def to_dict(self) -> dict[str, Any]
+\`\`\`
+
+Convert JWKSet to dict.
+
+Returns:
+    dict[str, Any]: JWKSet dict with 'keys' array.
+
+### \`get_by_kid\`
+
+\`\`\`python
+@abstractmethod
+def get_by_kid(self, kid
+\`\`\`
+
+Get JWK by key ID (kid).
+
+Args:
+    kid (str): Key ID to search for.
+
+Returns:
+    dict[str, Any] | None: JWK dict if found, None otherwise.
+
+### \`get_by_kty\`
+
+\`\`\`python
+@abstractmethod
+def get_by_kty(self, kty
+\`\`\`
+
+Get all JWKs by key type.
+
+Args:
+    kty (str): Key type (RSA, EC, oct).
+
+Returns:
+    list[dict[str, Any]]: List of matching JWK dicts.
+
+### \`filter\`
+
+\`\`\`python
+@abstractmethod
+def filter(self, **criteria
+\`\`\`
+
+Filter JWKs by criteria.
+
+Args:
+    **criteria: Filter criteria (kty, use, alg, key_ops, kid).
+
+Returns:
+    list[dict[str, Any]]: List of matching JWK dicts.
+
+## \`BaseJWKStorage\`
+
+\`\`\`python
+class class BaseJWKStorage(ABC)
+\`\`\`
+
+Base JWK Storage.
+
+### \`get\`
+
+\`\`\`python
+@abstractmethod
+def get(self, name
+\`\`\`
+
+Get a key by name.
+
+Args:
+    name (str): The name of the key to retrieve.
+
+Returns:
+    dict[str, Any] | None: JWK dict if found.
+
+### \`store\`
+
+\`\`\`python
+@abstractmethod
+def store(self, name
+\`\`\`
+
+Store a JWK with the given name.
+
+Args:
+    name (str): The name of the key to store.
+    jwk (dict[str, Any]): JWK dict to store.
+
+### \`delete\`
+
+\`\`\`python
+@abstractmethod
+def delete(self, name
+\`\`\`
+
+Delete a key by name.
+
+Args:
+    name (str): The name of the key to delete.
+
+## \`BaseJWE\`
+
+\`\`\`python
+class class BaseJWE(ABC)
+\`\`\`
+
+Base JSON Web Encryption - RFC 7516.
+
+### \`encrypt\`
+
+\`\`\`python
+@abstractmethod
+def encrypt(self, plaintext
+\`\`\`
+
+Encrypt plaintext.
+
+Produces JWE Compact Serialization:
+BASE64URL(header).BASE64URL(encrypted_key).BASE64URL(iv).BASE64URL(ciphertext).BASE64URL(tag)
+
+Args:
+    plaintext: Data to encrypt. If str, will be encoded to UTF-8.
+        If dict, will be JSON encoded.
+    header: JWE header (must include 'alg' and 'enc').
+
+Returns:
+    JWE compact serialization string.
+
+Raises:
+    JamJWEEncryptionError: If encryption fails.
+
+### \`decrypt\`
+
+\`\`\`python
+@abstractmethod
+def decrypt(self, token
+\`\`\`
+
+Decrypt JWE token.
+
+Args:
+    token: JWE compact serialization string.
+
+Returns:
+    Decrypted plaintext bytes.
+
+Raises:
+    JamJWEDecryptionError: If decryption fails.
+
+## jam.jose
+
+Source: \`src/jam/jose/__init__.py\`
+
+JOSE tools.
+
+This module does not expose documented public definitions.
+
+## jam.jose.jwe
+
+Source: \`src/jam/jose/jwe.py\`
+
+## \`JWE\`
+
+\`\`\`python
+class class JWE(BaseJWE, metaclass=ConfigMeta)
+\`\`\`
+
+JWE (JSON Web Encryption) implementation - RFC 7516.
+
+Provides encryption and decryption of data using JWK keys.
+
+Example:
+    \`\`\`python
+    >>> jwk = JWK.from_dict({"kty": "oct", "k": "your-secret-key"})
+    >>> jwe = JWE(alg="A128KW", enc="A128CBC-HS256", key=jwk)
+    >>> token = jwe.encrypt("secret data")
+    >>> plaintext = jwe.decrypt(token)
+    \`\`\`
+
+### \`encrypt\`
+
+\`\`\`python
+def encrypt(self, plaintext
+\`\`\`
+
+Encrypt plaintext.
+
+Args:
+    plaintext: Data to encrypt. If str, will be encoded to UTF-8.
+        If dict, will be serialized using self._serializer.
+    header: Additional JWE header.
+
+Returns:
+    JWE compact serialization string.
+
+Raises:
+    JamJWEEncryptionError: If encryption fails.
+
+### \`decrypt\`
+
+\`\`\`python
+def decrypt(self, token
+\`\`\`
+
+Decrypt JWE token.
+
+Args:
+    token: JWE compact serialization string.
+
+Returns:
+    Decrypted plaintext bytes.
+
+Raises:
+    JamJWEDecryptionError: If decryption fails.
+
+## jam.jose.jwk
+
+Source: \`src/jam/jose/jwk.py\`
+
+## \`JWKCommon\`
+
+\`\`\`python
+class class JWKCommon(TypedDict, total=False)
+\`\`\`
+
+Common JWK parameters shared across all key types - RFC 7517 Section 4.
+
+## \`JWKRSA\`
+
+\`\`\`python
+class class JWKRSA(JWKCommon, total=False)
+\`\`\`
+
+RSA Key - RFC 7517 Section 6.3.
+
+Represents an RSA public or private key.
+
+Example:
+    >>> rsa_key: JWKRSA = {
+    ...     "kty": "RSA",
+    ...     "n": "0vx7agoebGcQSuu...",
+    ...     "e": "AQAB",
+    ... }
+
+## \`JWKEC\`
+
+\`\`\`python
+class class JWKEC(JWKCommon, total=False)
+\`\`\`
+
+Elliptic Curve Key - RFC 7517 Section 6.2.
+
+Represents an elliptic curve public or private key.
+
+Example:
+    >>> ec_key: JWKEC = {
+    ...     "kty": "EC",
+    ...     "crv": "P-256",
+    ...     "x": "f83OJ3D2xF1Bg8v...",
+    ...     "y": "x_FEzRu9m36HLN_t...",
+    ... }
+
+## \`JWKOct\`
+
+\`\`\`python
+class class JWKOct(JWKCommon, total=False)
+\`\`\`
+
+Symmetric (Octet Sequence) Key - RFC 7517 Section 6.4.
+
+Represents a symmetric (secret) key.
+
+Example:
+    >>> oct_key: JWKOct = {
+    ...     "kty": "oct",
+    ...     "k": "AyM32w-xOvmxxkBq...",
+    ... }
+
+## \`JWK\`
+
+\`\`\`python
+class class JWK(BaseJWK)
+\`\`\`
+
+JSON Web Key - RFC 7517.
+
+Provides JWK validation and signing capabilities.
+
+Example:
+    \`\`\`python
+    >>> jwk = JWK.from_dict({"kty": "oct", "k": "your-secret-key"})
+    >>> jwk.sign(b"data", "HS256")
+    >>> jwk.verify(token)
+    \`\`\`
+
+### \`validate\`
+
+\`\`\`python
+@staticmethod
+def validate(data
+\`\`\`
+
+Validate and normalize JWK dict.
+
+Args:
+    data: JWK dict to validate.
+
+Returns:
+    JWK instance.
+
+Raises:
+    JamJWKValidationError: If JWK is invalid.
+
+### \`from_dict\`
+
+\`\`\`python
+@classmethod
+def from_dict(cls, data
+\`\`\`
+
+Create JWK from dict.
+
+Alias for JWK.validate().
+
+Args:
+    data: JWK dict.
+
+Returns:
+    JWK instance.
+
+### \`to_dict\`
+
+\`\`\`python
+def to_dict(self) -> dict[str, Any]
+\`\`\`
+
+Convert JWK to dict.
+
+Returns:
+    JWK dict.
+
+### \`kty\`
+
+\`\`\`python
+@property
+def kty(self) -> str
+\`\`\`
+
+Get key type.
+
+Returns:
+    Key type (RSA, EC, oct).
+
+### \`alg\`
+
+\`\`\`python
+@property
+def alg(self) -> str | None
+\`\`\`
+
+Get algorithm from JWK if set.
+
+Returns:
+    Algorithm or None.
+
+### \`kid\`
+
+\`\`\`python
+@property
+def kid(self) -> str | None
+\`\`\`
+
+Get key ID if set.
+
+Returns:
+    Key ID or None.
+
+### \`sign\`
+
+\`\`\`python
+def sign(self, data
+\`\`\`
+
+Sign data using JWK.
+
+Args:
+    data: Data to sign.
+    alg: Algorithm to use. If None, uses default for kty.
+
+Returns:
+    JWS compact serialization string.
+
+Raises:
+    ValueError: If algorithm is not supported or key is invalid.
+
+### \`verify\`
+
+\`\`\`python
+def verify(self, token
+\`\`\`
+
+Verify JWS token and return payload.
+
+Args:
+    token: JWS compact serialization token.
+    alg: Algorithm to use. If None, uses default for kty.
+
+Returns:
+    dict with 'header' and 'payload' keys.
+
+Raises:
+    ValueError: If signature is invalid.
+
+## \`JWKSet\`
+
+\`\`\`python
+class class JWKSet(BaseJWKSet)
+\`\`\`
+
+JWK Set - RFC 7517 Section 5.
+
+Represents a set of JWKs. Used to organize and filter collections of keys.
+
+Example:
+    \`\`\`python
+    >>> jwkset = JWKSet(keys=[rsa_key, ec_key])
+    >>> jwkset.get_by_kid("my-key-id")
+    >>> jwkset.filter(kty="RSA")
+    \`\`\`
+
+### \`get_by_kid\`
+
+\`\`\`python
+def get_by_kid(self, kid
+\`\`\`
+
+Get JWK by key ID (kid).
+
+Args:
+    kid: Key ID to search for.
+
+Returns:
+    JWK dict if found, None otherwise.
+
+### \`get_by_kty\`
+
+\`\`\`python
+def get_by_kty(self, kty
+\`\`\`
+
+Get all JWKs by key type.
+
+Args:
+    kty: Key type (RSA, EC, oct).
+
+Returns:
+    List of matching JWK dicts.
+
+### \`filter\`
+
+\`\`\`python
+def filter(self, **criteria
+\`\`\`
+
+Filter JWKs by criteria.
+
+Args:
+    **criteria: Filter criteria (kty, use, alg, key_ops, kid).
+
+Returns:
+    List of matching JWK dicts.
+
+### \`to_dict\`
+
+\`\`\`python
+def to_dict(self) -> dict[str, Any]
+\`\`\`
+
+Convert JWKSet to dict.
+
+Returns:
+    dict with "keys" key containing list of JWKs.
+
+### \`from_dict\`
+
+\`\`\`python
+@classmethod
+def from_dict(cls, data
+\`\`\`
+
+Create JWKSet from dict.
+
+Args:
+    data: Dict with "keys" key.
+
+Returns:
+    JWKSet instance.
+
+Raises:
+    JamJWKValidationError: If data is invalid.
+
+## jam.jose.jws
+
+Source: \`src/jam/jose/jws.py\`
+
+## \`JWS\`
+
+\`\`\`python
+class class JWS(BaseJWS, metaclass=ConfigMeta)
+\`\`\`
+
+JWS (JSON Web Signature) implementation - RFC 7515.
+
+### \`serialize_compact\`
+
+\`\`\`python
+def serialize_compact(self, protected
+\`\`\`
+
+Create JWS Compact Serialization.
+
+Args:
+    protected (dict[str, Any]): Protected header (must include 'alg').
+    payload (bytes | str): Payload to sign. If dict, will be JSON encoded.
+
+Returns:
+    str: JWS in compact serialization format:
+         BASE64URL(protected).BASE64URL(payload).BASE64URL(signature)
+
+### \`deserialize_compact\`
+
+\`\`\`python
+def deserialize_compact(self, s
+\`\`\`
+
+Parse JWS Compact Serialization.
+
+Args:
+    s (str): JWS in compact serialization format.
+    validate (bool): Whether to validate signature. Defaults to True.
+
+Returns:
+    dict[str, Any]: Parsed JWS with keys:
+        - header: Protected header dict
+        - payload: Decoded payload bytes
+        - signature: Raw signature bytes
+
+Raises:
+    JamJWSVerificationError: If validation fails or format is invalid.
+
+### \`sign\`
+
+\`\`\`python
+def sign(self, header
+\`\`\`
+
+Sign data and return JWS compact serialization.
+
+Args:
+    header: Protected header (alg will be added automatically).
+    data: Data to sign. If dict, will be JSON encoded.
+
+Returns:
+    JWS compact serialization string.
+
+### \`verify\`
+
+\`\`\`python
+def verify(self, token
+\`\`\`
+
+Verify and parse JWS token.
+
+Args:
+    token: JWS compact serialization string.
+    validate: Whether to validate signature.
+
+Returns:
+    dict with 'header', 'payload', 'signature' keys.
+
+## jam.jose.jwt
+
+Source: \`src/jam/jose/jwt.py\`
+
+## \`JWT\`
+
+\`\`\`python
+class class JWT(BaseJWT, metaclass=ConfigMeta)
+\`\`\`
+
+JWT (JSON Web Token) implementation - RFC 7519.
+
+Supports JWS (signed), JWE (encrypted), and JWS+JWE (sign then encrypt) tokens.
+
+### \`jti\`
+
+\`\`\`python
+@property
+def jti(self) -> str
+\`\`\`
+
+The JWT ID.
+
+### \`encode\`
+
+\`\`\`python
+def encode(self, iss
+\`\`\`
+
+Encode the JWT with the given expire, header, and payload (JWS).
+
+Args:
+    exp (int | None): The expiration time in seconds.
+    nbf (int | None): The not-before time in seconds.
+    iss (str | None): The issuer.
+    sub (str | None): The subject.
+    aud (str | None): The audience.
+    jti (str | None): The JWT ID. If None, auto-generated.
+    header (dict[str, Any] | None): The header to include in the JWT.
+    payload (dict[str, Any] | None): The payload to include in the JWT.
+
+Returns:
+    str: The encoded JWT (JWS compact serialization).
+
+Raises:
+    JamConfigurationError: If alg is not provided.
+
+### \`decode\`
+
+\`\`\`python
+def decode(self, token
+\`\`\`
+
+Decode the JWT and return the header and payload.
+
+Args:
+    token: JWT token.
+    validate_claims: Whether to validate exp/nbf claims. Defaults to True.
+    check_list: Whether to check the token in the white/black list.
+        Defaults to True.
+
+Returns:
+    dict with 'header' and 'payload' keys (both dicts).
+
+Raises:
+    JamConfigurationError: If alg is not provided.
+    JamJWSVerificationError: If token has invalid type.
+    JamJWTExpired: If token is expired.
+    JamJWTNotYetValid: If token is not yet valid.
+    JamJWTNotInWhiteList: If token is not in the white list.
+    JamJWTInBlackList: If token is in the black list.
+
+### \`encrypt\`
+
+\`\`\`python
+def encrypt(self, plaintext
+\`\`\`
+
+Encrypt payload using JWE.
+
+If both jws and jwe are configured, creates JWS+JWE (sign then encrypt):
+1. Create JWS compact serialization (sign)
+2. Use JWS result as plaintext for JWE (encrypt)
+
+Args:
+    plaintext (bytes | str | dict[str, Any]): Data to encrypt. If dict, will be JSON encoded.
+    header (dict[str, Any] | None): Additional JWE header.
+
+Returns:
+    str: Encrypted JWT (JWE or JWS+JWE).
+
+Raises:
+    JamConfigurationError: If jwe is not configured.
+
+### \`decrypt\`
+
+\`\`\`python
+def decrypt(self, token
+\`\`\`
+
+Decrypt JWE or JWS+JWE token.
+
+If token is JWS+JWE (sign then encrypt):
+1. Decrypt JWE to get JWS compact serialization
+2. Verify JWS to get original payload
+
+Args:
+    token: Encrypted JWT token.
+
+Returns:
+    dict[str, Any]: Decrypted payload.
+
+Raises:
+    JamConfigurationError: If enc is not provided.
+
+## jam.jose.utils
+
+Source: \`src/jam/jose/utils.py\`
+
+This module does not expose documented public definitions.
+
+## jam.keychain.__base__
+
+Source: \`src/jam/keychain/__base__.py\`
+
+Common KeyChain contract and lifecycle rules.
+
+## \`KeyStatus\`
+
+\`\`\`python
+class class KeyStatus(str, Enum)
+\`\`\`
+
+States a key can have during its lifecycle.
+
+## \`KeyInfo\`
+
+\`\`\`python
+class @dataclass(frozen=True, slots=True)
+class KeyInfo
+\`\`\`
+
+Non-secret key metadata returned by KeyChain administration APIs.
+
+## \`BaseKeyChain\`
+
+\`\`\`python
+class class BaseKeyChain(ABC)
+\`\`\`
+
+Manage keys used to issue and verify one kind of credential.
+
+### \`list\`
+
+\`\`\`python
+def list(self, include_revoked
+\`\`\`
+
+List key metadata without revealing secret material.
+
+### \`get\`
+
+\`\`\`python
+def get(self, key_id
+\`\`\`
+
+Return non-secret metadata for one key.
+
+### \`current\`
+
+\`\`\`python
+def current(self) -> KeyInfo | None
+\`\`\`
+
+Return the current issuing key, if one is configured.
+
+### \`add\`
+
+\`\`\`python
+def add(self, key_id
+\`\`\`
+
+Add a generated or supplied standby key.
+
+### \`rotate\`
+
+\`\`\`python
+def rotate(self, key_id
+\`\`\`
+
+Generate a new key and make it the current issuing key.
+
+### \`activate\`
+
+\`\`\`python
+def activate(self, key_id
+\`\`\`
+
+Make a standby or retired key current and retire the old one.
+
+### \`retire\`
+
+\`\`\`python
+def retire(self, key_id
+\`\`\`
+
+Stop issuing with a key while keeping it valid for verification.
+
+### \`revoke\`
+
+\`\`\`python
+def revoke(self, key_id
+\`\`\`
+
+Make a key unavailable for all future verification.
+
+### \`remove\`
+
+\`\`\`python
+def remove(self, key_id
+\`\`\`
+
+Permanently remove a non-current key.
+
+## jam.keychain
+
+Source: \`src/jam/keychain/__init__.py\`
+
+Key lifecycle management for credential issuers.
+
+This module does not expose documented public definitions.
+
+## jam.keychain.file
+
+Source: \`src/jam/keychain/file.py\`
+
+Filesystem-backed KeyChain implementation.
+
+## \`FileStorage\`
+
+\`\`\`python
+class class FileStorage(BaseKeyChain)
+\`\`\`
+
+Persist every key in an owner-only directory.
+
+### \`current\`
+
+\`\`\`python
+def current(self) -> KeyInfo | None
+\`\`\`
+
+Resolve the current key through the durable pointer.
+
+## jam.keychain.memory
+
+Source: \`src/jam/keychain/memory.py\`
+
+In-memory KeyChain implementation.
+
+## \`Memory\`
+
+\`\`\`python
+class class Memory(BaseKeyChain)
+\`\`\`
+
+Keep key material and lifecycle metadata in process memory.
+
+## jam.lists.__base__
+
+Source: \`src/jam/lists/__base__.py\`
+
+## \`BaseList\`
+
+\`\`\`python
+class class BaseList(ABC)
+\`\`\`
+
+Abstract class for token black/white lists manipulation.
+
+### \`add\`
+
+\`\`\`python
+@abstractmethod
+def add(self, token
+\`\`\`
+
+Add a single token to the list.
+
+### \`add_many\`
+
+\`\`\`python
+@abstractmethod
+def add_many(self, tokens
+\`\`\`
+
+Add multiple tokens to the list.
+
+### \`check\`
+
+\`\`\`python
+@abstractmethod
+def check(self, token
+\`\`\`
+
+Check if a token is present in the list.
+
+### \`check_many\`
+
+\`\`\`python
+@abstractmethod
+def check_many(self, tokens
+\`\`\`
+
+Check multiple tokens in the list.
+
+### \`delete\`
+
+\`\`\`python
+@abstractmethod
+def delete(self, token
+\`\`\`
+
+Remove a single token from the list.
+
+### \`delete_many\`
+
+\`\`\`python
+@abstractmethod
+def delete_many(self, tokens
+\`\`\`
+
+Remove multiple tokens from the list.
+
+## jam.lists
+
+Source: \`src/jam/lists/__init__.py\`
+
+Module for managing JWT black and white lists.
+
+## \`build_list\`
+
+\`\`\`python
+function def build_list(list_config
+\`\`\`
+
+Build a list instance from a config dict or return it as-is.
+
+Args:
+    list_config (dict[str, Any] | BaseList): List config or list instance.
+
+Returns:
+    BaseList: Built list instance.
+
+Raises:
+    JamConfigurationError: If the backend is unknown.
+
+## jam.lists.json
+
+Source: \`src/jam/lists/json.py\`
+
+## \`JSONList\`
+
+\`\`\`python
+class class JSONList(BaseList)
+\`\`\`
+
+JSON file-based JWT black/white list.
+
+Not recommended for blacklists - no TTL support, user must manage token lifetime.
+
+Dependency required: \`pip install jamlib[json]\`
+
+Attributes:
+    _db (TinyDB): TinyDB instance.
+    _prefix (str): Key prefix.
+
+Methods:
+    add: add single token to list
+    add_many: add multiple tokens to list
+    check: check if token exists in list
+    check_many: check multiple tokens in list
+    delete: remove token from list
+    delete_many: remove multiple tokens from list
+
+### \`add\`
+
+\`\`\`python
+def add(self, token
+\`\`\`
+
+Add a single token to the list.
+
+Args:
+    token (str): JWT token.
+
+### \`add_many\`
+
+\`\`\`python
+def add_many(self, tokens
+\`\`\`
+
+Add multiple tokens to the list.
+
+Args:
+    tokens (list[str]): List of JWT tokens.
+
+### \`check\`
+
+\`\`\`python
+def check(self, token
+\`\`\`
+
+Check if a token is present in the list.
+
+Args:
+    token (str): JWT token.
+
+Returns:
+    bool: True if token exists in list.
+
+### \`check_many\`
+
+\`\`\`python
+def check_many(self, tokens
+\`\`\`
+
+Check multiple tokens in the list.
+
+Args:
+    tokens (list[str]): List of JWT tokens.
+
+Returns:
+    dict[str, bool]: Mapping of token to presence.
+
+### \`delete\`
+
+\`\`\`python
+def delete(self, token
+\`\`\`
+
+Remove a token from the list.
+
+Args:
+    token (str): JWT token.
+
+### \`delete_many\`
+
+\`\`\`python
+def delete_many(self, tokens
+\`\`\`
+
+Remove multiple tokens from the list.
+
+Args:
+    tokens (list[str]): List of JWT tokens.
+
+## jam.lists.memory
+
+Source: \`src/jam/lists/memory.py\`
+
+## \`MemoryList\`
+
+\`\`\`python
+class class MemoryList(BaseList)
+\`\`\`
+
+In-memory JWT black/white list.
+
+Suitable for development, testing, or when external storage is not needed.
+No TTL support - tokens persist until explicitly removed.
+
+Attributes:
+    _storage (dict): Internal storage for tokens.
+
+Methods:
+    add: add single token to list
+    add_many: add multiple tokens to list
+    check: check if token exists in list
+    check_many: check multiple tokens in list
+    delete: remove token from list
+    delete_many: remove multiple tokens from list
+
+### \`add\`
+
+\`\`\`python
+def add(self, token
+\`\`\`
+
+Add a single token to the list.
+
+Args:
+    token (str): JWT token.
+
+### \`add_many\`
+
+\`\`\`python
+def add_many(self, tokens
+\`\`\`
+
+Add multiple tokens to the list.
+
+Args:
+    tokens (list[str]): List of JWT tokens.
+
+### \`check\`
+
+\`\`\`python
+def check(self, token
+\`\`\`
+
+Check if a token is present in the list.
+
+Args:
+    token (str): JWT token.
+
+Returns:
+    bool: True if token exists in list.
+
+### \`check_many\`
+
+\`\`\`python
+def check_many(self, tokens
+\`\`\`
+
+Check multiple tokens in the list.
+
+Args:
+    tokens (list[str]): List of JWT tokens.
+
+Returns:
+    dict[str, bool]: Mapping of token to presence.
+
+### \`delete\`
+
+\`\`\`python
+def delete(self, token
+\`\`\`
+
+Remove a token from the list.
+
+Args:
+    token (str): JWT token.
+
+### \`delete_many\`
+
+\`\`\`python
+def delete_many(self, tokens
+\`\`\`
+
+Remove multiple tokens from the list.
+
+Args:
+    tokens (list[str]): List of JWT tokens.
+
+## jam.lists.redis
+
+Source: \`src/jam/lists/redis.py\`
+
+## \`RedisList\`
+
+\`\`\`python
+class class RedisList(BaseList)
+\`\`\`
+
+Redis-based JWT black/white list.
+
+Most optimal for production use with TTL support.
+
+Dependency required: \`pip install jamlib[redis]\`
+
+Attributes:
+    _redis (Redis): Redis instance.
+    _prefix (str): Key prefix.
+
+Methods:
+    add: add single token to list
+    add_many: add multiple tokens to list
+    check: check if token exists in list
+    check_many: check multiple tokens in list
+    delete: remove token from list
+    delete_many: remove multiple tokens from list
+
+### \`add\`
+
+\`\`\`python
+def add(self, token
+\`\`\`
+
+Add a single token to the list.
+
+Args:
+    token (str): JWT token.
+
+### \`add_many\`
+
+\`\`\`python
+def add_many(self, tokens
+\`\`\`
+
+Add multiple tokens to the list.
+
+Args:
+    tokens (list[str]): List of JWT tokens.
+
+### \`check\`
+
+\`\`\`python
+def check(self, token
+\`\`\`
+
+Check if a token is present in the list.
+
+Args:
+    token (str): JWT token.
+
+Returns:
+    bool: True if token exists in list.
+
+### \`check_many\`
+
+\`\`\`python
+def check_many(self, tokens
+\`\`\`
+
+Check multiple tokens in the list.
+
+Args:
+    tokens (list[str]): List of JWT tokens.
+
+Returns:
+    dict[str, bool]: Mapping of token to presence.
+
+### \`delete\`
+
+\`\`\`python
+def delete(self, token
+\`\`\`
+
+Remove a token from the list.
+
+Args:
+    token (str): JWT token.
+
+### \`delete_many\`
+
+\`\`\`python
+def delete_many(self, tokens
+\`\`\`
+
+Remove multiple tokens from the list.
+
+Args:
+    tokens (list[str]): List of JWT tokens.
+
+## jam.oauth2.__base__
+
+Source: \`src/jam/oauth2/__base__.py\`
+
+## \`BaseOAuth2Client\`
+
+\`\`\`python
+class class BaseOAuth2Client(ABC, metaclass=ConfigMeta)
+\`\`\`
+
+Base OAuth2 client instance.
+
+### \`get_authorization_url\`
+
+\`\`\`python
+@abstractmethod
+def get_authorization_url(self, scope
+\`\`\`
+
+Get OAuth2 url.
+
+Args:
+    scope (list[str]): Auth scope
+
+Returns:
+    str: URL for auth
+
+### \`fetch_token\`
+
+\`\`\`python
+@abstractmethod
+def fetch_token(self, code
+\`\`\`
+
+Exchange code for access token.
+
+Args:
+    code (str): Auth code
+    grant_type (str): Grant type
+
+Returns:
+    dict: OAuth2 token response
+
+### \`refresh_token\`
+
+\`\`\`python
+@abstractmethod
+def refresh_token(self, refresh_token
+\`\`\`
+
+Update access token.
+
+Args:
+    refresh_token (str): Refresh token
+    grant_type (str): Grant type
+
+Returns:
+    dict: New token response
+
+### \`client_credentials_flow\`
+
+\`\`\`python
+@abstractmethod
+def client_credentials_flow(self, scope
+\`\`\`
+
+Obtain access token using client credentials flow (no user interaction).
+
+Args:
+    scope (Optional[list[str]]): Auth scope
+
+Returns:
+    dict: JSON with access token
+
+## jam.oauth2
+
+Source: \`src/jam/oauth2/__init__.py\`
+
+OAuth2 module.
+
+## \`build_clients\`
+
+\`\`\`python
+function def build_clients(providers
+\`\`\`
+
+Build OAuth2 clients for the configured providers.
+
+Args:
+    providers (dict[str, dict[str, Any]]): Mapping of provider name to its
+        config dict, e.g. \`\`{"github": {"client_id": "...", "client_secret":
+        "...", "redirect_url": "..."}}\`\`. A \`\`custom_module\`\` key selects a
+        custom client class.
+    serializer (BaseEncoder | type[BaseEncoder]): JSON encoder/decoder.
+
+Returns:
+    dict[str, BaseOAuth2Client]: Mapping of provider name to client instance.
+
+## jam.oauth2.builtin
+
+Source: \`src/jam/oauth2/builtin/__init__.py\`
+
+Built-in OAuth2 providers.
+
+This module does not expose documented public definitions.
+
+## jam.oauth2.builtin.github
+
+Source: \`src/jam/oauth2/builtin/github.py\`
+
+## \`GitHubOAuth2Client\`
+
+\`\`\`python
+class class GitHubOAuth2Client(OAuth2Client)
+\`\`\`
+
+Rady to use GitHub OAuth2 provider.
+
+See: https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps
+
+## jam.oauth2.builtin.gitlab
+
+Source: \`src/jam/oauth2/builtin/gitlab.py\`
+
+## \`GitLabOAuth2Client\`
+
+\`\`\`python
+class class GitLabOAuth2Client(OAuth2Client)
+\`\`\`
+
+Ready to use GitLab OAuth2 provider.
+
+See: https://docs.gitlab.com/api/oauth2/
+
+## jam.oauth2.builtin.google
+
+Source: \`src/jam/oauth2/builtin/google.py\`
+
+## \`GoogleOAuth2Client\`
+
+\`\`\`python
+class class GoogleOAuth2Client(OAuth2Client)
+\`\`\`
+
+Ready to use Google OAuth2 provider.
+
+See: https://developers.google.com/identity/protocols/oauth2
+
+## jam.oauth2.builtin.yandex
+
+Source: \`src/jam/oauth2/builtin/yandex.py\`
+
+## \`YandexOAuth2Client\`
+
+\`\`\`python
+class class YandexOAuth2Client(OAuth2Client)
+\`\`\`
+
+Ready to use yandex oauth2 client.
+
+See: https://yandex.ru/dev/id/doc
+
+## jam.oauth2.client
+
+Source: \`src/jam/oauth2/client.py\`
+
+## \`OAuth2Client\`
+
+\`\`\`python
+class class OAuth2Client(BaseOAuth2Client)
+\`\`\`
+
+Universal OAuth2 client implementation.
+
+### \`get_authorization_url\`
+
+\`\`\`python
+def get_authorization_url(self, scope
+\`\`\`
+
+Generate full OAuth2 authorization URL.
+
+Args:
+    scope (list[str]): Auth scope
+    extra_params (Any): Extra ath params
+
+Returns:
+    str: Authorization url
+
+### \`fetch_token\`
+
+\`\`\`python
+def fetch_token(self, code
+\`\`\`
+
+Exchange authorization code for access token.
+
+Args:
+    code (str): OAuth2 code
+    grant_type (str): Type of oauth2 grant
+    extra_params (Any): Extra auth params if needed
+
+Returns:
+    dict: OAuth2 token
+
+### \`refresh_token\`
+
+\`\`\`python
+def refresh_token(self, refresh_token
+\`\`\`
+
+Use refresh token to obtain a new access token.
+
+Args:
+    refresh_token (str): Refresh token
+    grant_type (str): Grant type
+    extra_params (Any): Extra auth params if needed
+
+Returns:
+    dict: Refresh token
+
+### \`client_credentials_flow\`
+
+\`\`\`python
+def client_credentials_flow(self, scope
+\`\`\`
+
+Obtain access token using client credentials flow (no user interaction).
+
+Args:
+    scope (list[str] | None): Auth scope
+    extra_params (Any): Extra auth params if needed
+
+Raises:
+    JamOAuth2EmptyRaw: If response is empty
+    JamOAuth2Error: HTTP error
+
+Returns:
+    dict: JSON with access token
+
+## jam.otp.__base__
+
+Source: \`src/jam/otp/__base__.py\`
+
+## \`BaseOTP\`
+
+\`\`\`python
+class class BaseOTP
+\`\`\`
+
+Base *OTP.
+
+### \`provisioning_uri\`
+
+\`\`\`python
+def provisioning_uri(self, name
+\`\`\`
+
+Generates an otpauth:// URI for Google Authenticator.
+
+Args:
+    name (str): Account name (e.g., email).
+    issuer (str): Service name (e.g., "GitHub").
+    type_ (str, optional): OTP type (“totp” or 'hotp'). Default is "totp".
+    counter (int | None, optional): Counter (for HOTP). Default is None.
+
+Returns:
+    str: A string of the form "otpauth://..."
+
+### \`at\`
+
+\`\`\`python
+def at(self, factor
+\`\`\`
+
+Generate OTP code.
+
+Args:
+    factor (int | None): TOTP uses current time if None, HOTP uses counter.
+
+Returns:
+    str: OTP code
+
+### \`verify\`
+
+\`\`\`python
+def verify(self, code
+\`\`\`
+
+Verify OTP code.
+
+Args:
+    code (str): Code to verify
+    factor (int | None): TOTP uses current time if None, HOTP uses counter.
+    look_ahead (int): How many intervals to check ahead
+
+Returns:
+    bool: True if valid
+
+## \`OTPConfig\`
+
+\`\`\`python
+class @dataclass(slots=True)
+class OTPConfig
+\`\`\`
+
+Config for Jam instance.
+
+## jam.otp
+
+Source: \`src/jam/otp/__init__.py\`
+
+*OTP auth module
+
+## \`create_instance\`
+
+\`\`\`python
+function def create_instance(type
+\`\`\`
+
+Create OTP class (not instance, since secret is provided per-call).
+
+Args:
+    type (str): "hotp" | "totp"
+    **kwargs: digits, digest, interval (for TOTP), custom_module
+
+Returns:
+    HOTP or TOTP class
+
+## jam.otp.hotp
+
+Source: \`src/jam/otp/hotp.py\`
+
+## \`HOTP\`
+
+\`\`\`python
+class class HOTP(BaseOTP)
+\`\`\`
+
+HOTP instance.
+
+### \`at\`
+
+\`\`\`python
+def at(self, factor
+\`\`\`
+
+Generates a HOTP code for the specified counter.
+
+Args:
+    factor (int): Counter (increases after each use).
+
+Returns:
+    str: HOTP code (fixed-length string).
+
+### \`verify\`
+
+\`\`\`python
+def verify(self, code
+\`\`\`
+
+Verify HOTP-code.
+
+Args:
+    code (str): Code.
+    factor (int): Now counter.
+    look_ahead (int, optional): Allowable forward offset (to compensate for desynchronization). Default is 1..
+
+Returns:
+    bool: True if the code matches, otherwise False.
+
+## jam.otp.totp
+
+Source: \`src/jam/otp/totp.py\`
+
+## \`TOTP\`
+
+\`\`\`python
+class class TOTP(BaseOTP)
+\`\`\`
+
+TOTP (Time-based One-Time Password, RFC6238).
+
+### \`at\`
+
+\`\`\`python
+def at(self, factor
+\`\`\`
+
+Generates a TOTP code for a specified time.
+
+Args:
+    factor (int | None, optional): Time in UNIX seconds. If None, the current time is used. Default is None.
+
+Returns:
+    str: TOTP code (fixed-length string).
+
+### \`now\`
+
+\`\`\`python
+@property
+def now(self) -> str
+\`\`\`
+
+Returns the current TOTP code.
+
+Returns:
+    str: TOTP code for the current time.
+
+### \`verify\`
+
+\`\`\`python
+def verify(self, code
+\`\`\`
+
+Checks the TOTP code, taking into account the acceptable window.
+
+Args:
+    code (str): The code entered.
+    factor (int | None, optional): Time in UNIX seconds. If None, the current time. Default is None.
+    look_ahead (int, optional): Acceptable deviation in intervals (±window). Default is 1.
+
+Returns:
+    bool: True if the code matches, otherwise False.
+
+## jam.paseto.__base__
+
+Source: \`src/jam/paseto/__base__.py\`
+
+## \`LegacyAEADMixin\`
+
+\`\`\`python
+class class LegacyAEADMixin
+\`\`\`
+
+Shared local encryption for PASETO v1/v3 (AES-256-CTR + HMAC-SHA384).
+
+## \`XChaChaMixin\`
+
+\`\`\`python
+class class XChaChaMixin
+\`\`\`
+
+Shared local encryption for PASETO v2/v4 (XChaCha20-Poly1305).
+
+## \`KeyLoadMixin\`
+
+\`\`\`python
+class class KeyLoadMixin
+\`\`\`
+
+Shared PEM/DER key loading ladder for asymmetric PASETO versions.
+
+## \`BasePASETO\`
+
+\`\`\`python
+class class BasePASETO(ABC, metaclass=ConfigMeta)
+\`\`\`
+
+Base PASETO instance.
+
+### \`key\`
+
+\`\`\`python
+@classmethod
+def key(cls
+\`\`\`
+
+Create a PASETO instance (alias for \`\`cls(purpose, secret_key)\`\`).
+
+Args:
+    purpose (Literal["local", "public"]): PASETO purpose.
+    secret_key (str | bytes | Any): Secret or asymmetric key.
+    **kwargs: Additional arguments passed to the constructor.
+
+Returns:
+    PASETO: Configured PASETO instance.
+
+### \`purpose\`
+
+\`\`\`python
+@property
+def purpose(self) -> Literal['local', 'public'] | None
+\`\`\`
+
+Return PASETO purpose.
+
+### \`encode\`
+
+\`\`\`python
+def encode(self, payload
+\`\`\`
+
+Encode a PASETO token.
+
+Args:
+    payload (dict[str, Any]): Payload for token.
+    footer (dict[str, Any] | str | bytes | None): Token footer.
+    serializer (type[BaseEncoder] | BaseEncoder): JSON serializer.
+
+Returns:
+    str: Encoded token.
+
+Raises:
+    JamPASETOInvalidPurpose: If the purpose is not "local" or "public".
+
+### \`decode\`
+
+\`\`\`python
+def decode(self, token
+\`\`\`
+
+Decode a PASETO token.
+
+Args:
+    token (str): Token.
+    serializer (type[BaseEncoder] | BaseEncoder): JSON serializer.
+
+Returns:
+    tuple[dict[str, Any], Any]: Payload and footer.
+
+Raises:
+    JamPASETOInvalidPurpose: If the purpose is not "local" or "public".
+
+## jam.paseto
+
+Source: \`src/jam/paseto/__init__.py\`
+
+PASETO auth tokens.
+
+This module does not expose documented public definitions.
+
+## jam.paseto.utils
+
+Source: \`src/jam/paseto/utils.py\`
+
+## \`base64url_decode\`
+
+\`\`\`python
+function def base64url_decode(v
+\`\`\`
+
+Base64 URL-safe decoding with padding.
+
+## \`base64url_encode\`
+
+\`\`\`python
+function def base64url_encode(data
+\`\`\`
+
+Base64 URL-safe encoding without padding.
+
+## \`payload_maker\`
+
+\`\`\`python
+function def payload_maker(expire
+\`\`\`
+
+Generate PASETO payload.
+
+\`\`\`json
+{
+    'iat': 1761326685.45693,
+    'exp': 1761328485.45693,
+    'pit': '52aeaf12-0825-4bc1-aa45-5ded41df2463',
+    # custom data
+    'user': 1,
+    'role': 'admin'
+}
+\`\`\`
+
+Args:
+    expire (int | None): Token lifetime
+    data (dict[str, Any]): Custom data
+
+Returns:
+    dict: Payload
+
+## jam.paseto.v1
+
+Source: \`src/jam/paseto/v1.py\`
+
+## \`PASETOv1\`
+
+\`\`\`python
+class class PASETOv1(LegacyAEADMixin, KeyLoadMixin, BasePASETO)
+\`\`\`
+
+Paseto v1 factory.
+
+## jam.paseto.v2
+
+Source: \`src/jam/paseto/v2.py\`
+
+## \`PASETOv2\`
+
+\`\`\`python
+class class PASETOv2(XChaChaMixin, KeyLoadMixin, BasePASETO)
+\`\`\`
+
+PASETO v2 factory.
+
+## jam.paseto.v3
+
+Source: \`src/jam/paseto/v3.py\`
+
+## \`PASETOv3\`
+
+\`\`\`python
+class class PASETOv3(LegacyAEADMixin, KeyLoadMixin, BasePASETO)
+\`\`\`
+
+PASETO v3 factory.
+
+## jam.paseto.v4
+
+Source: \`src/jam/paseto/v4.py\`
+
+## \`PASETOv4\`
+
+\`\`\`python
+class class PASETOv4(XChaChaMixin, KeyLoadMixin, BasePASETO)
+\`\`\`
+
+PASETO v4 factory.
+
+## jam.plugins.__base__
+
+Source: \`src/jam/plugins/__base__.py\`
+
+## \`BasePlugin\`
+
+\`\`\`python
+class class BasePlugin(ABC)
+\`\`\`
+
+Base plugin for Jam.
+
+!!! Warning
+        Plugins are experimental and may not be stable.
+
+        For usage, JAM_ENABLE_PLUGINS must be set to 1.
+
+Example:
+    \`\`\`python
+    from jam import Jam
+    from jam.plugins import BasePlugin
+
+
+    class MyPlugin(BasePlugin)
+        name = "MyPlugin"
+
+        def on_before_jwt_create(self, **kwargs):
+            print("JWT CREATED")
+
+    jam = Jam(
+        config="config.toml",
+        plugins=[MyPlugin]
+    )
+    \`\`\`
+
+### \`setup\`
+
+\`\`\`python
+def setup(self) -> None
+\`\`\`
+
+Called when plugin is initialized.
+
+### \`emit\`
+
+\`\`\`python
+def emit(self, event
+\`\`\`
+
+Emit event.
+
+Args:
+    event (str): Event name
+    **kwargs: Event data
+
+## jam.plugins
+
+Source: \`src/jam/plugins/__init__.py\`
+
+Jam plugin system.
+
+This module does not expose documented public definitions.
+
+## jam.saml.__base__
+
+Source: \`src/jam/saml/__base__.py\`
+
+## \`BaseSAML\`
+
+\`\`\`python
+class class BaseSAML(ABC)
+\`\`\`
+
+SAML 2.0 module.
+
+Supports both Service Provider (SP) and Identity Provider (IdP) roles.
+
+### \`prepare_authn_request\`
+
+\`\`\`python
+@abstractmethod
+def prepare_authn_request(self, idp_sso_url
+\`\`\`
+
+Build an AuthnRequest for the given IdP SSO URL.
+
+Args:
+    idp_sso_url: IdP single sign-on endpoint URL.
+    acs_url: SP assertion consumer service URL.
+    binding: \`\`"redirect"\`\` (default) or \`\`"post"\`\`.
+    **kwargs: Extra params (relay_state, force_authn, etc.).
+
+Returns:
+    Redirect: IdP URL with signed AuthnRequest.
+    POST: Base64-encoded SAMLRequest as a string (embed in form).
+
+### \`parse_response\`
+
+\`\`\`python
+@abstractmethod
+def parse_response(self, saml_response
+\`\`\`
+
+Parse and validate a SAML Response from an IdP.
+
+Automatically decrypts \`\`<saml:EncryptedAssertion>\`\` if the
+instance has a \`\`private_key\`\` configured.
+
+Args:
+    saml_response: Raw SAMLResponse data (Base64 string for POST,
+                   query-string for Redirect).
+    binding: \`\`"post"\`\` (default) or \`\`"redirect"\`\`.
+    **kwargs: Expected audience, expected issuer, etc.
+
+Returns:
+    Parsed SAMLResponse with assertion data.
+
+Raises:
+    JamSAMLExpired: Assertion is expired.
+    JamSAMLNotYetValid: Assertion is not yet valid.
+    JamSAMLInvalidAudience: Audience doesn't match.
+    JamSAMLInvalidIssuer: Issuer doesn't match.
+    JamSAMLValidationError: Signature verification failed.
+
+### \`build_response\`
+
+\`\`\`python
+@abstractmethod
+def build_response(self, subject
+\`\`\`
+
+Build (and optionally encrypt) a SAML Response containing an Assertion.
+
+Args:
+    subject: The authenticated user identifier.
+    attributes: User attributes (email, roles, etc.).
+    issuer: IdP entity ID.
+    audience: SP entity ID (the intended audience).
+    **kwargs: in_response_to, name_id_format, session_index,
+              encrypt (bool, default False).
+
+Returns:
+    Signed (and optionally encrypted) SAML Response XML string.
+
+### \`parse_authn_request\`
+
+\`\`\`python
+@abstractmethod
+def parse_authn_request(self, saml_request
+\`\`\`
+
+Parse an incoming AuthnRequest from an SP.
+
+Args:
+    saml_request: Raw SAMLRequest data.
+    binding: \`\`"redirect"\`\` (default) or \`\`"post"\`\`.
+    **kwargs: Expected issuer (for validation).
+
+Returns:
+    Parsed SAMLRequest data.
+
+Raises:
+    JamSAMLInvalidIssuer: Issuer doesn't match expected.
+
+### \`build_logout_request\`
+
+\`\`\`python
+@abstractmethod
+def build_logout_request(self, name_id
+\`\`\`
+
+Build a SAML LogoutRequest.
+
+Args:
+    name_id: The user identifier being logged out.
+    issuer: Entity ID of the sender (IdP or SP).
+    destination: SLO endpoint URL of the recipient.
+    session_index: Session identifier (optional).
+    **kwargs: Extra params (binding, relay_state, etc.).
+
+Returns:
+    Signed LogoutRequest XML (POST → Base64, Redirect → URL).
+
+### \`parse_logout_request\`
+
+\`\`\`python
+@abstractmethod
+def parse_logout_request(self, saml_request
+\`\`\`
+
+Parse a SAML LogoutRequest.
+
+Args:
+    saml_request: Raw LogoutRequest data.
+    binding: \`\`"redirect"\`\` (default) or \`\`"post"\`\`.
+    **kwargs: issuer (expected issuer for validation).
+
+Returns:
+    Parsed SAMLLogoutRequest.
+
+Raises:
+    JamSAMLInvalidIssuer: Issuer doesn't match expected.
+
+### \`build_logout_response\`
+
+\`\`\`python
+@abstractmethod
+def build_logout_response(self, in_response_to
+\`\`\`
+
+Build a SAML LogoutResponse.
+
+Args:
+    in_response_to: ID of the LogoutRequest being responded to.
+    issuer: Entity ID of the sender.
+    destination: SLO endpoint URL of the recipient.
+    status_code: SAML status code (default Success).
+    **kwargs: Extra params (binding, relay_state, etc.).
+
+Returns:
+    Signed LogoutResponse XML (POST → Base64, Redirect → URL).
+
+### \`parse_logout_response\`
+
+\`\`\`python
+@abstractmethod
+def parse_logout_response(self, saml_response
+\`\`\`
+
+Parse a SAML LogoutResponse.
+
+Args:
+    saml_response: Raw LogoutResponse data.
+    binding: \`\`"redirect"\`\` (default) or \`\`"post"\`\`.
+    **kwargs: issuer (expected issuer for validation).
+
+Returns:
+    Parsed SAMLLogoutResponse.
+
+Raises:
+    JamSAMLInvalidIssuer: Issuer doesn't match expected.
+
+### \`generate_metadata\`
+
+\`\`\`python
+@abstractmethod
+def generate_metadata(self, *, entity_id
+\`\`\`
+
+Generate SAML 2.0 metadata XML.
+
+Args:
+    entity_id: Entity ID of the IdP or SP.
+    sso_url: SSO URL (required for IdP metadata).
+    acs_url: ACS URL (required for SP metadata).
+    role: \`\`"idp"\`\` or \`\`"sp"\`\`. Auto-detected if omitted.
+
+Returns:
+    SAML metadata XML string.
+
+### \`parse_metadata\`
+
+\`\`\`python
+@abstractmethod
+def parse_metadata(self, metadata_xml
+\`\`\`
+
+Parse SAML 2.0 metadata XML.
+
+Args:
+    metadata_xml: Raw metadata XML string.
+
+Returns:
+    SAMLMetadata with parsed fields.
+
+### \`build_attribute_query\`
+
+\`\`\`python
+@abstractmethod
+def build_attribute_query(self, subject
+\`\`\`
+
+Build a SAML AttributeQuery.
+
+Args:
+    subject: The subject to query attributes for.
+    issuer: Entity ID of the requester (SP).
+    destination: IdP attribute query endpoint URL.
+    attribute_names: Specific attributes to request (None = all).
+    binding: \`\`"post"\`\` (default) or \`\`"redirect"\`\`.
+    **kwargs: relay_state, etc.
+
+Returns:
+    POST: Base64-encoded signed XML.
+    Redirect: Signed redirect URL.
+
+### \`parse_attribute_query\`
+
+\`\`\`python
+@abstractmethod
+def parse_attribute_query(self, saml_request
+\`\`\`
+
+Parse an incoming SAML AttributeQuery.
+
+Args:
+    saml_request: Raw AttributeQuery data.
+    binding: \`\`"redirect"\`\` (default) or \`\`"post"\`\`.
+    **kwargs: issuer (expected issuer for validation).
+
+Returns:
+    Parsed SAMLAttributeQuery.
+
+### \`build_attribute_query_response\`
+
+\`\`\`python
+@abstractmethod
+def build_attribute_query_response(self, in_response_to
+\`\`\`
+
+Build a SAML Response for an AttributeQuery.
+
+Args:
+    in_response_to: AttributeQuery ID being responded to.
+    subject: The subject.
+    attributes: User attributes dict.
+    issuer: IdP entity ID.
+    audience: SP entity ID.
+    **kwargs: destination, name_id_format.
+
+Returns:
+    Signed SAML Response XML string.
+
+### \`parse_attribute_query_response\`
+
+\`\`\`python
+@abstractmethod
+def parse_attribute_query_response(self, saml_response
+\`\`\`
+
+Parse a SAML Response from an AttributeQuery.
+
+Delegates to parse_response.
+
+Args:
+    saml_response: Raw SAMLResponse data.
+    binding: \`\`"post"\`\` (default) or \`\`"redirect"\`\`.
+    **kwargs: audience, issuer, etc.
+
+Returns:
+    Parsed SAMLResponse.
+
+### \`build_artifact\`
+
+\`\`\`python
+@abstractmethod
+def build_artifact(self, source_message_id
+\`\`\`
+
+Create a SAML 2.0 artifact (Base64 string).
+
+Args:
+    source_message_id: The ID of the message the artifact references.
+    issuer: Entity ID of the issuer.
+
+Returns:
+    Base64-encoded artifact string.
+
+### \`build_artifact_resolve\`
+
+\`\`\`python
+@abstractmethod
+def build_artifact_resolve(self, artifact
+\`\`\`
+
+Build a SAML ArtifactResolve.
+
+Args:
+    artifact: The artifact to resolve.
+    issuer: Entity ID of the requester (SP).
+    destination: IdP artifact resolution service URL.
+    **kwargs: binding ("post" or "redirect" or "soap").
+
+Returns:
+    Signed ArtifactResolve XML / SOAP envelope.
+
+### \`parse_artifact_resolve\`
+
+\`\`\`python
+@abstractmethod
+def parse_artifact_resolve(self, saml_request
+\`\`\`
+
+Parse an incoming SAML ArtifactResolve.
+
+Args:
+    saml_request: Raw ArtifactResolve data.
+    binding: \`\`"post"\`\` (default), \`\`"redirect"\`\`, or \`\`"soap"\`\`.
+    **kwargs: issuer (expected issuer for validation).
+
+Returns:
+    Parsed SAMLArtifactResolve.
+
+### \`build_artifact_response\`
+
+\`\`\`python
+@abstractmethod
+def build_artifact_response(self, in_response_to
+\`\`\`
+
+Build a SAML ArtifactResponse wrapping the original message.
+
+Args:
+    in_response_to: ArtifactResolve ID being responded to.
+    original_message_xml: The original XML message to embed.
+    issuer: Entity ID of the responder (IdP).
+    destination: SP endpoint URL.
+    **kwargs: binding, status_code.
+
+Returns:
+    Signed ArtifactResponse XML / SOAP envelope.
+
+### \`parse_artifact_response\`
+
+\`\`\`python
+@abstractmethod
+def parse_artifact_response(self, saml_response
+\`\`\`
+
+Parse a SAML ArtifactResponse.
+
+Args:
+    saml_response: Raw ArtifactResponse data.
+    binding: \`\`"post"\`\` (default), \`\`"redirect"\`\`, or \`\`"soap"\`\`.
+    **kwargs: issuer (expected issuer).
+
+Returns:
+    Parsed SAMLArtifactResponse.
+
+### \`resolve_artifact\`
+
+\`\`\`python
+@abstractmethod
+def resolve_artifact(self, artifact
+\`\`\`
+
+Resolve a SAML artifact via SOAP to the IdP's resolve endpoint.
+
+Args:
+    artifact: The artifact to resolve.
+    issuer: Entity ID of the requester (SP).
+    resolve_url: IdP artifact resolution service URL.
+    **kwargs: Extra params (timeout, headers, expected_issuer, etc.).
+
+Returns:
+    The original SAML message XML extracted from the ArtifactResponse.
+
+### \`build_manage_name_id_request\`
+
+\`\`\`python
+@abstractmethod
+def build_manage_name_id_request(self, name_id
+\`\`\`
+
+Build a SAML ManageNameIDRequest.
+
+Args:
+    name_id: Current NameID.
+    issuer: Entity ID of the requester.
+    destination: Entity endpoint URL.
+    new_id: New identifier (None = terminate).
+    binding: \`\`"post"\`\` (default) or \`\`"redirect"\`\`.
+    **kwargs: relay_state, name_id_format.
+
+Returns:
+    POST: Base64-encoded signed XML.
+    Redirect: Signed redirect URL.
+
+### \`parse_manage_name_id_request\`
+
+\`\`\`python
+@abstractmethod
+def parse_manage_name_id_request(self, saml_request
+\`\`\`
+
+Parse a SAML ManageNameIDRequest.
+
+Args:
+    saml_request: Raw ManageNameIDRequest data.
+    binding: \`\`"redirect"\`\` (default) or \`\`"post"\`\`.
+    **kwargs: issuer (expected issuer).
+
+Returns:
+    Parsed SAMLManageNameIDRequest.
+
+### \`build_manage_name_id_response\`
+
+\`\`\`python
+@abstractmethod
+def build_manage_name_id_response(self, in_response_to
+\`\`\`
+
+Build a SAML ManageNameIDResponse.
+
+Args:
+    in_response_to: ManageNameIDRequest ID.
+    issuer: Entity ID of the responder.
+    destination: Endpoint URL of the requester.
+    status_code: SAML status code (default Success).
+    **kwargs: binding, relay_state.
+
+Returns:
+    POST: Base64-encoded signed XML.
+    Redirect: Signed redirect URL.
+
+### \`parse_manage_name_id_response\`
+
+\`\`\`python
+@abstractmethod
+def parse_manage_name_id_response(self, saml_response
+\`\`\`
+
+Parse a SAML ManageNameIDResponse.
+
+Args:
+    saml_response: Raw ManageNameIDResponse data.
+    binding: \`\`"redirect"\`\` (default) or \`\`"post"\`\`.
+    **kwargs: issuer (expected issuer).
+
+Returns:
+    Parsed SAMLManageNameIDResponse.
+
+## jam.saml
+
+Source: \`src/jam/saml/__init__.py\`
+
+Security Assertion Markup Language (SAML 2.0).
+
+Supports both Service Provider and Identity Provider roles.
+Zero external dependencies — built on stdlib xml + cryptography.
+
+## \`create_instance\`
+
+\`\`\`python
+function @deprecated()
+def create_instance(role
+\`\`\`
+
+Create a SAML instance.
+
+Args:
+    role: \`\`"sp"\`\` (Service Provider) or \`\`"idp"\`\` (Identity Provider).
+    private_key: PEM string or path to private key file.
+    public_key: PEM string or path to public key / certificate file.
+    certificate: PEM string or path to certificate file (included in metadata/signature).
+    entity_id: Entity ID of this SAML party.
+    acs_url: Assertion Consumer Service URL (for SP role).
+    sso_url: Single Sign-On URL (for IdP role).
+    idp_public_key: IdP public key / certificate PEM (for SP — signature verification).
+    sp_public_key: SP public key / certificate PEM (for IdP — SLO verification).
+    encryption_key: SP public key PEM for assertion encryption (IdP).
+    default_exp: Default assertion lifetime in seconds (default 300).
+    allowed_clock_skew: Clock skew tolerance in seconds (default 120).
+    want_assertions_signed: Require signed assertions (SP, default True).
+    replay_ttl: Seconds before a consumed ID is eligible for cleanup (default 300).
+    **kwargs: Additional parameters passed to the SAML constructor.
+
+Returns:
+    SAML instance.
+
+## jam.saml.binding
+
+Source: \`src/jam/saml/binding.py\`
+
+## \`encode_post\`
+
+\`\`\`python
+function def encode_post(xml_str
+\`\`\`
+
+Base64-encode SAML XML for HTTP-POST binding.
+
+## \`decode_post\`
+
+\`\`\`python
+function def decode_post(b64_str
+\`\`\`
+
+Decode Base64-encoded SAML data from HTTP-POST binding.
+
+## \`encode_redirect\`
+
+\`\`\`python
+function def encode_redirect(xml_str
+\`\`\`
+
+Deflate + Base64-encode SAML XML for HTTP-Redirect binding.
+
+## \`decode_redirect\`
+
+\`\`\`python
+function def decode_redirect(encoded
+\`\`\`
+
+Decode Deflate + Base64 SAML data from HTTP-Redirect binding.
+
+## \`build_redirect_signature\`
+
+\`\`\`python
+function def build_redirect_signature(signed_query
+\`\`\`
+
+Sign a query string for HTTP-Redirect binding with RSA-SHA256.
+
+Args:
+    signed_query: Raw query string (SAMLRequest=SigAlg=...).
+    key: RSA private key.
+
+Returns:
+    Base64-encoded signature.
+
+## \`verify_redirect_signature\`
+
+\`\`\`python
+function def verify_redirect_signature(signed_query
+\`\`\`
+
+Verify an HTTP-Redirect binding signature.
+
+Args:
+    signed_query: Raw query string that was signed.
+    signature_b64: Base64-encoded signature.
+    key: RSA public key.
+
+Returns:
+    True if signature is valid.
+
+Raises:
+    JamSAMLValidationError: If signature is invalid.
+
+## \`build_redirect_url\`
+
+\`\`\`python
+function def build_redirect_url(base_url
+\`\`\`
+
+Build a signed redirect URL for HTTP-Redirect binding.
+
+Args:
+    base_url: IdP SSO endpoint URL.
+    saml_params: Query params (SAMLRequest, RelayState, etc.).
+    signing_key: RSA private key for signing (optional).
+
+Returns:
+    Full redirect URL with query string.
+
+## \`parse_redirect_request\`
+
+\`\`\`python
+function def parse_redirect_request(query_string
+\`\`\`
+
+Parse a SAML redirect binding query string.
+
+Args:
+    query_string: The raw query string from the redirect URL.
+    verify_key: RSA public key to verify signature (optional).
+
+Returns:
+    Tuple of (decoded SAML XML string, RelayState).
+
+Raises:
+    JamSAMLValidationError: If signature verification fails.
+
+## jam.saml.encryption
+
+Source: \`src/jam/saml/encryption.py\`
+
+## \`load_encryption_key\`
+
+\`\`\`python
+function def load_encryption_key(pem
+\`\`\`
+
+Load an RSA public key from PEM for encryption.
+
+Args:
+    pem: PEM-encoded RSA public key or certificate.
+
+Returns:
+    RSA public key.
+
+## \`encrypt_aes_key\`
+
+\`\`\`python
+function def encrypt_aes_key(aes_key
+\`\`\`
+
+Encrypt an AES key with RSA-OAEP.
+
+Args:
+    aes_key: 256-bit AES key bytes.
+    public_key: RSA public key for encryption.
+
+Returns:
+    Base64-encoded encrypted AES key.
+
+## \`decrypt_aes_key\`
+
+\`\`\`python
+function def decrypt_aes_key(encrypted_key_b64
+\`\`\`
+
+Decrypt an RSA-OAEP encrypted AES key.
+
+Args:
+    encrypted_key_b64: Base64-encoded encrypted AES key.
+    private_key: RSA private key for decryption.
+
+Returns:
+    Decrypted 256-bit AES key bytes.
+
+## \`encrypt_assertion\`
+
+\`\`\`python
+function def encrypt_assertion(assertion_elem
+\`\`\`
+
+Encrypt a SAML Assertion element into an EncryptedAssertion.
+
+Generates a random AES-256-GCM key, encrypts the canonicalized
+assertion XML with it, then wraps the AES key with RSA-OAEP.
+
+Args:
+    assertion_elem: The \`\`<saml:Assertion>\`\` element to encrypt.
+    public_key: Recipient's RSA public key.
+
+Returns:
+    \`\`<saml:EncryptedAssertion>\`\` element.
+
+## \`decrypt_assertion\`
+
+\`\`\`python
+function def decrypt_assertion(enc_assertion_elem
+\`\`\`
+
+Decrypt a \`\`<saml:EncryptedAssertion>\`\` element.
+
+Extracts the RSA-OAEP wrapped AES key, decrypts it, then
+decrypts the assertion XML payload.
+
+Args:
+    enc_assertion_elem: The \`\`<saml:EncryptedAssertion>\`\` element.
+    private_key: Recipient's RSA private key.
+
+Returns:
+    Decrypted \`\`<saml:Assertion>\`\` element.
+
+Raises:
+    JamSAMLValidationError: If decryption fails or structure is invalid.
+
+## jam.saml.metadata
+
+Source: \`src/jam/saml/metadata.py\`
+
+## \`generate_idp_metadata\`
+
+\`\`\`python
+function def generate_idp_metadata(entity_id
+\`\`\`
+
+Generate SAML IdP metadata XML.
+
+Args:
+    entity_id: IdP entity ID.
+    sso_url: Single Sign-On endpoint URL.
+    certificate: PEM certificate string (included in KeyDescriptor).
+    want_authn_requests_signed: Whether IdP requires signed AuthnRequests.
+
+Returns:
+    SAML metadata XML string.
+
+## \`generate_sp_metadata\`
+
+\`\`\`python
+function def generate_sp_metadata(entity_id
+\`\`\`
+
+Generate SAML SP metadata XML.
+
+Args:
+    entity_id: SP entity ID.
+    acs_url: Assertion Consumer Service URL.
+    certificate: PEM certificate string (included in KeyDescriptor).
+    authn_requests_signed: Whether SP signs AuthnRequests.
+
+Returns:
+    SAML metadata XML string.
+
+## \`parse_metadata\`
+
+\`\`\`python
+function def parse_metadata(metadata_xml
+\`\`\`
+
+Parse SAML 2.0 metadata XML.
+
+Args:
+    metadata_xml: Raw metadata XML string.
+
+Returns:
+    SAMLMetadata with entity_id, role, endpoints, and certificate.
+
+Raises:
+    ValueError: If neither IdP nor SP descriptor is found.
+
+## jam.saml.saml
+
+Source: \`src/jam/saml/saml.py\`
+
+## \`SAML\`
+
+\`\`\`python
+class class SAML(BaseSAML)
+\`\`\`
+
+Concrete SAML 2.0 implementation.
+
+### \`prepare_authn_request\`
+
+\`\`\`python
+def prepare_authn_request(self, idp_sso_url
+\`\`\`
+
+Build AuthnRequest and return IdP redirect URL or POST form data.
+
+Args:
+    idp_sso_url: IdP SSO endpoint URL.
+    acs_url: SP ACS URL.
+    binding: \`\`"redirect"\`\` or \`\`"post"\`\`.
+    **kwargs: relay_state, issuer, etc.
+
+Returns:
+    Redirect URL (\`\`binding="redirect"\`\`) or Base64 form data (\`\`"post"\`\`).
+
+### \`parse_response\`
+
+\`\`\`python
+def parse_response(self, saml_response
+\`\`\`
+
+Parse and validate a SAML Response from an IdP.
+
+Args:
+    saml_response: Raw SAMLResponse (Base64 POST or query-string).
+    binding: \`\`"post"\`\` or \`\`"redirect"\`\`.
+    **kwargs: audience, issuer, verify_signature.
+
+Returns:
+    SAMLResponse with parsed assertion data.
+
+### \`build_response\`
+
+\`\`\`python
+def build_response(self, subject
+\`\`\`
+
+Build and sign a SAML Response with an Assertion.
+
+Args:
+    subject: Authenticated user identifier.
+    attributes: User attributes dict.
+    issuer: IdP entity ID.
+    audience: SP entity ID.
+    **kwargs: in_response_to, name_id_format, session_index,
+              destination, encrypt (bool, default False).
+
+Returns:
+    Signed (and optionally encrypted) SAML Response XML string.
+
+### \`parse_authn_request\`
+
+\`\`\`python
+def parse_authn_request(self, saml_request
+\`\`\`
+
+Parse an incoming AuthnRequest from an SP.
+
+Args:
+    saml_request: Raw SAMLRequest data.
+    binding: \`\`"redirect"\`\` or \`\`"post"\`\`.
+    **kwargs: issuer (expected issuer for validation).
+
+Returns:
+    Parsed SAMLRequest.
+
+### \`build_attribute_query\`
+
+\`\`\`python
+def build_attribute_query(self, subject
+\`\`\`
+
+Build a signed SAML AttributeQuery.
+
+Args:
+    subject: Subject to query attributes for.
+    issuer: SP entity ID.
+    destination: IdP attribute query endpoint URL.
+    attribute_names: Specific attributes to request (None = all).
+    binding: \`\`"post"\`\` (default) or \`\`"redirect"\`\`.
+    **kwargs: relay_state, name_id_format.
+
+Returns:
+    POST: Base64-encoded signed XML.
+    Redirect: Signed redirect URL.
+
+### \`parse_attribute_query\`
+
+\`\`\`python
+def parse_attribute_query(self, saml_request
+\`\`\`
+
+Parse an incoming SAML AttributeQuery.
+
+Args:
+    saml_request: Raw AttributeQuery data.
+    binding: \`\`"redirect"\`\` (default) or \`\`"post"\`\`.
+    **kwargs: issuer (expected issuer).
+
+Returns:
+    Parsed SAMLAttributeQuery.
+
+### \`build_attribute_query_response\`
+
+\`\`\`python
+def build_attribute_query_response(self, in_response_to
+\`\`\`
+
+Build a SAML Response for an AttributeQuery (no AuthnStatement).
+
+Args:
+    in_response_to: AttributeQuery ID.
+    subject: The subject.
+    attributes: User attributes dict.
+    issuer: IdP entity ID.
+    audience: SP entity ID.
+    **kwargs: destination, name_id_format.
+
+Returns:
+    Signed SAML Response XML string.
+
+### \`parse_attribute_query_response\`
+
+\`\`\`python
+def parse_attribute_query_response(self, saml_response
+\`\`\`
+
+Parse a SAML Response from an AttributeQuery.
+
+Delegates to parse_response.
+
+Args:
+    saml_response: Raw SAMLResponse data.
+    binding: \`\`"post"\`\` or \`\`"redirect"\`\`.
+    **kwargs: audience, issuer, etc.
+
+Returns:
+    Parsed SAMLResponse.
+
+### \`build_logout_request\`
+
+\`\`\`python
+def build_logout_request(self, name_id
+\`\`\`
+
+Build a SAML LogoutRequest.
+
+Args:
+    name_id: User identifier to log out.
+    issuer: Entity ID of the sender.
+    destination: SLO endpoint of the recipient.
+    session_index: Session index (optional).
+    **kwargs: binding, relay_state, name_id_format.
+
+Returns:
+    POST: Base64-encoded signed XML.
+    Redirect: Signed redirect URL.
+
+### \`parse_logout_request\`
+
+\`\`\`python
+def parse_logout_request(self, saml_request
+\`\`\`
+
+Parse a SAML LogoutRequest.
+
+Args:
+    saml_request: Raw LogoutRequest data.
+    binding: \`\`"redirect"\`\` or \`\`"post"\`\`.
+    **kwargs: issuer, public_key (override verification key).
+
+Returns:
+    Parsed SAMLLogoutRequest.
+
+### \`build_logout_response\`
+
+\`\`\`python
+def build_logout_response(self, in_response_to
+\`\`\`
+
+Build a SAML LogoutResponse.
+
+Args:
+    in_response_to: LogoutRequest ID to respond to.
+    issuer: Entity ID of the sender.
+    destination: SLO endpoint of the recipient.
+    status_code: SAML status code.
+    **kwargs: binding, relay_state.
+
+Returns:
+    POST: Base64-encoded signed XML.
+    Redirect: Signed redirect URL.
+
+### \`parse_logout_response\`
+
+\`\`\`python
+def parse_logout_response(self, saml_response
+\`\`\`
+
+Parse a SAML LogoutResponse.
+
+Args:
+    saml_response: Raw LogoutResponse data.
+    binding: \`\`"redirect"\`\` or \`\`"post"\`\`.
+    **kwargs: issuer, public_key (override verification key).
+
+Returns:
+    Parsed SAMLLogoutResponse.
+
+### \`build_artifact\`
+
+\`\`\`python
+def build_artifact(self, source_message_id
+\`\`\`
+
+Create a SAML 2.0 artifact from a message ID.
+
+Format: 2 bytes type code (0x0001) + 2 bytes endpoint index
+        + 40 random bytes → Base64.
+
+Args:
+    source_message_id: The ID of the referenced message (unused
+                       in artifact format, stored for reference).
+    issuer: Entity ID of the issuer (stored for reference).
+
+Returns:
+    Base64-encoded artifact string.
+
+### \`build_artifact_resolve\`
+
+\`\`\`python
+def build_artifact_resolve(self, artifact
+\`\`\`
+
+Build a signed SAML ArtifactResolve.
+
+Args:
+    artifact: The artifact to resolve.
+    issuer: SP entity ID.
+    destination: IdP artifact resolution service URL.
+    **kwargs: binding ("post", "redirect", or "soap").
+
+Returns:
+    POST: Base64-encoded signed XML.
+    Redirect: Signed redirect URL.
+    SOAP: Raw XML.
+
+### \`parse_artifact_resolve\`
+
+\`\`\`python
+def parse_artifact_resolve(self, saml_request
+\`\`\`
+
+Parse an incoming SAML ArtifactResolve.
+
+Args:
+    saml_request: Raw ArtifactResolve data.
+    binding: \`\`"post"\`\` (default), \`\`"redirect"\`\`, or \`\`"soap"\`\`.
+    **kwargs: issuer (expected issuer).
+
+Returns:
+    Parsed SAMLArtifactResolve.
+
+### \`build_artifact_response\`
+
+\`\`\`python
+def build_artifact_response(self, in_response_to
+\`\`\`
+
+Build a signed SAML ArtifactResponse wrapping the original message.
+
+Args:
+    in_response_to: ArtifactResolve ID.
+    original_message_xml: The original SAML message XML to embed.
+    issuer: IdP entity ID.
+    destination: SP endpoint URL.
+    **kwargs: binding, status_code.
+
+Returns:
+    POST: Base64-encoded signed XML.
+    Redirect: Signed redirect URL.
+    SOAP: Raw XML.
+
+### \`parse_artifact_response\`
+
+\`\`\`python
+def parse_artifact_response(self, saml_response
+\`\`\`
+
+Parse a SAML ArtifactResponse.
+
+Args:
+    saml_response: Raw ArtifactResponse data.
+    binding: \`\`"post"\`\` (default), \`\`"redirect"\`\`, or \`\`"soap"\`\`.
+    **kwargs: issuer (expected issuer).
+
+Returns:
+    Parsed SAMLArtifactResponse.
+
+### \`resolve_artifact\`
+
+\`\`\`python
+def resolve_artifact(self, artifact
+\`\`\`
+
+Resolve a SAML artifact via SOAP/HTTP to the IdP resolve endpoint.
+
+Args:
+    artifact: The artifact to resolve.
+    issuer: SP entity ID.
+    resolve_url: IdP artifact resolution service URL.
+    **kwargs: timeout (int, default 10), expected_issuer (IdP
+              entity ID to validate the ArtifactResponse issuer).
+
+Returns:
+    The original SAML message XML from the ArtifactResponse.
+
+### \`build_manage_name_id_request\`
+
+\`\`\`python
+def build_manage_name_id_request(self, name_id
+\`\`\`
+
+Build a signed SAML ManageNameIDRequest.
+
+Args:
+    name_id: Current NameID.
+    issuer: Entity ID of the requester.
+    destination: Recipient endpoint URL.
+    new_id: New identifier (None = terminate).
+    binding: \`\`"post"\`\` (default) or \`\`"redirect"\`\`.
+    **kwargs: relay_state, name_id_format.
+
+Returns:
+    POST: Base64-encoded signed XML.
+    Redirect: Signed redirect URL.
+
+### \`parse_manage_name_id_request\`
+
+\`\`\`python
+def parse_manage_name_id_request(self, saml_request
+\`\`\`
+
+Parse a SAML ManageNameIDRequest.
+
+Args:
+    saml_request: Raw ManageNameIDRequest data.
+    binding: \`\`"redirect"\`\` (default) or \`\`"post"\`\`.
+    **kwargs: issuer (expected issuer).
+
+Returns:
+    Parsed SAMLManageNameIDRequest.
+
+### \`build_manage_name_id_response\`
+
+\`\`\`python
+def build_manage_name_id_response(self, in_response_to
+\`\`\`
+
+Build a signed SAML ManageNameIDResponse.
+
+Args:
+    in_response_to: ManageNameIDRequest ID.
+    issuer: Entity ID of the responder.
+    destination: Endpoint URL of the requester.
+    status_code: SAML status code (default Success).
+    **kwargs: binding, relay_state.
+
+Returns:
+    POST: Base64-encoded signed XML.
+    Redirect: Signed redirect URL.
+
+### \`parse_manage_name_id_response\`
+
+\`\`\`python
+def parse_manage_name_id_response(self, saml_response
+\`\`\`
+
+Parse a SAML ManageNameIDResponse.
+
+Args:
+    saml_response: Raw ManageNameIDResponse data.
+    binding: \`\`"redirect"\`\` (default) or \`\`"post"\`\`.
+    **kwargs: issuer (expected issuer).
+
+Returns:
+    Parsed SAMLManageNameIDResponse.
+
+### \`generate_metadata\`
+
+\`\`\`python
+def generate_metadata(self, *, entity_id
+\`\`\`
+
+Generate SAML metadata XML.
+
+Args:
+    entity_id: Entity ID (defaults to instance entity_id).
+    sso_url: SSO URL (IdP metadata).
+    acs_url: ACS URL (SP metadata).
+    role: \`\`"idp"\`\` or \`\`"sp"\`\` (defaults to instance role).
+
+Returns:
+    Metadata XML string.
+
+### \`parse_metadata\`
+
+\`\`\`python
+def parse_metadata(self, metadata_xml
+\`\`\`
+
+Parse SAML metadata XML into a SAMLMetadata object.
+
+Args:
+    metadata_xml: Raw metadata XML string.
+
+Returns:
+    SAMLMetadata with entity_id, endpoints, cert, etc.
+
+## jam.saml.signature
+
+Source: \`src/jam/saml/signature.py\`
+
+## \`load_private_key\`
+
+\`\`\`python
+function def load_private_key(pem_str
+\`\`\`
+
+Load an RSA private key from a PEM string.
+
+Args:
+    pem_str: PEM-encoded private key.
+
+Returns:
+    RSAPrivateKey.
+
+Raises:
+    JamSAMLValidationError: If key is not RSA.
+
+## \`load_public_key\`
+
+\`\`\`python
+function def load_public_key(pem_str
+\`\`\`
+
+Load an RSA public key from a PEM string or X.509 certificate.
+
+Args:
+    pem_str: PEM-encoded public key or certificate.
+
+Returns:
+    RSAPublicKey.
+
+Raises:
+    JamSAMLValidationError: If key is not RSA.
+
+## \`sign_assertion\`
+
+\`\`\`python
+function def sign_assertion(assertion
+\`\`\`
+
+Sign a SAML Assertion with an enveloped XML signature.
+
+The signature is added as a child of the Assertion element.
+Uses RSA-SHA256 and Exclusive XML Canonicalization.
+
+Args:
+    assertion: The Assertion Element to sign (must have an ID attribute).
+    key: RSA private key for signing.
+    cert_pem: Optional PEM certificate for X509Data in KeyInfo.
+
+Returns:
+    The assertion Element with Signature child appended.
+
+Raises:
+    JamSAMLValidationError: If assertion has no ID.
+
+## \`verify_assertion_signature\`
+
+\`\`\`python
+function def verify_assertion_signature(assertion
+\`\`\`
+
+Verify the enveloped XML signature on a SAML Assertion.
+
+Verifies both the digest (content integrity) and the RSA signature.
+
+Args:
+    assertion: The Assertion Element containing a Signature child.
+    key: RSA public key. If None, extracted from KeyInfo in the signature.
+
+Returns:
+    True if signature is valid.
+
+Raises:
+    JamSAMLValidationError: If signature is missing, malformed, or invalid.
+
+## \`extract_public_key_from_keyinfo\`
+
+\`\`\`python
+function def extract_public_key_from_keyinfo(sig
+\`\`\`
+
+Extract the RSA public key from an XML Signature's KeyInfo/X509Data.
+
+Args:
+    sig: The Signature Element containing KeyInfo.
+
+Returns:
+    RSAPublicKey.
+
+Raises:
+    JamSAMLValidationError: If KeyInfo is missing or no certificate found.
+
+## jam.saml.types
+
+Source: \`src/jam/saml/types.py\`
+
+## \`SAMLSubject\`
+
+\`\`\`python
+class @dataclass
+class SAMLSubject
+\`\`\`
+
+SAML assertion subject (NameID + confirmation).
+
+## \`SAMLConditions\`
+
+\`\`\`python
+class @dataclass
+class SAMLConditions
+\`\`\`
+
+SAML assertion conditions (time constraints + audience).
+
+## \`SAMLAuthnStatement\`
+
+\`\`\`python
+class @dataclass
+class SAMLAuthnStatement
+\`\`\`
+
+SAML authentication statement.
+
+## \`SAMLAssertion\`
+
+\`\`\`python
+class @dataclass
+class SAMLAssertion
+\`\`\`
+
+Parsed SAML assertion data.
+
+## \`SAMLResponse\`
+
+\`\`\`python
+class @dataclass
+class SAMLResponse
+\`\`\`
+
+Parsed SAML protocol Response.
+
+## \`SAMLRequest\`
+
+\`\`\`python
+class @dataclass
+class SAMLRequest
+\`\`\`
+
+Parsed SAML AuthnRequest.
+
+## \`SAMLLogoutRequest\`
+
+\`\`\`python
+class @dataclass
+class SAMLLogoutRequest
+\`\`\`
+
+Parsed SAML LogoutRequest.
+
+## \`SAMLLogoutResponse\`
+
+\`\`\`python
+class @dataclass
+class SAMLLogoutResponse
+\`\`\`
+
+Parsed SAML LogoutResponse.
+
+## \`SAMLMetadata\`
+
+\`\`\`python
+class @dataclass
+class SAMLMetadata
+\`\`\`
+
+Parsed SAML metadata.
+
+## \`SAMLAttributeQuery\`
+
+\`\`\`python
+class @dataclass
+class SAMLAttributeQuery
+\`\`\`
+
+Parsed SAML AttributeQuery.
+
+## \`SAMLArtifactResolve\`
+
+\`\`\`python
+class @dataclass
+class SAMLArtifactResolve
+\`\`\`
+
+Parsed SAML ArtifactResolve.
+
+## \`SAMLArtifactResponse\`
+
+\`\`\`python
+class @dataclass
+class SAMLArtifactResponse
+\`\`\`
+
+Parsed SAML ArtifactResponse.
+
+## \`SAMLManageNameIDRequest\`
+
+\`\`\`python
+class @dataclass
+class SAMLManageNameIDRequest
+\`\`\`
+
+Parsed SAML ManageNameIDRequest.
+
+## \`SAMLManageNameIDResponse\`
+
+\`\`\`python
+class @dataclass
+class SAMLManageNameIDResponse
+\`\`\`
+
+Parsed SAML ManageNameIDResponse.
+
+## jam.saml.xml
+
+Source: \`src/jam/saml/xml.py\`
+
+## \`register_namespaces\`
+
+\`\`\`python
+function def register_namespaces() -> None
+\`\`\`
+
+Register SAML and DS namespace prefixes with ElementTree.
+
+## \`make_element\`
+
+\`\`\`python
+function def make_element(tag
+\`\`\`
+
+Create an Element with the given namespace-qualified tag.
+
+## \`sub_element\`
+
+\`\`\`python
+function def sub_element(parent
+\`\`\`
+
+Add a child Element with namespace-qualified tag and optional text.
+
+## \`canonicalize_xml\`
+
+\`\`\`python
+function def canonicalize_xml(elem
+\`\`\`
+
+Inclusive XML canonicalization (C14N) of an Element.
+
+Note: uses standard (non-exclusive) C14N for Python 3.10 compatibility.
+
+## \`fmt_instant\`
+
+\`\`\`python
+function def fmt_instant(dt
+\`\`\`
+
+Format a datetime as SAML-style UTC string (\`\`2024-01-15T12:00:00Z\`\`).
+
+## \`parse_instant\`
+
+\`\`\`python
+function def parse_instant(text
+\`\`\`
+
+Parse a SAML-style UTC string into a datetime.
+
+## \`make_id\`
+
+\`\`\`python
+function def make_id() -> str
+\`\`\`
+
+Generate a unique SAML identifier (\`\`_<hex>\`\`).
+
+## \`safe_fromstring\`
+
+\`\`\`python
+function def safe_fromstring(xml_str
+\`\`\`
+
+Parse XML string with XXE and entity expansion protection.
+
+Rejects XML containing DTD/DOCTYPE declarations (required for XXE).
+Python 3.8+ already limits entity expansion by default in ElementTree.
+
+Args:
+    xml_str: XML string to parse.
+
+Returns:
+    Root element.
+
+Raises:
+    JamSAMLValidationError: If XML is malformed or contains unsafe entities.
+
+## jam.sessions.__base__
+
+Source: \`src/jam/sessions/__base__.py\`
+
+## \`BaseSessionModule\`
+
+\`\`\`python
+class class BaseSessionModule(_SessionCodec, ABC, metaclass=ConfigMeta)
+\`\`\`
+
+Abstract base class for session management modules.
+
+You can create your own module for sessions. For example:
+
+\`\`\`python
+from jam.sessions import BaseSessionModule
+
+class CustomSessionModule(BaseSessionModule):
+    def __init__(self, some_param: str) -> None:
+        super().__init__(
+            is_session_crypt=True,
+            session_aes_secret=b'your-32-byte-base64-encoded-key'
+        )
+
+    # Your initialization code here
+    def create(session_key: str) -> str:
+        ...
+
+    def get(session_id: str) -> dict:
+        ...
+
+    def delete(session_id: str) -> None:
+        ...
+
+    def update(session_id: str, data: dict) -> None:
+        ...
+
+    def rework(session_id: str) -> str:
+        ...
+
+    def clear(session_key: str) -> None:
+        ...
+\`\`\`
+
+### \`create\`
+
+\`\`\`python
+@abstractmethod
+def create(self, session_key
+\`\`\`
+
+Create a new session with the given session key and data.
+
+Args:
+    session_key (str): The key for the session.
+    data (dict): The data to be stored in the session.
+
+### \`get\`
+
+\`\`\`python
+@abstractmethod
+def get(self, session_id
+\`\`\`
+
+Retrieve a session by its key or ID.
+
+Args:
+    session_id (str): The ID of the session.
+
+Returns:
+    dict | None: The session data if found, otherwise None.
+
+### \`delete\`
+
+\`\`\`python
+@abstractmethod
+def delete(self, session_id
+\`\`\`
+
+Delete a session by its key or ID.
+
+Args:
+    session_id (str): The ID of the session.
+
+### \`update\`
+
+\`\`\`python
+@abstractmethod
+def update(self, session_id
+\`\`\`
+
+Update an existing session with new data.
+
+Args:
+    session_id (str): The ID of the session to update.
+    data (dict): The new data to be stored in the session.
+
+Raises:
+    JamSessionNotFound: If the session with the given ID does not exist.
+
+### \`rework\`
+
+\`\`\`python
+@abstractmethod
+def rework(self, session_id
+\`\`\`
+
+Rework a session and return its new ID.
+
+Args:
+    session_id (str): The ID of the session to rework.
+
+Raises:
+    JamSessionNotFound: If the session with the given ID does not exist.
+
+Returns:
+    str: The new session ID.
+
+### \`clear\`
+
+\`\`\`python
+@abstractmethod
+def clear(self, session_key
+\`\`\`
+
+Clear all sessions by key.
+
+Args:
+    session_key (str): The key for the sessions to clear.
+
+## jam.sessions
+
+Source: \`src/jam/sessions/__init__.py\`
+
+Module for making server auth sessions.
+
+This module does not expose documented public definitions.
+
+## jam.sessions._codec
+
+Source: \`src/jam/sessions/_codec.py\`
+
+This module does not expose documented public definitions.
+
+## jam.sessions.json
+
+Source: \`src/jam/sessions/json.py\`
+
+## \`JSONSessions\`
+
+\`\`\`python
+class class JSONSessions(BaseSessionModule)
+\`\`\`
+
+Session management module for JSON storage.
+
+### \`create\`
+
+\`\`\`python
+def create(self, session_key
+\`\`\`
+
+Create a new session.
+
+Args:
+    session_key (str): The session key.
+    data (dict): The data to be stored in the session.
+
+Returns:
+    str: The ID of the created session.
+
+### \`get\`
+
+\`\`\`python
+def get(self, session_id) -> dict | None
+\`\`\`
+
+Retrieve session data by session ID.
+
+Args:
+    session_id (str): The ID of the session to retrieve.
+
+Returns:
+    dict | None: The session data if found, otherwise None.
+
+### \`delete\`
+
+\`\`\`python
+def delete(self, session_id
+\`\`\`
+
+Delete a session by its ID.
+
+Args:
+    session_id (str): The ID of the session to delete.
+
+Returns:
+    None
+
+### \`update\`
+
+\`\`\`python
+def update(self, session_id
+\`\`\`
+
+Update session data by its ID.
+
+Args:
+    session_id (str): The ID of the session to update.
+    data (dict): The new data to store in the session.
+
+Raises:
+    JamSessionNotFound: If session not found
+
+### \`clear\`
+
+\`\`\`python
+def clear(self, session_key
+\`\`\`
+
+Clear all sessions for a given session key.
+
+Args:
+    session_key (str): The session key to clear.
+
+Returns:
+    None
+
+### \`rework\`
+
+\`\`\`python
+def rework(self, session_id
+\`\`\`
+
+Rework (regenerate) a session ID.
+
+Args:
+    session_id (str): The current session ID to be reworked.
+
+Raises:
+    JamSessionNotFound: If session not found
+
+Returns:
+    str: The new session ID.
+
+## jam.sessions.redis
+
+Source: \`src/jam/sessions/redis.py\`
+
+## \`RedisSessions\`
+
+\`\`\`python
+class class RedisSessions(BaseSessionModule)
+\`\`\`
+
+Redis session management module.
+
+### \`create\`
+
+\`\`\`python
+def create(self, session_key
+\`\`\`
+
+Create a new session with the given session key and data.
+
+Args:
+    session_key (str): The key for the session.
+    data (dict): The data to be stored in the session.
+
+Returns:
+    str: The unique ID of the created session.
+
+### \`get\`
+
+\`\`\`python
+def get(self, session_id
+\`\`\`
+
+Retrieve a session by its key or ID.
+
+Args:
+    session_id (str): The session key or ID.
+
+Returns:
+    dict | None: The session data if found, otherwise None.
+
+### \`delete\`
+
+\`\`\`python
+def delete(self, session_id
+\`\`\`
+
+Delete a session by its ID.
+
+Args:
+    session_id (str): The session ID.
+
+### \`clear\`
+
+\`\`\`python
+def clear(self, session_key
+\`\`\`
+
+Clear all sessions for a given session key.
+
+Args:
+    session_key (str): The session key to clear.
+
+### \`update\`
+
+\`\`\`python
+def update(self, session_id
+\`\`\`
+
+Update an existing session with new data.
+
+Args:
+    session_id (str): The ID of the session to update.
+    data (dict): The new data to be stored in the session.
+
+Raises:
+    JamSessionNotFound: If the session with the given ID does not exist.
+
+### \`rework\`
+
+\`\`\`python
+def rework(self, session_id
+\`\`\`
+
+Rework a session and return its new ID.
+
+Args:
+    session_id (str): The ID of the session to rework.
+
+Raises:
+    JamSessionNotFound: If the session with the given ID does not exist.
+
+Returns:
+    str: The new session ID.
+
+## jam.subject
+
+Source: \`src/jam/subject.py\`
+
+Base subject for auth flows.
+
+## \`BaseSubject\`
+
+\`\`\`python
+class class BaseSubject
+\`\`\`
+
+Base subject contract.
+
+Subclasses must be dataclasses and declare an \`\`id\`\` field::
+
+    @dataclass
+    class User(BaseSubject):
+        id: str
+        name: str
+
+The \`\`id\`\` field is the subject identifier used by \`\`Jam.issue\`\` and
+\`\`Jam.authenticate\`\`. Serialization is built on dataclasses, no extra
+dependencies required.
+
+### \`to_dict\`
+
+\`\`\`python
+def to_dict(self) -> dict[str, Any]
+\`\`\`
+
+Serialize subject to dict using dataclasses.asdict.
+
+Returns:
+    dict[str, Any]: Subject fields.
+
+### \`from_dict\`
+
+\`\`\`python
+@classmethod
+def from_dict(cls, data
+\`\`\`
+
+Build a subject instance from a dict.
+
+Unknown keys are ignored.
+
+Args:
+    data (dict[str, Any]): Subject fields.
+
+Returns:
+    BaseSubject: New subject instance.
+
+## jam.utils
+
+Source: \`src/jam/utils/__init__.py\`
+
+Various utilities that help with authorization.
+
+This module does not expose documented public definitions.
+
+## jam.utils.aes
+
+Source: \`src/jam/utils/aes.py\`
+
+## \`generate_aes_key\`
+
+\`\`\`python
+function def generate_aes_key() -> bytes
+\`\`\`
+
+Generate a new AES key.
+
+## jam.utils.await_maybe
+
+Source: \`src/jam/utils/await_maybe.py\`
+
+## \`await_maybe\`
+
+\`\`\`python
+function async def await_maybe(value
+\`\`\`
+
+Source: https://github.com/strawberry-graphql/strawberry/blob/main/strawberry/utils/await_maybe.py.
+
+## jam.utils.basic_auth
+
+Source: \`src/jam/utils/basic_auth.py\`
+
+## \`basic_auth_encode\`
+
+\`\`\`python
+function def basic_auth_encode(login
+\`\`\`
+
+Encodes the login and password in a basic auth token.
+
+Args:
+    login (str): Login
+    password (str): Password
+
+Example:
+    \`\`\`python
+    >>> header = basic_auth_encode("admin", "qwerty1234")
+    >>> print(header)
+    YWRtaW46cXdlcnR5MTIzNA==
+    \`\`\`
+
+## \`basic_auth_decode\`
+
+\`\`\`python
+function def basic_auth_decode(data
+\`\`\`
+
+Decodes basic auth token to login and password.
+
+Args:
+    data (str): Decoded data
+
+Raises:
+    ValueError: If incorrect format
+
+Example:
+    >>> login, password = basic_auth_decode(header)
+    >>> print(login, password)
+    admin qwerty1234
+
+## jam.utils.config_maker
+
+Source: \`src/jam/utils/config_maker.py\`
+
+This module does not expose documented public definitions.
+
+## jam.utils.config_meta
+
+Source: \`src/jam/utils/config_meta.py\`
+
+Config-driven initialization metaclass.
+
+Classes whose metaclass is \`ConfigMeta\` accept \`config\` and \`pointer\`
+keyword arguments in their \`__init__\`. When \`config\` is provided, the
+metaclass resolves it into a dict via \`__config_maker__\` and uses the
+values as defaults for the matching \`__init__\` parameters. Explicit
+keyword arguments always win over config values.
+
+Example:
+    \`\`\`python
+    class JWT(metaclass=ConfigMeta):
+        _CONFIG_POINTER = "jam.jose.jwt"
+
+        def __init__(self, alg=None, secret_key=None, config=None, pointer=None): ...
+    \`\`\`
+
+## \`ConfigMeta\`
+
+\`\`\`python
+class class ConfigMeta(ABCMeta)
+\`\`\`
+
+Metaclass that injects config values into \`__init__\` calls.
+
+## jam.utils.config_validator
+
+Source: \`src/jam/utils/config_validator.py\`
+
+This module does not expose documented public definitions.
+
+## jam.utils.ed
+
+Source: \`src/jam/utils/ed.py\`
+
+## \`generate_ed25519_keypair\`
+
+\`\`\`python
+function def generate_ed25519_keypair() -> dict[str, str]
+\`\`\`
+
+Generate Ed25519 key.
+
+Returns:
+    dict[str, str]: {'private': KEY, 'public': KEY}
+
+## \`generate_ecdsa_p384_keypair\`
+
+\`\`\`python
+function def generate_ecdsa_p384_keypair() -> dict[str, str]
+\`\`\`
+
+Generate ECDSA P-384 key pair.
+
+Returns:
+    dict[str, str]: {'private': KEY, 'public': KEY}
+
+## jam.utils.otp_keys
+
+Source: \`src/jam/utils/otp_keys.py\`
+
+## \`generate_otp_key\`
+
+\`\`\`python
+function def generate_otp_key(entropy_bits
+\`\`\`
+
+Generate generic OTP secret key.
+
+Args:
+    entropy_bits (int): Entropy bits to key
+
+Returns:
+    str
+
+## \`otp_key_from_string\`
+
+\`\`\`python
+function def otp_key_from_string(s
+\`\`\`
+
+Generate OTP-valid key from string.
+
+Args:
+    s (str): String for key
+
+Returns:
+    bytes: OTP key
+
+Example:
+    \`\`\`python
+    >>> from jam.utils import otp_key_from_string
+    >>> user_email: str = "some.email@mail.com"
+    >>> key = otp_key_from_string(user_email)
+    >>> print(key)
+    'O54O6YRKTH3IPNEBIUMKMK3FZ35OF6Q5'
+    \`\`\`
+
+## jam.utils.redaction
+
+Source: \`src/jam/utils/redaction.py\`
+
+Logging helpers: sensitive data redaction.
+
+## \`SensitiveDataFilter\`
+
+\`\`\`python
+class class SensitiveDataFilter(logging.Filter)
+\`\`\`
+
+Redact tokens and secrets from log records.
+
+Enabled by default. Set \`\`JAM_DEBUG=True\`\` (see \`\`jam.__defaults__\`\`)
+to disable redaction and see full values while developing.
+
+Args:
+    redact (bool | None): Force redaction on/off. Defaults to the
+        opposite of \`\`defaults.DEBUG\`\`.
+
+### \`filter\`
+
+\`\`\`python
+def filter(self, record
+\`\`\`
+
+Redact sensitive data in a log record.
+
+Args:
+    record (logging.LogRecord): Log record to sanitize.
+
+Returns:
+    bool: Always True, so the record is never dropped.
+
+## jam.utils.rsa
+
+Source: \`src/jam/utils/rsa.py\`
+
+## \`generate_rsa_key_pair\`
+
+\`\`\`python
+function def generate_rsa_key_pair(key_size
+\`\`\`
+
+RSA key generation utility.
+
+Args:
+    key_size (int): Size of RSA key
+
+Returns:
+    (dict): with public and private keys in format:
+
+\`\`\`python
+{
+    "public": "some_key",
+    "private": "key"
+}
+\`\`\`
+
+## jam.utils.salt_hash
+
+Source: \`src/jam/utils/salt_hash.py\`
+
+Utilities for secure password hashing and verification. Uses PBKDF2-HMAC-SHA256 with salt and constant-time comparison.
+
+## \`hash_password\`
+
+\`\`\`python
+function def hash_password(password
+\`\`\`
+
+Hashes a password with a salt using PBKDF2-HMAC-SHA256.
+
+Args:
+    password (str): Password to hash.
+    salt (bytes | None): Salt. If None, a random salt is generated.
+    iterations (int): Number of PBKDF2 iterations.
+    salt_size (int): Size of the random salt in bytes.
+
+Returns:
+    tuple[str, str]: (hex_salt, hex_hash)
+
+Example:
+    \`\`\`python
+    >>> salt, hash_ = hash_password("my_password")
+    >>> isinstance(salt, str)
+    True
+    >>> isinstance(hash_, str)
+    True
+
+    # Using custom iterations and salt size
+    >>> salt, hash_ = hash_password("my_password", iterations=150_000, salt_size=24)
+    \`\`\`
+
+## \`check_password\`
+
+\`\`\`python
+function def check_password(password
+\`\`\`
+
+Verifies a password by recalculating the hash and comparing it to the stored hash.
+
+Args:
+    password (str): Password to verify.
+    salt_hex (str): Hex representation of the salt.
+    hash_hex (str): Hex representation of the stored hash.
+    iterations (int): Number of PBKDF2 iterations, must match the hashing call.
+
+Returns:
+    bool: True if the password is correct, False otherwise.
+
+Example:
+    \`\`\`python
+    >>> salt, hash_ = hash_password("my_password")
+    >>> check_password("my_password", salt, hash_)
+    True
+    >>> check_password("wrong_password", salt, hash_)
+    False
+
+    # Using custom iterations
+    >>> salt, hash_ = hash_password("my_password", iterations=150_000)
+    >>> check_password("my_password", salt, hash_, iterations=150_000)
+    True
+    \`\`\`
+
+## \`serialize_hash\`
+
+\`\`\`python
+function def serialize_hash(salt_hex
+\`\`\`
+
+Combines salt and hash into a single string for database storage.
+
+Example:
+    \`\`\`python
+    >>> salt, hash_ = hash_password("my_password")
+    >>> serialized = serialize_hash(salt, hash_)
+    >>> isinstance(serialized, str)
+    True
+    \`\`\`
+
+## \`deserialize_hash\`
+
+\`\`\`python
+function def deserialize_hash(data
+\`\`\`
+
+Splits a stored string into salt and hash.
+
+Example:
+    \`\`\`python
+    >>> salt, hash_ = deserialize_hash("abcdef1234\$9876543210")
+    >>> isinstance(salt, str)
+    True
+    >>> isinstance(hash_, str)
+    True
+    \`\`\`
+
+## jam.utils.symmetric
+
+Source: \`src/jam/utils/symmetric.py\`
+
+## \`generate_symmetric_key\`
+
+\`\`\`python
+function def generate_symmetric_key(n
+\`\`\`
+
+Generate a N-byte symmetric key.
+
+Args:
+    n (int): Bytes for key
+
+Returns:
+    str: Key
+
+## jam.utils.version_check
+
+Source: \`src/jam/utils/version_check.py\`
+
+This module does not expose documented public definitions.
+
+## jam.utils.xchacha20poly1305
+
+Source: \`src/jam/utils/xchacha20poly1305.py\`
+
+## \`xchacha20poly1305_encrypt\`
+
+\`\`\`python
+function def xchacha20poly1305_encrypt(key
+\`\`\`
+
+Emulates XChaCha20-Poly1305 AEAD using cryptography's ChaCha20Poly1305.
+
+## \`xchacha20poly1305_decrypt\`
+
+\`\`\`python
+function def xchacha20poly1305_decrypt(key
+\`\`\`
+
+Decrypt counterpart.
+
+## jam.utils.xor
+
+Source: \`src/jam/utils/xor.py\`
+
+## \`xor_my_data\`
+
+\`\`\`python
+function def xor_my_data(data
+\`\`\`
+
+Encrypts a string using a secret key with the XOR cipher.
+
+This function performs an XOR operation on each byte of the input data
+with the corresponding byte of the key. If the key is shorter than the
+data, it wraps around and continues from the beginning of the key.
+If you need to decrypt data, use the same function
+with the same secret key. XOR is a symmetric operation.
+
+Args:
+    data (str): The plain text string to be encrypted.
+    key (str): The secret key used for encryption.
+
+Returns:
+    str: The encrypted data represented as a hexadecimal string.
+
+Example:
+    \`\`\`python
+    >>> encrypted = xor_my_data("Hello, World!", "secretkey")
+    >>> print(encrypted)
+    <...encrypted hex string...>
+    \`\`\`
+`} />
+  ),
   "4.0.0/reference--auth-utils": () => (
     <MarkdownRenderer content={`
 For convenience, Jam includes some utilities for authentication mechanisms and simple encryption.
