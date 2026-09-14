@@ -3,10 +3,10 @@ nav:
     pages:
       - label: Installation
         file: gettingstarted/installation.md
-      - label: Quick start
-        file: gettingstarted/quickstart.md
       - label: Configuration
         file: gettingstarted/configuration.md
+      - label: Quick start
+        file: gettingstarted/quickstart.md
   - block: Core concepts
     pages:
       - label: Jam instance

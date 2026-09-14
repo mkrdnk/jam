@@ -15,14 +15,14 @@
               "slug": "gettingstarted--installation"
             },
             {
-              "id": "gettingstarted--quickstart",
-              "title": "Quickstart",
-              "slug": "gettingstarted--quickstart"
-            },
-            {
               "id": "gettingstarted--configuration",
               "title": "Configuration",
               "slug": "gettingstarted--configuration"
+            },
+            {
+              "id": "gettingstarted--quickstart",
+              "title": "Quickstart",
+              "slug": "gettingstarted--quickstart"
             }
           ]
         },
@@ -256,12 +256,12 @@
           "title": "Installation"
         },
         {
-          "slug": "gettingstarted--quickstart",
-          "title": "Quickstart"
-        },
-        {
           "slug": "gettingstarted--configuration",
           "title": "Configuration"
+        },
+        {
+          "slug": "gettingstarted--quickstart",
+          "title": "Quickstart"
         },
         {
           "slug": "core--jam",
