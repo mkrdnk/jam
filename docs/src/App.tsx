@@ -559,21 +559,21 @@ jam.authorize(principal, "users.read")`
 
 const MODULES = [
   { name: "JWT",          desc: "RS256 · ES256 · EdDSA · HS256", slug: "usage--jose--jwt" },
-  { name: "PASETO",       desc: "v2.local · v2.public · v4",     slug: "usage--paseto" },
-  { name: "Sessions",     desc: "Redis · Database · Memory",     slug: "usage--sessions" },
-  { name: "OAuth2",       desc: "GitHub · Google · Custom",      slug: "usage--oauth2" },
+  { name: "PASETO",       desc: "v1-4 · local · public",     slug: "authentication--paseto" },
+  { name: "Sessions",     desc: "Redis · Database · Memory",     slug: "authentication--sessions" },
+  { name: "SAML",         desc: "IdP · SP",                      slug: "authentication--saml" },
+  { name: "OAuth2",       desc: "GitHub · Google · Custom",      slug: "identity--oauth2" },
   // { name: "OIDC",         desc: "Authorization code · ID tokens", slug: "usage--oauth2" },
-  { name: "Authorization", desc: "RBAC · Permissions · Policies", slug: "usage--authz" },
-  { name: "OTP / TOTP",   desc: "RFC 4226 · RFC 6238 · 2FA",     slug: "usage--otp" },
+  { name: "Authorization", desc: "RBAC · Permissions · Policies", slug: "core--authz" },
+  { name: "OTP / TOTP",   desc: "RFC 4226 · RFC 6238 · 2FA",     slug: "authentication--otp" },
   { name: "KeyChain",     desc: "Rotation · FileStorage · Custom", slug: "usage--keychain" },
-  { name: "SAML",         desc: "IdP · SP",                      slug: "usage--saml" },
 ]
 
 const INTEGRATIONS = [
-  { name: "FastAPI", slug: "framework_integrations--fastapi" },
-  { name: "Starlette", slug: "framework_integrations--starlette" },
-  { name: "Litestar", slug: "framework_integrations--litestar" },
-  { name: "Flask", slug: "framework_integrations--flask" },
+  { name: "FastAPI", slug: "integrations--fastapi" },
+  { name: "Starlette", slug: "integrations--starlette" },
+  { name: "Litestar", slug: "integrations--litestar" },
+  { name: "Flask", slug: "integrations--flask" },
 ]
 
 const FOOTER_LINKS = [
@@ -642,7 +642,7 @@ function HomePage({ onOpenMd }: { onOpenMd: (slug: string) => void }) {
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button
-                onClick={() => onOpenMd("gettingstarted--quickstart")}
+                onClick={() => onOpenMd("gettingstarted--installation")}
                 style={{
                   background: "var(--accent)", color: "#fff",
                   border: "none", borderRadius: 5,
