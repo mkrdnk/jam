@@ -11,6 +11,21 @@ import type { Plugin } from "unified";
 
 const ADM_TYPES = new Set(["note", "tip", "warning", "danger", "deprecated", "info"]);
 
+function headingText(value: ReactNode): string {
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (Array.isArray(value)) return value.map(headingText).join("");
+  if (isValidElement(value)) return headingText(value.props.children);
+  return "";
+}
+
+function headingId(value: ReactNode): string {
+  return headingText(value)
+    .toLowerCase()
+    .trim()
+    .replace(/[^\p{L}\p{N}\s-]/gu, "")
+    .replace(/\s+/g, "-");
+}
+
 type DirectiveNode = {
   type: string;
   name?: string;
@@ -50,14 +65,25 @@ const remarkAdmonitions: Plugin = () => {
 
 export function MarkdownRenderer({ content }: { content: string }) {
   const processed = processMkDocsAdmonitions(content);
+  const headingIds = new Map<string, number>();
 
   const components = {
     admonition: ({ type, label, children }: { type?: string; label?: string; children?: ReactNode }) => (
       <Admonition type={type} label={label}>{children}</Admonition>
     ),
     h1: ({ children }: { children?: ReactNode }) => <h1>{children}</h1>,
-    h2: ({ children }: { children?: ReactNode }) => <h2>{children}</h2>,
-    h3: ({ children }: { children?: ReactNode }) => <h3>{children}</h3>,
+    h2: ({ children }: { children?: ReactNode }) => {
+      const base = headingId(children) || "section";
+      const count = headingIds.get(base) ?? 0;
+      headingIds.set(base, count + 1);
+      return <h2 id={count ? `${base}-${count + 1}` : base} style={{ scrollMarginTop: 76 }}>{children}</h2>;
+    },
+    h3: ({ children }: { children?: ReactNode }) => {
+      const base = headingId(children) || "section";
+      const count = headingIds.get(base) ?? 0;
+      headingIds.set(base, count + 1);
+      return <h3 id={count ? `${base}-${count + 1}` : base} style={{ scrollMarginTop: 76 }}>{children}</h3>;
+    },
     h4: ({ children }: { children?: ReactNode }) => <h4>{children}</h4>,
     a: ({ href, children }: { href?: string; children?: ReactNode }) => (
       <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type ReactNode } from "react"
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react"
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import { CodeBlock } from "./components/CodeBlock"
 import { mdPages } from "./generated/pages"
@@ -454,6 +454,92 @@ function Breadcrumb({ crumbs, onNavigate }: { crumbs: string[]; onNavigate: (pag
   )
 }
 
+function OnThisPage({ contentRef, pageKey }: { contentRef: React.RefObject<HTMLDivElement | null>; pageKey: string }) {
+  const [headings, setHeadings] = useState<Array<{ id: string; text: string; level: number }>>([])
+  const [activeId, setActiveId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const root = contentRef.current
+    if (!root) return
+    const nodes = Array.from(root.querySelectorAll<HTMLElement>("h2[id], h3[id]"))
+    const nextHeadings = nodes.map((node) => ({
+      id: node.id,
+      text: node.textContent ?? "",
+      level: Number(node.tagName.slice(1)),
+    }))
+    setHeadings(nextHeadings)
+    setActiveId(nextHeadings[0]?.id ?? null)
+  }, [contentRef, pageKey])
+
+  useEffect(() => {
+    const root = contentRef.current
+    if (!root || !headings.length) return
+    const nodes = headings
+      .map((heading) => root.querySelector<HTMLElement>(`#${CSS.escape(heading.id)}`))
+      .filter((node): node is HTMLElement => node !== null)
+    if (!nodes.length) return
+
+    const updateActive = () => {
+      const visible = nodes
+        .filter((node) => node.getBoundingClientRect().top <= 120)
+        .sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top)
+      setActiveId((visible[0] ?? nodes[0]).id)
+    }
+    updateActive()
+    window.addEventListener("scroll", updateActive, { passive: true })
+    window.addEventListener("resize", updateActive)
+    return () => {
+      window.removeEventListener("scroll", updateActive)
+      window.removeEventListener("resize", updateActive)
+    }
+  }, [contentRef, headings])
+
+  if (!headings.length) return null
+  return (
+    <aside style={{
+      position: "sticky", top: 76, alignSelf: "flex-start",
+      width: 190, maxHeight: "calc(100vh - 96px)", overflowY: "auto",
+      borderLeft: "1px solid var(--border)", paddingLeft: "1rem",
+    }}>
+      <div style={{
+        fontSize: 11, fontWeight: 700, letterSpacing: "0.07em",
+        textTransform: "uppercase", color: "var(--text-3)", marginBottom: "0.625rem",
+      }}>
+        On this page
+      </div>
+      <nav aria-label="On this page">
+        {headings.map((heading) => (
+          <a
+            key={heading.id}
+            href={`#${heading.id}`}
+            style={{
+              display: "block", textDecoration: "none",
+              fontSize: 12, lineHeight: 1.45, padding: "0.2rem 0",
+              paddingLeft: heading.level === 3 ? "1.25rem" : "0.625rem",
+              fontWeight: activeId === heading.id ? 600 : 400,
+              borderLeft: activeId === heading.id ? "2px solid var(--accent)" : "2px solid transparent",
+              color: activeId === heading.id ? "var(--accent)" : "var(--text-3)",
+            }}
+            aria-current={activeId === heading.id ? "location" : undefined}
+            onClick={(e) => {
+              e.preventDefault()
+              const target = contentRef.current?.querySelector<HTMLElement>(`#${CSS.escape(heading.id)}`)
+              if (!target) return
+              setActiveId(heading.id)
+              target.scrollIntoView({ behavior: "smooth", block: "start" })
+              window.history.replaceState(null, "", `#${heading.id}`)
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = activeId === heading.id ? "var(--accent)" : "var(--text-3)")}
+          >
+            {heading.text}
+          </a>
+        ))}
+      </nav>
+    </aside>
+  )
+}
+
 // ─── MD PAGE ──────────────────────────────────────────────────────────────────
 
 function mdBreadcrumb(nav: MdNavItem[], slug: string): string[] {
@@ -522,6 +608,7 @@ function MdPage({ version, slug, versions, onVersionChange, onOpenMd, onHome, on
   onHome: () => void
   onDocs: () => void
 }) {
+  const contentRef = useRef<HTMLDivElement>(null)
   const nav = MD_MANIFEST.docs[version]?.nav || []
   const item = findPageBySlug(nav, slug)
   const PageComp = mdPages[`${version}/${slug}`]
@@ -531,13 +618,16 @@ function MdPage({ version, slug, versions, onVersionChange, onOpenMd, onHome, on
   const { prev, next } = getAdjacentPages(nav, slug)
 
   return (
-    <div style={{ maxWidth: 700, margin: "0 auto", padding: "2.25rem 2rem 4rem" }}>
-      <Breadcrumb crumbs={crumbs} onNavigate={onHome} />
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.875rem" }}>
-        <VersionSwitcher versions={versions} value={version} onChange={onVersionChange} disabled={versions.length <= 1} />
+    <div style={{ maxWidth: 980, margin: "0 auto", padding: "2.25rem 2rem 4rem", display: "flex", gap: "4rem", alignItems: "flex-start" }}>
+      <div ref={contentRef} style={{ width: 700, minWidth: 0 }}>
+        <Breadcrumb crumbs={crumbs} onNavigate={onHome} />
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.875rem" }}>
+          <VersionSwitcher versions={versions} value={version} onChange={onVersionChange} disabled={versions.length <= 1} />
+        </div>
+        <PageComp />
+        <MdPrevNext prev={prev} next={next} onOpenMd={onOpenMd} />
       </div>
-      <PageComp />
-      <MdPrevNext prev={prev} next={next} onOpenMd={onOpenMd} />
+      <OnThisPage contentRef={contentRef} pageKey={`${version}/${slug}`} />
     </div>
   )
 }
