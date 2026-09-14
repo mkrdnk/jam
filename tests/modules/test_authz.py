@@ -326,8 +326,9 @@ def test_jam_round_trip_preserves_credential_permissions():
     token = jam.issue(
         User(id="42", role="admin"),
         permissions=["user:delete"],
+        via="jwt"
     )
-    principal = jam.authenticate(token)
+    principal = jam.authenticate(token, via="jwt")
 
     assert principal.subject.id == "42"
     assert principal.permissions == {"user:delete"}
@@ -353,7 +354,7 @@ def test_paseto_does_not_get_an_implicit_jwt_id():
         via="paseto",
         permissions=["user:delete"],
     )
-    principal = jam.authenticate(token)
+    principal = jam.authenticate(token, via="paseto")
 
     assert "jti" not in principal.claims
     assert principal.permissions == {"user:delete"}

@@ -24,7 +24,7 @@ def test_client_instance(client_instance):
         via="jwt",
     )
 
-    principal = client_instance.authenticate(valid_token)
+    principal = client_instance.authenticate(valid_token, via="jwt")
     assert principal.claims["user"] == 1
     assert principal.subject["id"] == "user-1"
 
@@ -38,7 +38,7 @@ def test_client_instance(client_instance):
         via="session",
     )
 
-    session_principal = client_instance.authenticate(session_id)
+    session_principal = client_instance.authenticate(session_id, via="session")
     assert session_principal.claims["user"] == 1
 
     otp_code = client_instance.otp.now()
@@ -72,8 +72,8 @@ def test_client_exposes_current_module_api():
     paseto = client.issue({"id": "user-1"}, via="paseto")
     encrypted = client.jwt.encrypt({"id": "user-1"})
 
-    assert client.authenticate(paseto).subject["id"] == "user-1"
-    assert client.authenticate(encrypted).subject["id"] == "user-1"
+    assert client.authenticate(paseto, via="paseto").subject["id"] == "user-1"
+    assert client.authenticate(encrypted, via="jwe").subject["id"] == "user-1"
     assert client.oauth2["github"].fetch_token("code") == {
         "access_token": "test-access-token",
         "refresh_token": "test-refresh-token",
@@ -88,7 +88,7 @@ async def test_async_client_instance(async_client_instance):
         via="jwt",
     )
 
-    principal = await async_client_instance.authenticate(valid_token)
+    principal = await async_client_instance.authenticate(valid_token, via="jwt")
     assert principal.claims["user"] == 1
 
     invalid_token_ = invalid_token()
@@ -101,7 +101,10 @@ async def test_async_client_instance(async_client_instance):
         via="session",
     )
 
-    session_principal = await async_client_instance.authenticate(session_id)
+    session_principal = await async_client_instance.authenticate(
+        session_id,
+        via="session"
+    )
     assert session_principal.claims["user"] == 1
 
     oauth_client = TestAsyncJam(oauth2_providers=["github"])

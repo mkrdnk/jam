@@ -103,6 +103,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `JamPASTOKeyVerificationError` (typo) renamed to
   `JamPASETOKeyVerificationError`; `JamPASETOInvalidPurpose` now inherits from
   `JamConfigurationError`
+- Documentation refactoring. Migrate from mkdocs.
 
 ### Deprecated
 - `sessions_type` parameter in session modules (use `session_type`)

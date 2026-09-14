@@ -39,21 +39,14 @@ def jam_session_instance():
 
 def test_jwt_instance(jam_jwt_instance):
     user = User(id="user123", name="test")
-    token = jam_jwt_instance.issue(user, exp=89898989)
+    token = jam_jwt_instance.issue(user, exp=89898989, via="jwt")
     assert isinstance(token, str)
     assert len(token.split(".")) == 3  # JWT has three parts separated by dots
 
-    decoded = jam_jwt_instance.authenticate(token)
+    decoded = jam_jwt_instance.authenticate(token, via="jwt")
     assert decoded.subject == user
     assert decoded.subject.id == "user123"
     assert decoded.claims["sub"] == "user123"
-
-
-def test_jwt_autodetect(jam_jwt_instance):
-    user = User(id="user123", name="test")
-    token = jam_jwt_instance.issue(user)
-    decoded = jam_jwt_instance.authenticate(token, via=None)
-    assert decoded.subject == user
 
 
 def test_jwe_autodetect():
@@ -72,7 +65,7 @@ def test_jwe_autodetect():
     user = User(id="user123", name="test")
     token = jam.jwt.encrypt({"id": user.id, "name": user.name})
     assert token.count(".") == 4
-    decoded = jam.authenticate(token)
+    decoded = jam.authenticate(token, via="jwe")
     assert decoded.subject == user
 
 
@@ -93,7 +86,7 @@ def test_issue_via_session(jam_session_instance):
     session_id = jam_session_instance.issue(
         {"id": "user123", "role": "admin"}, via="session"
     )
-    decoded = jam_session_instance.authenticate(session_id)
+    decoded = jam_session_instance.authenticate(session_id, via="session")
     assert decoded.subject["id"] == "user123"
     assert "jti" not in decoded.claims
 
