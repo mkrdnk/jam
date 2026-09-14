@@ -4,45 +4,3362 @@ import type { ComponentType } from "react";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 
 export const mdPages: Record<string, ComponentType> = {
-  "4.0.0/core--instans": () => (
-    <MarkdownRenderer content={`# Jam
+  "4.0.0/gettingstarted--installation": () => (
+    <MarkdownRenderer content={`# Installation
 
-\`\`\`python
-from jam import BaseSubject, Jam
+Stable release from [pypi](https://pypi.org/project/jamlib/):
+\`\`\`shell
+pip install jamlib
+\`\`\`
 
-class User(BaseSubject):
-    id: int
-    email: str
-
-jam = Jam(config="config.toml")
+Stable version(but not released) from github:
+\`\`\`shell
+pip install git+https://github.com/mkrdnk/jam.git@master
 \`\`\`
 `} />
   ),
-  "v4.0.0/core--instans": () => (
-    <MarkdownRenderer content={`# Installation
+  "4.0.0/gettingstarted--configuration": () => (
+    <MarkdownRenderer content={`# Configuration
 
-\`\`\`bash
+## Config file
+
+The configuration only works for \`jam.Jam\`/\`jam.aio.Jam\`.
+Standalone modules such as \`jam.jwt.JWT\`, \`jam.paseto.PASETOv4\`, etc. are configured simply by the class's \`__init__\`. For each model, see the corresponding documentation.
+
+### Instance
+
+The \`*.Jam\` class itself has several parameters:
+\`\`\`python
+from jam import Jam
+
+jam = Jam(
+    config="path/to/config/file.toml.yaml.json", # or python-dict
+    pointer="jam",
+    serializer=JsonEncoder
+)
+\`\`\`
+
+#### config: str | dict[str, Any]
+This is the path to your config as a \`string\` or dict with the configuration:
+
+##### Python dict
+\`\`\`python
+import os
+
+from jam import Jam
+
+config = {
+    "jose": {
+        "jwt": {
+            "alg": "HS256",
+            "secret_key": os.getenv("JWT_SECRET_KEY")
+        }
+    },
+    "paseto": {
+        "version": "v4",
+        "purpose": "local",
+        "secret_key": os.getenv("PASETO_SECRET_KEY")
+    }
+}
+
+jam = Jam(config=config)
+jwt = jam.issue({"user": 1}, via="jwt")
+paseto = jam.issue({"user": 1}, via="paseto")
+\`\`\`
+
+##### TOML
+\`\`\`toml
+[jam.jose.jwt]
+alg = "HS256"
+secret_key = "\$JWT_SECRET_KEY"
+
+[jam.paseto]
+version = "v4"
+purpose = "local"
+secret_key = "\$PASETO_SECRET_KEY"
+\`\`\`
+\`\`\`python
+from jam import Jam
+
+jam = Jam(config="config.toml")
+jwt = jam.issue({"user": 1}, via="jwt")
+paseto = jam.issue({"user": 1}, via="paseto")
+\`\`\`
+
+##### YAML
+\`\`\`yaml
+jam:
+  jose:
+    jwt:
+      alg: HS256
+      secret_key: \$JWT_SECRET_KEY
+  paseto:
+    version: v4
+    purpose: local
+    secret_key: \$PASETO_SECRET_KEY
+\`\`\`
+\`\`\`python
+from jam import Jam
+
+jam = Jam(config="config.yaml")
+jwt = jam.issue({"user": 1}, via="jwt")
+paseto = jam.issue({"user": 1}, via="paseto")
+\`\`\`
+
+##### Json
+\`\`\`json
+{
+  "jose": {
+    "jwt": {
+      "alg": "HS256",
+      "secret_key": "\$JWT_SECRET_KEY"
+    }
+  },
+  "paseto": {
+    "version": "v4",
+    "purpose": "local",
+    "secret_key": "\$PASETO_SECRET_KEY"
+  }
+}
+\`\`\`
+\`\`\`python
+from jam import Jam
+
+jam = Jam(config="config.json")
+jwt = jam.issue({"user": 1}, via="jwt")
+paseto = jam.issue({"user": 1}, via="paseto")
+\`\`\`
+
+---
+#### pointer: str = "jam"
+This is the point that Jam will read as config.
+
+For example, if we do it like this:
+\`\`\`python
+from jam import Jam
+
+jam = Jam(
+    config="config.toml",
+    pointer="anotherpointer" # <- Another pointer
+)
+jwt = jam.issue({"user": 1}, via="jwt")
+paseto = jam.issue({"user": 1}, via="paseto")
+\`\`\`
+
+Our config file will look like this:
+\`\`\`toml
+[anotherpointer.jose.jwt]  # pointer
+alg = "HS256"
+secret_key = "\$JWT_SECRET_KEY"
+
+[anotherpointer.paseto]  # pointer
+version = "v4"
+purpose = "local"
+secret_key = "\$PASETO_SECRET_KEY"
+\`\`\`
+
+!!! tip
+    This can be useful for configuring two instances of \`Jam\` in a single file, for example.
+
+---
+
+#### serializer: type[BaseEncoder] = JsonEncoder
+
+JSON object serializer. By default, JsonEncoder is used, which utilizes sdtlib.json. 
+
+It can also be passed in the config file as a string:
+\`\`\`toml
+[jam]
+serializer = "jam.encoders.JsonEncoder"
+
+[jam.jose.jwt]
+alg = "HS256"
+secret_key = "\$JWT_SECRET_KEY"
+\`\`\`
+
+For more details, see the [documentation on serialization](/usage/serializers.md).
+
+### Config sections
+
+The config is a dict of sections; each section builds one module (or the
+policy). The full list:
+
+| Section | Module | Docs |
+|---------|--------|------|
+| \`jose.jwt\` | \`jam.jose.JWT\` | [JWT](/usage/jose/jwt) |
+| \`jose.jws\` | \`jam.jose.JWS\` | [JWS](/usage/jose/jws) |
+| \`jose.jwe\` | \`jam.jose.JWE\` | [JWE](/usage/jose/jwe) |
+| \`paseto\` | \`jam.paseto.PASETOv1\`–\`v4\` | [PASETO](/usage/paseto) |
+| \`session\` | \`RedisSessions\` / \`JSONSessions\` | [Sessions](/usage/sessions) |
+| \`otp\` | \`HOTP\` / \`TOTP\` | [OTP](/usage/otp) |
+| \`oauth2\` | \`dict[str, OAuth2Client]\` | [OAuth2](/usage/oauth2) |
+| \`authz\` | \`jam.Policy\` (or custom) | [Authorization](/usage/authz) |
+| \`serializer\` | \`BaseEncoder\` | [Serialization](/usage/serializers) |
+
+Each section is optional — configure only what you use. Modules are then
+available as attributes on the instance, e.g. \`jam.jwt\`, \`jam.paseto\`.
+
+### Environment variables
+
+Jam will automatically search for environment variables
+if a value begins with \`\$\` in config files. For python dict, use \`os.getenv\`.
+
+Example:
+
+\`\`\`toml
+[jam.jose.jwt]
+alg = "\$JWT_ALG"
+secret_key = "\$JWT_SECRET"
+\`\`\`
+
+!!! note
+    Some modules read certain environment variables by default, as described in detail in each module.
+
+#### \`JAM_CONFIG_CACHING\`
+
+Controls whether config files are parsed once and cached, or re-read on
+every new instance. Defaults to \`true\`.
+
+- \`true\` — the config file is parsed once when the first \`Jam(config_path)\`
+  (or any config-driven module) is created. Later instances reuse the cached
+  value. Use this in production: config is fixed at startup.
+- \`false\` — each new instance re-reads the config file (including
+  \`\$ENV\` substitution), so you can change config at runtime without
+  restarting the process.
+
+The cache is keyed by config path and pointer. To invalidate it manually,
+call \`jam.utils.config_maker.__config_cache_clear__()\`.
+`} />
+  ),
+  "4.0.0/gettingstarted--quickstart": () => (
+    <MarkdownRenderer content={`# Quickstart
+
+The fastest way to get started with Jam. This guide uses the \`Jam\` facade:
+configure modules in a TOML file, issue a token, authenticate it and check
+permissions.
+
+## 1. Install
+
+\`\`\`shell
 pip install jamlib
 \`\`\`
+
+## 2. Configure
+
+Create \`config.toml\` with the modules you need:
+
+\`\`\`toml
+[jam.jose.jwt]
+alg = "HS256"
+secret_key = "\$JWT_SECRET_KEY"
+
+[jam.authz.rules]
+"profile:read" = ["*"]
+"post:create" = ["is_authenticated"]
+\`\`\`
+
+Values starting with \`\$\` are read from environment variables. Set one up:
+
+\`\`\`bash
+export JWT_SECRET_KEY="some-secret-key-min-32-chars"
+\`\`\`
+
+## 3. Define a subject
+
+\`\`\`python
+from dataclasses import dataclass
+
+from jam import BaseSubject
+
+
+@dataclass
+class User(BaseSubject):
+    id: str
+    email: str = ""
+    role: str = "user"
+    is_authenticated: bool = True
+\`\`\`
+
+## 4. Create the instance
 
 \`\`\`python
 from jam import Jam
 
-jam = Jam()
-
-@app.get("/")
-async def home():
-    payload = {"sub": "123", "name": "Alice"}
-    token = jam.jwt.encode(payload)
-    data = jam.jwt.decode(token)
-    return {"user": data["name"]}
+jam = Jam(config="config.toml", subject=User)
 \`\`\`
 
-Inline code: \`auth = JamAuth(jam)\`
+## 5. Issue a token
+
+\`\`\`python
+user = User(id="1", email="user@example.com", role="admin")
+
+token = jam.issue(
+    user,
+    via="jwt",
+    exp=3600,
+    permissions=["profile:read", "post:create"],
+)
+print(token)
+>>> eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+\`\`\`
+
+## 6. Authenticate
+
+\`\`\`python
+principal = jam.authenticate(token, via="jwt")
+print(type(principal.subject))  # -> <class '__main__.User'>
+print(principal.subject.email)  # -> "user@example.com"
+print(principal.permissions)    # -> frozenset({"profile:read", "post:create"})
+\`\`\`
+
+## 7. Authorize
+
+\`\`\`python
+print(jam.authorize(principal, "post:create"))  # -> True
+print(jam.authorize(principal, "post:delete"))  # -> False (not in token)
+\`\`\`
+
+## Next steps
+
+* [Jam instance](/usage/jam) - \`issue\` / \`authenticate\` / \`authorize\`
+  in detail.
+* [Configuration](/configuration) - all config formats and options.
+* [JWT](/usage/jose/jwt) - token details, algorithms, black/white lists.
+* [PASETO](/usage/paseto), [sessions](/usage/sessions),
+  [OTP](/usage/otp), [OAuth2](/usage/oauth2), [SAML](/usage/saml).
 `} />
   ),
-  "v4.0.0/core--test": () => (
-    <MarkdownRenderer content={`# Title
+  "4.0.0/core--jam": () => (
+    <MarkdownRenderer content={`# Jam instance
+
+\`Jam\` is the main facade of the library. It loads modules from the
+[configuration](/4.0.0/gettingstarted/configuration) and exposes three high-level operations:
+\`issue\`, \`authenticate\` and \`authorize\`.
+
+Module-level classes (e.g. \`jam.jose.JWT\`, \`jam.paseto.PASETOv4\`) remain
+fully usable standalone. \`Jam\` is a convenience layer on top of them.
+
+## Creating an instance
+
+Class: \`jam.Jam\`
+
+Args:
+
+* \`config\`: \`str | dict[str, Any] | None = None\` - Configuration dict or
+  config file path (TOML/YAML/JSON). See [Configuration](/configuration).
+* \`pointer\`: \`str = "jam"\` - Config pointer.
+* \`serializer\`: \`BaseEncoder | type[BaseEncoder] = JsonEncoder\` - JSON
+  serializer used by token modules.
+* \`subject\`: \`type[BaseSubject] | None = None\` - Subject class override.
+  Used by \`authenticate\` to build typed subjects.
+* \`plugins\`: \`list[type[BasePlugin]] | None = None\` - List of plugins.
+
+\`\`\`python
+from jam import Jam
+
+jam = Jam(config="config.toml")
+\`\`\`
+
+## Attributes
+
+After initialization the configured modules are available as attributes:
+
+| Attribute | Type | Configured by |
+|-----------|------|---------------|
+| \`jam.jwt\` | \`jam.jose.JWT\` | \`[jam.jose.jwt]\` |
+| \`jam.jws\` | \`jam.jose.JWS\` | \`[jam.jose.jws]\` |
+| \`jam.jwe\` | \`jam.jose.JWE\` | \`[jam.jose.jwe]\` |
+| \`jam.jose\` | \`dict[str, Any]\` | \`[jam.jose]\` |
+| \`jam.session\` | \`RedisSessions\` / \`JSONSessions\` | \`[jam.session]\` |
+| \`jam.paseto\` | \`PASETOv1\`–\`PASETOv4\` | \`[jam.paseto]\` |
+| \`jam.otp\` | \`HOTP\` / \`TOTP\` class | \`[jam.otp]\` |
+| \`jam.oauth2\` | \`dict[str, OAuth2Client]\` | \`[jam.oauth2]\` |
+| \`jam.config\` | \`dict[str, Any] | None\` | - |
+| \`jam.subject\` | \`type[BaseSubject]\` | \`subject=\` argument |
+| \`jam.keychains\` | \`dict[str, BaseKeyChain]\` | \`[jam.keychains]\` |
+
+Unconfigured modules remain \`None\`. You can always access the underlying
+module directly, e.g. \`jam.jwt.encode(payload={...})\`.
+
+## issue
+
+Method: \`jam.issue\`
+
+Issues a token or a session for a subject.
+
+Args:
+
+* \`subject\`: \`BaseSubject | dict[str, Any]\` - Subject instance or a dict
+  with an \`"id"\` key. Serialized into the payload; the \`id\` becomes \`sub\`.
+* \`via\`: \`str | None = None\` - Token type: \`"jwt"\`, \`"paseto"\`, \`"session"\`.
+  With \`None\`, auto-detect: JWT first, then PASETO.
+* \`exp\`: \`int | None = None\` - Expiration in seconds.
+* \`iss\`: \`str | None = None\` - Issuer.
+* \`aud\`: \`str | None = None\` - Audience.
+* \`nbf\`: \`int | None = None\` - Not-before in seconds.
+* \`jti\`: \`str | None = None\` - Token ID.
+* \`permissions\`: \`list[str] | None = None\` - Permissions granted to this
+  specific token or session.
+* \`**claims\` - Extra payload claims.
+
+Returns:
+
+\`str\` - Issued token or session ID.
+
+\`\`\`python
+from dataclasses import dataclass
+
+from jam import BaseSubject, Jam
+
+
+@dataclass
+class User(BaseSubject):
+    id: str
+    role: str = "user"
+
+
+jam = Jam(config="config.toml")
+
+jwt_token = jam.issue(
+    User(id="1", role="admin"),
+    via="jwt",
+    exp=3600,
+    permissions=["profile:read", "user:delete"],
+)
+paseto_token = jam.issue({"id": "1", "role": "admin"}, via="paseto")
+session_id = jam.issue(User(id="1"), via="session")
+\`\`\`
+
+## authenticate
+
+Method: \`jam.authenticate\`
+
+Verifies a token or session and returns a \`Principal\`. The principal preserves
+the reconstructed subject and all verified credential claims.
+
+Args:
+
+* \`token\`: \`str\` - Token or session ID.
+* \`via\`: \`str | None = None\` - Token type: \`"jwt"\`, \`"jwe"\`, \`"paseto"\`,
+  \`"session"\`. With \`None\`, the type is detected from the token format:
+  \`v[1-4].(local|public).\` prefix → PASETO, five segments → JWE, three
+  segments → JWT, otherwise session.
+
+Returns:
+
+\`Principal\` with \`subject\`, \`claims\`, \`permissions\`, optional JWT \`jti\` and
+\`token_type\`.
+
+Raises:
+
+* \`JamConfigurationError\` - No matching module is configured.
+* \`JamSessionNotFound\` - Session does not exist.
+
+\`\`\`python
+@dataclass
+class User(BaseSubject):
+    id: str
+    role: str = "user"
+
+
+jam = Jam(config="config.toml", subject=User)
+
+principal = jam.authenticate(jwt_token, via="jwt")
+print(principal.subject.id)   # -> "1"
+print(principal.subject.role) # -> "admin"
+print(principal.permissions)  # -> frozenset({"profile:read", "user:delete"})
+\`\`\`
+
+## authorize
+
+Method: \`jam.authorize\`
+
+Checks whether a principal is allowed to perform a permission. Credential
+grants are combined with the configured \`[jam.authz]\` policy. Deny rules take
+precedence and unmatched permissions are denied.
+
+Args:
+
+* \`principal\`: \`Principal | BaseSubject | Mapping\` - Authentication result or
+  standalone subject.
+* \`permission\`: \`str\` - Permission name, e.g. \`"post:edit"\`.
+* \`context\`: \`AuthorizationContext | None = None\` - Current time, resource,
+  request and application attributes used by dynamic conditions.
+
+Returns:
+
+\`bool\` - True if allowed, False otherwise.
+
+\`\`\`python
+jam = Jam(config="config.toml")
+
+principal = jam.authenticate(token)
+if jam.authorize(principal, "post:edit"):
+    ...
+\`\`\`
+
+See [Authorization](/usage/authz) for the policy syntax.
+
+## Async
+
+The async facade is independent from the synchronous \`Jam\` contract. Its
+high-level credential operations are always awaitable because a credential
+may use an I/O-backed session store or token list:
+
+\`\`\`python
+from jam.aio import AsyncJam
+
+jam = AsyncJam(config="config.toml")
+token = await jam.issue({"id": "user@example.com"}, via="jwt", exp=3600)
+principal = await jam.authenticate(token)
+\`\`\`
+
+Pure module operations remain synchronous in both facades:
+
+\`\`\`python
+token = jam.jwt.encode(payload={"sub": "user@example.com"})
+allowed = jam.authorize(principal, "post:edit")
+\`\`\`
+
+Session stores, token lists, and OAuth2 network operations use native async
+implementations. Prefer \`async with AsyncJam(...)\` when the configuration
+creates Redis or HTTP clients:
+
+\`\`\`python
+async with AsyncJam(config="config.toml") as jam:
+    principal = await jam.authenticate(token)
+\`\`\`
+
+\`jam.aio.Jam\` remains an alias for \`AsyncJam\` for import compatibility.
+`} />
+  ),
+  "4.0.0/core--subject": () => (
+    <MarkdownRenderer content={`# Subjects
+
+A **subject** is the entity that performs authentication and authorization —
+typically a user. In Jam, subjects are dataclasses inheriting from
+\`jam.BaseSubject\`.
+
+\`\`\`python
+from dataclasses import dataclass
+
+from jam import BaseSubject
+
+
+@dataclass
+class User(BaseSubject):
+    id: str
+    email: str = ""
+    role: str = "user"
+\`\`\`
+
+## Contract
+
+* The class must be a **dataclass**.
+* It must declare an **\`id\`** field. Subclasses without an \`id\` raise a
+  \`TypeError\` at class creation.
+* Serialization is built on \`dataclasses\`, no extra dependencies.
+
+## Serialization
+
+Method: \`subject.to_dict\`
+
+Serializes the subject with \`dataclasses.asdict\`.
+
+Returns:
+
+\`dict[str, Any]\` - Subject fields.
+
+\`\`\`python
+user = User(id="1", email="user@example.com", role="admin")
+print(user.to_dict())
+>>> {'id': '1', 'email': 'user@example.com', 'role': 'admin'}
+\`\`\`
+
+Classmethod: \`BaseSubject.from_dict\`
+
+Builds a subject from a dict. Unknown keys are ignored.
+
+Args:
+
+* \`data\`: \`dict[str, Any]\` - Subject fields.
+
+Returns:
+
+\`BaseSubject\` - New subject instance.
+
+\`\`\`python
+user = User.from_dict({"id": "1", "email": "user@example.com", "extra": 1})
+print(user.id)     # -> "1"
+print(user.email)  # -> "user@example.com"
+\`\`\`
+
+## Subjects in Jam
+
+Pass the subject class to \`Jam\` and it will be used by \`authenticate\` to
+build typed results:
+
+\`\`\`python
+from dataclasses import dataclass
+
+from jam import BaseSubject, Jam
+
+
+@dataclass
+class User(BaseSubject):
+    id: str
+    email: str = ""
+
+
+jam = Jam(config="config.toml", subject=User)
+
+token = jam.issue(User(id="1", email="user@example.com"), via="jwt")
+principal = jam.authenticate(token, via="jwt")
+user = principal.subject
+
+print(type(user))  # -> <class '__main__.User'>
+\`\`\`
+
+Without a subject class (or when \`subject\` is not a dataclass),
+\`principal.subject\` contains the payload mapping. \`principal.claims\` always
+contains the complete verified claims.
+
+You can also pass a plain dict with an \`"id"\` key to \`issue\` — the \`id\`
+becomes the \`sub\` claim.
+`} />
+  ),
+  "4.0.0/core--authz": () => (
+    <MarkdownRenderer content={`# Authorization
+
+Jam combines permissions granted to one credential with server-side policy
+rules. This makes it possible to issue two tokens for the same user with
+different permissions and to restrict those permissions using the current
+time, resource or request.
+
+\`\`\`python
+principal = jam.authenticate(token)
+
+if jam.authorize(principal, "user:delete"):
+    ...
+\`\`\`
+
+Authorization is deny by default. A matching \`deny\` rule always takes
+precedence over \`allow\`.
+
+## Credential permissions
+
+Pass permissions when issuing a JWT, PASETO or session:
+
+\`\`\`python
+token = jam.issue(
+    user,
+    permissions=["profile:read", "user:delete"],
+    exp=3600,
+)
+\`\`\`
+
+Permissions are stored in the credential claims. \`authenticate\` returns a
+\`Principal\` containing both the reconstructed subject and all credential
+claims:
+
+\`\`\`python
+principal = jam.authenticate(token)
+
+print(principal.subject.id)
+print(principal.permissions)
+print(principal.token_type)
+\`\`\`
+
+For JWT credentials, \`principal.jti\` exposes the optional JWT ID claim.
+
+A credential grant can be exact (\`user:delete\`), namespaced (\`user:*\`) or
+global (\`*\`). Wildcards only match complete permission namespaces:
+\`user:*\` matches \`user:read\` and \`user:delete\`, but not \`admin:delete\`.
+
+When a credential contains a \`permissions\` or OAuth-style \`scope\` claim, its
+grants form an upper bound: a server policy cannot add a permission absent
+from that credential.
+
+Permissions in a signed JWT or PASETO cannot be changed after issue. Issue a
+new credential to change them. Stateful per-token changes require a grant
+store with a format-independent credential identifier; that is not part of
+the current stateless policy engine.
+
+## Structured policy rules
+
+Structured rules define an effect, one or more permissions and an optional
+condition:
+
+\`\`\`python
+from jam import Policy
+
+
+policy = Policy(
+    rules=[
+        {
+            "effect": "allow",
+            "permissions": ["post:edit"],
+            "when": {
+                "field": "subject.role",
+                "operator": "eq",
+                "value": "editor",
+            },
+        },
+        {
+            "effect": "deny",
+            "permissions": ["post:edit"],
+            "when": {
+                "field": "context.resource.locked",
+                "operator": "eq",
+                "value": True,
+            },
+        },
+    ]
+)
+\`\`\`
+
+Rules can address three data roots:
+
+| Root | Contents |
+|------|----------|
+| \`subject.*\` | Authenticated subject fields. |
+| \`token.*\` | Credential claims such as \`jti\`, \`iss\` and \`permissions\`. |
+| \`context.*\` | Current time, resource, request and application attributes. |
+
+Mapping keys, dataclass fields and public attributes of plain objects are all
+accessible. Methods, callables, private attributes and dunder names are never
+evaluated.
+
+### Comparing two fields
+
+\`value\` normally holds a constant, but an \`@\`-prefixed \`value\` resolves a
+field path against the same roots as \`field\`. This compares two dynamic
+values:
+
+\`\`\`python
+{
+    "effect": "allow",
+    "permissions": ["document:delete"],
+    "when": {
+        "field": "subject.id",
+        "operator": "eq",
+        "value": "@context.resource.author_id",
+    },
+}
+\`\`\`
+
+Any root is usable in a reference: \`@subject.*\`, \`@token.*\` and
+\`@context.*\`. A reference to a missing field raises a configuration error.
+A constant string that must literally start with \`@\` cannot be expressed in
+a declarative rule.
+
+### TOML configuration
+
+\`\`\`toml
+[[jam.authz.rules]]
+effect = "allow"
+permissions = ["user:delete"]
+
+[jam.authz.rules.when]
+all = [
+  { field = "subject.active", operator = "eq", value = true },
+  { field = "context.time", operator = "between", value = ["17:00", "18:00"], timezone = "Europe/Moscow" },
+]
+
+[[jam.authz.rules]]
+effect = "deny"
+permissions = ["user:delete"]
+
+[jam.authz.rules.when]
+field = "context.resource.protected"
+operator = "eq"
+value = true
+\`\`\`
+
+This allows \`user:delete\` only for active subjects from 17:00 inclusive until
+18:00 exclusive in the configured timezone. A protected resource is always
+denied.
+
+## Authorization context
+
+Dynamic values are supplied for each decision:
+
+\`\`\`python
+from datetime import datetime, timezone
+
+from jam import AuthorizationContext
+
+
+context = AuthorizationContext(
+    now=datetime.now(timezone.utc),
+    resource=target_user,
+    request={"ip": "192.0.2.10"},
+    attributes={"tenant": "example"},
+)
+
+allowed = jam.authorize(principal, "user:delete", context)
+\`\`\`
+
+\`AuthorizationContext.now\` defaults to the current UTC time. Pass it
+explicitly in tests and whenever the application owns the clock.
+
+Available paths include:
+
+\`\`\`text
+context.time
+context.now
+context.resource.*
+context.request.*
+context.attributes.*
+\`\`\`
+
+\`resource\` and \`request\` accept mappings, dataclasses and arbitrary objects
+(pydantic models, ORM instances, plain classes) when their fields are used by
+declarative rules. Only public attributes are resolved; methods and callables
+are ignored.
+
+## Logical conditions
+
+Conditions can be composed with \`all\`, \`any\` and \`not\`:
+
+\`\`\`python
+{
+    "all": [
+        {
+            "field": "subject.active",
+            "operator": "eq",
+            "value": True,
+        },
+        {
+            "any": [
+                {
+                    "field": "subject.role",
+                    "operator": "eq",
+                    "value": "admin",
+                },
+                {
+                    "field": "token.permissions",
+                    "operator": "contains",
+                    "value": "user:delete",
+                },
+            ]
+        },
+    ]
+}
+\`\`\`
+
+## Operators
+
+| Group | Operators |
+|-------|-----------|
+| Presence | \`exists\`, \`truthy\` |
+| Equality | \`eq\`, \`ne\` |
+| Ordering | \`gt\`, \`gte\`, \`lt\`, \`lte\`, \`between\` |
+| Collections | \`in\`, \`not_in\`, \`contains\`, \`contains_any\`, \`contains_all\` |
+| Strings | \`starts_with\`, \`ends_with\`, \`matches\` |
+| Networks | \`ip_in_network\` |
+
+For a datetime field, \`between\` accepts two ISO times. The interval is
+start-inclusive and end-exclusive and supports ranges crossing midnight:
+
+\`\`\`python
+{
+    "field": "context.time",
+    "operator": "between",
+    "value": ["22:00", "06:00"],
+    "timezone": "UTC",
+}
+\`\`\`
+
+\`matches\` uses a full regular-expression match.
+
+## Compact policy syntax
+
+For simple policies, use the compact syntax:
+
+\`\`\`toml
+[jam.authz.rules]
+"profile:read" = ["*"]
+"post:create" = ["is_authenticated"]
+"post:edit" = ["id='42'", "role=admin"]
+"admin:*" = ["role=admin"]
+\`\`\`
+
+Predicates inside one list use \`OR\` semantics:
+
+| Form | Meaning |
+|------|---------|
+| \`"*"\` | Match every subject. |
+| \`"field=value"\` | Compare a subject field with a scalar value. |
+| \`"field"\` | Check that a subject field is truthy. |
+| callable | Call a Python predicate in a directly constructed \`Policy\`. |
+
+Lowercase \`true\`, \`false\` and \`null\` are supported. Quote numeric-looking
+string identifiers, for example \`id='42'\`; unquoted \`id=42\` compares with an
+integer.
+
+Use structured rules when a permission needs \`AND\`, \`NOT\`, deny rules, token
+claims or request-time context.
+
+## Custom policies
+
+Implement \`BasePolicy\` for a different policy engine:
+
+\`\`\`python
+from jam import AuthorizationContext, BasePolicy, Principal
+
+
+class MyPolicy(BasePolicy):
+    def __init__(self, rules: dict) -> None:
+        self._rules = rules
+
+    def check(
+        self,
+        principal: Principal,
+        permission: str,
+        context: AuthorizationContext | None = None,
+    ) -> bool:
+        return permission in self._rules.get(principal.subject.id, [])
+\`\`\`
+
+Configure its import path:
+
+\`\`\`toml
+[jam.authz]
+module = "my_app.policies.MyPolicy"
+
+[jam.authz.rules]
+"1" = ["profile:read", "post:create"]
+\`\`\`
+`} />
+  ),
+  "4.0.0/authentication--paseto": () => (
+    <MarkdownRenderer content={`# PASETO
+
+## Use in instance
+
+### Config
+
+Args:
+
+* \`version\`: \`str\` - PASETO version(v1 / v2 / v3 / v4).
+* \`purpose\`: \`str\` - \`local\` / \`public\`.
+* \`secret_key\`: \`str | None\`: Secret key for PASETO.
+
+
+\`\`\`toml
+[jam.paseto]
+version = "v4"
+purpose = "local"
+secret_key = "3KVs1nMaWb8jP0_aYMhsRN_hHf9dwV1UdqKk_wUXlnM"
+\`\`\`
+
+### Usage
+
+\`\`\`python
+from jam import Jam
+
+jam = Jam(config="config.toml")
+\`\`\`
+
+#### Issue a token
+
+Method: \`jam.issue\`
+
+\`\`\`python
+token = jam.issue(
+    {"id": 1, "role": "admin"},
+    via="paseto",
+    exp=3600,
+)
+print(token)
+>>> v4.local.wTgWfsaSTjBcuZSqI7mT...
+\`\`\`
+
+#### Authenticate a token
+
+Method: \`jam.authenticate\`
+
+\`\`\`python
+principal = jam.authenticate(token, via="paseto")
+print(principal.subject["role"])
+>>> admin
+print(principal.claims["exp"])
+>>> 1772132706
+\`\`\`
+
+#### Access the module directly
+
+\`jam.paseto\` exposes the configured \`PASETOv*\` instance. Encode/decode with
+a custom payload and footer:
+
+\`\`\`python
+token = jam.paseto.encode(
+    payload={"id": 1, "role": "admin"},
+    footer={"some": "footer", "as": "dict"},
+)
+payload, footer = jam.paseto.decode(token)
+print(payload)
+>>> {'id': 1, 'role': 'admin'}
+print(footer)
+>>> {'as': 'dict', 'some': 'footer'}
+\`\`\`
+
+## Use out of instance
+
+Modules:
+
+* \`jam.paseto.PASETOv1\`
+* \`jam.paseto.PASETOv2\`
+* \`jam.paseto.PASETOv3\`
+* \`jam.paseto.PASETOv4\`
+
+For example, we will show how to work with v4.
+
+### Built
+
+Method: \`PASETOv4.key\`
+
+Args:
+
+* \`purpose\`: \`str\` - \`local\` / \`public\`.
+* \`secret_key\`: \`str | bytes\`: Symmetric key for local and Asymmetric key for public.
+
+Returns:
+
+\`PASETOv4\`: Built PASETOv4 instance.
+
+\`\`\`python
+from jam.paseto import PASETOv4
+
+paseto = PASETOv4.key(
+    purpose="local",
+    secret_key="3KVs1nMaWb8jP0_aYMhsRN_hHf9dwV1UdqKk_wUXlnM"
+)
+\`\`\`
+
+### Encode token
+
+Method: \`paseto.encode\`
+
+Args:
+
+* \`payload\`: \`dict[str, Any]\` - Token payload.
+* \`footer\`: \`dict[str, Any] | str | None = Non\` - Token footer.
+* \`serializer\`: \`type[BaseEncoder] | BaseEncoder = JamEncoder\` - JSON serializer.
+
+Returns:
+
+\`str\`: PASETO.
+
+\`\`\`python
+token = paseto.encode(
+    payload={"id": 1, "role": "admin"},
+    footer="some_footer_as_string"
+)
+print(token)
+>>> v4.local.Py0Y4CbmylrmFo3F54u7l1gZCfd
+\`\`\`
+
+### Decode token
+
+Method: \`paseto.decode\`
+
+Args:
+
+* \`token\`: \`str\` - PASETO token.
+* \`serializer\`: \`type[BaseEncoder] | BaseEncoder = JamEncoder\` - JSON serializer.
+
+Returns:
+
+\`tuple[dict[str, Any], dict[str, Any] | str, | None]\` - Decoded payload and footer.
+
+\`\`\`python
+payload, footer = paseto.decode(
+    token=token,
+    check_exp=True,
+    check_list=False
+)
+print(payload)
+>>> {
+        'id': 1,
+        'role': 'admin'
+    }
+print(footer)
+>>> "some_footer_as_string"
+\`\`\`
+`} />
+  ),
+  "4.0.0/authentication--sessions": () => (
+    <MarkdownRenderer content={`# Server side sessions
+
+## Use in instance
+
+### Config
+
+Out of the box, Jam provides two types of sessions: \`redis\` and \`json\`.
+To select the session type, you need to specify it in the configuration.
+Different session types have different configuration parameters.
+
+* \`type\`: \`str\` - \`redis\` / \`json\`
+* \`is_session_crypt\`: \`bool\`:
+
+Sometimes you need to encrypt the session ID so that it cannot be forged. If you want to encrypt the session ID, set this parameter to True and pass the encryption key in the session_aes_secret parameter.
+
+* \`session_aes_secret\`: \`str\` - The encryption key for the session ID. Key must be 32 url-safe base64-encoded bytes. You can use jam.utils.generate_aes_key to generate it. By default, Jam reads the key from the \`JAM_SESSION_AES_SECRET\` environment variable.
+
+#### Redis
+
+In Redis, sessions are stored as HASH,
+where name is constructed from \`<redis_sessions_key>:<session_key>\`. The session ID is used as the key,
+and a serialized JSON object with session data is used as the \`value\`.
+
+Args:
+
+* \`redis_uri\`: \`str\` - Redis address.
+* \`ttl\`: \`int\` - Session lifetime in seconds.
+* \`redis_sessions_key\`: \`str\` - Prefix for session keys in Redis. The default is \`sessions\`.
+
+\`\`\`toml
+[jam.session]
+type = "redis"
+redis_uri = "redis://0.0.0.0:6379/0"
+ttl = 3600
+redis_sessions_key = "sessions"
+\`\`\`
+
+#### JSON
+
+In JSON, sessions are stored as files in the directory specified in the \`json_path\` parameter.
+
+Args:
+
+* \`json_path\`: \`str\` - Path to file.
+
+\`\`\`toml
+[jam.session]
+type = "json"
+json_path = "sessions.json"
+\`\`\`
+
+#### Custom
+
+You can also implement your session module using the \`BaseSession\`.
+interface and passing it to the config, for example, to store sessions in a database.
+
+See: [Customization](/usage/custom)
+
+
+### Usage
+
+\`\`\`python
+from jam import Jam
+
+jam = Jam(config="config.toml")
+\`\`\`
+
+#### Create a session via the facade
+
+Method: \`jam.issue\` with \`via="session"\`
+
+\`\`\`python
+session_id = jam.issue({"role": "admin"}, via="session")
+print(session_id)
+>>> 565df195-b963-4ebb-8978-318998ef191c
+\`\`\`
+
+The \`session_key\` is read from \`config.session.session_key\` (defaults to
+\`"auth"\`).
+
+#### Authenticate a session
+
+Method: \`jam.authenticate\` with \`via="session"\`
+
+\`\`\`python
+principal = jam.authenticate(session_id, via="session")
+print(principal.subject)
+>>> {"role": "admin"}
+\`\`\`
+
+#### Session CRUD via the module
+
+\`jam.session\` exposes the configured session module directly:
+
+##### Create session
+
+Method: \`jam.session.create\`
+
+Args:
+
+* \`session_key\`: \`str\` - Key of session. Username for example.
+* \`data\`: \`dict[str, Any]\` - Some data to store.
+
+Returns:
+
+\`str\`: Session ID.
+
+\`\`\`python
+session_id = jam.session.create(
+    session_key="user1",
+    data={
+        "role": "admin"
+    }
+)
+\`\`\`
+
+##### Get session data
+
+Method: \`jam.session.get\`
+
+Args:
+
+* \`session_id\`: \`str\` - Session ID.
+
+Returns:
+
+\`dict[str, Any] | None\`: Session data if session exists.
+
+\`\`\`python
+data = jam.session.get(session_id)
+print(data)
+>>> {
+        "role": "admin"
+    }
+\`\`\`
+
+##### Update session data
+
+Method: \`jam.session.update\`
+
+Args:
+
+* \`session_id\`: \`str\` - Session ID.
+* \`data\`: \`dict[str, Any]\`: New data.
+
+Returns: \`None\`
+
+\`\`\`python
+jam.session.update(
+    session_id=session_id,
+    data={
+        "role": "banned"
+    }
+)
+\`\`\`
+
+##### Delete session
+
+Method: \`jam.session.delete\`
+
+Args:
+
+* \`session_id\`: \`str\` - Session ID.
+
+Returns: \`None\`
+
+\`\`\`python
+jam.session.delete(session_id)
+\`\`\`
+
+##### Clear all user sessions
+
+Method: \`jam.session.clear\`
+
+Args:
+
+* \`session_key\`: \`str\` - Session key.
+
+Returns: \`None\`
+
+\`\`\`python
+jam.session.clear(session_key="user1")
+\`\`\`
+
+##### Session rework
+
+Method: \`jam.session.rework\`
+
+Args:
+
+* \`old_session_id\`: \`str\` - Old session ID.
+
+Returns:
+
+\`str\`: New session ID.
+
+\`\`\`python
+new_session_id = jam.session.rework(session_id)
+\`\`\`
+
+## Use out of instance
+
+### Redis
+
+Module: \`jam.sessions.redis.Redis\`
+
+Args:
+
+* \`redis_uri\`: \`str | Redis\` - Redis URI or Redis instance.
+* \`redis_sessions_key\`: \`str = "sessions"\` - Redis key for sessions.
+* \`ttl\`: \`int | None = 3600\` - Session life time.
+* \`is_session_crypt\`: \`bool = False\` - Encrypt session data.
+* \`session_aes_secret\`: \`bytes | str | None = None\` - AES key for encrypting session data.
+* \`id_factory\`: \`Callable[[], str] = lambda: str(uuid4())\` - Session ID factory.
+* \`serializer\`: \`BaseEncoder | type[BaseEncoder] = JsonEncoder\` - JSON serializer.
+
+\`\`\`python
+from jam.sessions import RedisSessions
+
+session = RedisSessions(
+    redis_uri="redis://localhost:6379",
+    redis_sessions_key="sessions",
+    ttl=3600,
+)
+\`\`\`
+
+### JSON
+
+Module: \`jam.sessions.json.JSONSessions\`
+
+Args:
+
+* \`json_path\`: \`str = sessions.json\` - Path to json file.
+* \`is_session_crypt\`: \`bool = False\` - Encrypt session data.
+* \`session_aes_secret\`: \`bytes | str | None = None\` - AES key for encrypting session data.
+* \`id_factory\`: \`Callable[[], str] = lambda: str(uuid4())\` - Session ID factory.
+* \`serializer\`: \`BaseEncoder | type[BaseEncoder] = JsonEncoder\` - JSON serializer.
+
+\`\`\`python
+session = JSONSessions(
+    json_path="sessions.json",
+)
+\`\`\`
+
+### Create session
+
+Method: \`session.create\`
+
+Args:
+
+* \`session_key\`: \`str\` - Session key.
+* \`session_data\`: \`dict\` - Session data.
+
+Returns:
+
+\`str\`: Session ID
+
+\`\`\`python
+session_id = session.create(
+    session_key="user1",
+    data={
+        "name": "John",
+        "age": 30
+    }
+)
+print(session_id)
+>>> 46782301-9068-46c8-a24c-b13666438026
+\`\`\`
+
+### Get session data
+
+Method: \`session.get\`
+
+Args:
+
+* \`session_id\`: \`str\` - Session ID.
+
+Returns:
+
+\`dict[str, Any] | None\`: Session data if session exists.
+
+\`\`\`python
+session_data = session.get(session_id)
+print(session_data)
+>>> {'name': 'John', 'age': 30}
+\`\`\`
+
+### Update session
+
+Method: \`session.update\`
+
+Args:
+
+* \`session_id\`: \`str\` - Session ID.
+
+Returns: \`None\`
+
+\`\`\`python
+session.update(
+    session_id=session_id,
+    data={
+        "name": "John",
+        "age": 31
+    }
+)
+\`\`\`
+
+### Delete session
+
+Method: \`session.delete\`
+
+Args:
+
+* \`session_id\`: \`str\` - Session ID.
+
+Returns: \`None\`
+
+\`\`\`python
+session.delete(session_id)
+\`\`\`
+
+### Clear all user sessions
+
+Method: \`session.clear\`
+
+Args:
+
+* \`session_key\`: \`str\` - Session key.
+
+Returns: \`None\`
+
+\`\`\`python
+session.clear(session_key="user1")
+\`\`\`
+
+### Session rework
+
+Method: \`session.rework\`
+
+Args:
+
+* \`session_id\`: \`str\` - Session ID.
+
+Returns: 
+
+\`str\`: New session ID.
+
+\`\`\`python
+new_session_id = session.rework(
+    session_id=session_id,
+)
+\`\`\`
+`} />
+  ),
+  "4.0.0/authentication--saml": () => (
+    <MarkdownRenderer content={`# SAML
+
+SAML 2.0 (Security Assertion Markup Language) support.
+
+The module implements both roles:
+
+* **Service Provider (SP)** - accepts logins from external IdPs.
+* **Identity Provider (IdP)** - issues SAML assertions.
+
+!!! warning
+    The SAML module is not implemented in \`jam.Jam\` / \`jam.aio.Jam\`. The reason is listed here: [makridenko.ru](https://makridenko.ru/posts/2026/05/25/some-think-about-jam)
+
+Supported features:
+
+* HTTP-POST, HTTP-Redirect and HTTP-Artifact bindings.
+* XML-DSig signatures (RSA-SHA256) with embedded certificates.
+* Assertion encryption (AES-256-GCM + RSA-OAEP) via \`EncryptedAssertion\`.
+* Single Logout (SLO).
+* Attribute Query.
+* NameID Management.
+* Metadata generation and parsing.
+* Replay protection and clock skew tolerance.
+
+Works with zero extra dependencies (\`xml.etree\` + \`cryptography\`).
+
+## Setup
+
+Module: \`jam.saml.SAML\`
+
+There is no \`Jam\` instance integration yet, so the module is used directly
+or through the \`jam.saml.create_instance\` factory.
+
+Args:
+
+* \`role\`: \`str = "sp"\` - \`"sp"\` (Service Provider) or \`"idp"\` (Identity Provider).
+* \`private_key\`: \`str | None\` - PEM string or path to the private key file (used for signing and decryption).
+* \`public_key\`: \`str | None\` - PEM string or path to the public key / certificate (used for verification).
+* \`certificate\`: \`str | None\` - PEM certificate string (included in metadata and signatures).
+* \`entity_id\`: \`str | None\` - Entity ID of this party.
+* \`acs_url\`: \`str | None\` - Assertion Consumer Service URL (SP role).
+* \`sso_url\`: \`str | None\` - Single Sign-On URL (IdP role).
+* \`idp_public_key\`: \`str | None\` - IdP public key for signature verification (SP role).
+* \`sp_public_key\`: \`str | None\` - SP public key for signature verification (IdP role).
+* \`encryption_key\`: \`str | None\` - SP public key for assertion encryption (IdP role).
+* \`default_exp\`: \`int = 300\` - Default assertion lifetime in seconds.
+* \`allowed_clock_skew\`: \`int = 120\` - Clock skew tolerance in seconds.
+* \`want_assertions_signed\`: \`bool = True\` - Require signed assertions (SP role).
+* \`id_store\`: \`dict | None\` - Dict for replay protection. Auto-created if \`None\`.
+* \`replay_ttl\`: \`int = 300\` - Seconds before a consumed ID is eligible for cleanup.
+
+\`\`\`python
+from jam.saml import SAML
+
+idp = SAML(
+    role="idp",
+    private_key="path/to/idp_private_key.pem",
+    certificate="path/to/idp_cert.pem",
+    entity_id="https://idp.example.com",
+    sso_url="https://idp.example.com/sso",
+)
+
+sp = SAML(
+    role="sp",
+    private_key="path/to/sp_private_key.pem",
+    entity_id="https://sp.example.com",
+    acs_url="https://sp.example.com/acs",
+    idp_public_key="path/to/idp_cert.pem",
+)
+\`\`\`
+
+## Service Provider
+
+### Init
+
+Module: \`jam.saml.SAML\` with \`role="sp"\`.
+
+\`\`\`python
+from jam.saml import SAML
+
+sp = SAML(
+    role="sp",
+    entity_id="https://sp.example.com",
+    acs_url="https://sp.example.com/acs",
+    idp_public_key="path/to/idp_cert.pem",
+)
+\`\`\`
+
+### Prepare AuthnRequest
+
+Method: \`sp.prepare_authn_request\`
+
+Args:
+
+* \`idp_sso_url\`: \`str\` - IdP single sign-on endpoint URL.
+* \`acs_url\`: \`str | None\` - SP assertion consumer service URL (defaults to the instance \`acs_url\`).
+* \`binding\`: \`str = "redirect"\` - \`"redirect"\` or \`"post"\`.
+* \`**kwargs\` - \`relay_state\`, \`issuer\`, \`force_authn\`, etc.
+
+Returns:
+
+\`str\` - Redirect: IdP URL with a signed AuthnRequest. POST: Base64-encoded SAMLRequest for an HTML form.
+
+Redirect binding:
+
+\`\`\`python
+url = sp.prepare_authn_request(
+    idp_sso_url="https://idp.example.com/sso",
+    acs_url="https://sp.example.com/acs",
+    binding="redirect",
+)
+print(url)
+>>> https://idp.example.com/sso?SAMLRequest=...&SigAlg=http%3A%2F%2Fwww.w3.org%2F2001%2F04%2Fxmldsig-more%23rsa-sha256&Signature=...
+\`\`\`
+
+POST binding (embed the result in an HTML form field named \`SAMLRequest\`):
+
+\`\`\`python
+saml_request = sp.prepare_authn_request(
+    idp_sso_url="https://idp.example.com/sso",
+    acs_url="https://sp.example.com/acs",
+    binding="post",
+)
+\`\`\`
+
+### Parse response
+
+Method: \`sp.parse_response\`
+
+Args:
+
+* \`saml_response\`: \`str\` - Raw SAMLResponse data (Base64 for POST, query-string for Redirect).
+* \`binding\`: \`str = "post"\` - \`"post"\` or \`"redirect"\`.
+* \`**kwargs\`:
+  * \`audience\`: \`str\` - Expected audience (SP entity ID).
+  * \`issuer\`: \`str\` - Expected issuer (IdP entity ID).
+  * \`acs_url\`: \`str\` - Expected Recipient (ACS URL).
+  * \`verify_signature\`: \`bool\` - Override \`want_assertions_signed\`.
+
+Returns:
+
+\`SAMLResponse\` - Parsed response with the assertion data.
+
+\`\`\`python
+from jam.saml.binding import encode_post
+
+saml_response = sp.parse_response(
+    encoded_response,
+    binding="post",
+    audience="https://sp.example.com",
+    issuer="https://idp.example.com",
+)
+
+print(saml_response.status_code)
+>>> urn:oasis:names:tc:SAML:2.0:status:Success
+print(saml_response.assertion.subject.name_id)
+>>> user@example.com
+print(saml_response.assertion.attributes)
+>>> {"email": "user@example.com", "role": "admin"}
+\`\`\`
+
+Encrypted assertions are decrypted automatically when the SP has a \`private_key\`:
+
+\`\`\`python
+sp = SAML(
+    role="sp",
+    private_key="path/to/sp_private_key.pem",
+    idp_public_key="path/to/idp_cert.pem",
+)
+
+result = sp.parse_response(encoded_response, binding="post")
+\`\`\`
+
+## Identity Provider
+
+### Init
+
+Module: \`jam.saml.SAML\` with \`role="idp"\`.
+
+\`\`\`python
+from jam.saml import SAML
+
+idp = SAML(
+    role="idp",
+    private_key="path/to/idp_private_key.pem",
+    certificate="path/to/idp_cert.pem",
+    entity_id="https://idp.example.com",
+    sso_url="https://idp.example.com/sso",
+    sp_public_key="path/to/sp_cert.pem",
+)
+\`\`\`
+
+### Parse AuthnRequest
+
+Method: \`idp.parse_authn_request\`
+
+Args:
+
+* \`saml_request\`: \`str\` - Raw SAMLRequest data.
+* \`binding\`: \`str = "redirect"\` - \`"redirect"\` or \`"post"\`.
+* \`**kwargs\` - \`issuer\` (expected issuer for validation).
+
+Returns:
+
+\`SAMLRequest\` - Parsed request.
+
+\`\`\`python
+request = idp.parse_authn_request(
+    query_string,
+    binding="redirect",
+    issuer="https://sp.example.com",
+)
+
+print(request.id)
+>>> _abc123...
+print(request.acs_url)
+>>> https://sp.example.com/acs
+\`\`\`
+
+### Build response
+
+Method: \`idp.build_response\`
+
+Args:
+
+* \`subject\`: \`str\` - The authenticated user identifier.
+* \`attributes\`: \`dict[str, Any]\` - User attributes (email, roles, etc.).
+* \`issuer\`: \`str\` - IdP entity ID.
+* \`audience\`: \`str\` - SP entity ID (the intended audience).
+* \`**kwargs\`:
+  * \`in_response_to\`: \`str\` - AuthnRequest ID.
+  * \`name_id_format\`: \`str\` - NameID format.
+  * \`session_index\`: \`str\` - Session index.
+  * \`destination\`: \`str\` - ACS URL (defaults to the instance \`acs_url\`).
+  * \`encrypt\`: \`bool = False\` - Encrypt the assertion with \`encryption_key\`.
+
+Returns:
+
+\`str\` - Signed (and optionally encrypted) SAML Response XML.
+
+\`\`\`python
+xml_str = idp.build_response(
+    subject="user@example.com",
+    attributes={"email": "user@example.com", "role": "admin"},
+    issuer="https://idp.example.com",
+    audience="https://sp.example.com",
+    in_response_to=request.id,
+)
+\`\`\`
+
+Encrypt the assertion (the SP must have the matching \`private_key\`):
+
+\`\`\`python
+idp = SAML(
+    role="idp",
+    private_key="path/to/idp_private_key.pem",
+    encryption_key="path/to/sp_cert.pem",
+)
+
+xml_str = idp.build_response(
+    subject="user@example.com",
+    attributes={"email": "user@example.com"},
+    issuer="https://idp.example.com",
+    audience="https://sp.example.com",
+    encrypt=True,
+)
+\`\`\`
+
+## Single Logout
+
+SLO is supported in both directions. Both \`build_*\` and \`parse_*\` methods
+accept \`binding="post"\` or \`binding="redirect"\`.
+
+### Build LogoutRequest
+
+Method: \`saml.build_logout_request\`
+
+Args:
+
+* \`name_id\`: \`str\` - User identifier to log out.
+* \`issuer\`: \`str\` - Entity ID of the sender.
+* \`destination\`: \`str\` - SLO endpoint of the recipient.
+* \`session_index\`: \`str | None\` - Session index (optional).
+* \`**kwargs\` - \`binding\`, \`relay_state\`, \`name_id_format\`.
+
+Returns:
+
+\`str\` - POST: Base64-encoded signed XML. Redirect: signed redirect URL.
+
+\`\`\`python
+result = sp.build_logout_request(
+    name_id="user@example.com",
+    issuer="https://sp.example.com",
+    destination="https://idp.example.com/slo",
+    session_index="_session_abc",
+    binding="post",
+)
+\`\`\`
+
+### Parse LogoutRequest
+
+Method: \`saml.parse_logout_request\`
+
+Args:
+
+* \`saml_request\`: \`str\` - Raw LogoutRequest data.
+* \`binding\`: \`str = "redirect"\` - \`"redirect"\` or \`"post"\`.
+* \`**kwargs\` - \`issuer\` (expected issuer).
+
+Returns:
+
+\`SAMLLogoutRequest\` - Parsed request.
+
+\`\`\`python
+logout_request = idp.parse_logout_request(
+    encoded,
+    binding="post",
+    issuer="https://sp.example.com",
+)
+print(logout_request.name_id)
+>>> user@example.com
+print(logout_request.session_index)
+>>> _session_abc
+\`\`\`
+
+### Build LogoutResponse
+
+Method: \`saml.build_logout_response\`
+
+Args:
+
+* \`in_response_to\`: \`str\` - LogoutRequest ID to respond to.
+* \`issuer\`: \`str\` - Entity ID of the sender.
+* \`destination\`: \`str\` - SLO endpoint of the recipient.
+* \`status_code\`: \`str = "urn:oasis:names:tc:SAML:2.0:status:Success"\` - SAML status code.
+* \`**kwargs\` - \`binding\`, \`relay_state\`.
+
+Returns:
+
+\`str\` - POST: Base64-encoded signed XML. Redirect: signed redirect URL.
+
+\`\`\`python
+result = idp.build_logout_response(
+    in_response_to=logout_request.id,
+    issuer="https://idp.example.com",
+    destination="https://sp.example.com/slo",
+    binding="post",
+)
+\`\`\`
+
+### Parse LogoutResponse
+
+Method: \`saml.parse_logout_response\`
+
+Args:
+
+* \`saml_response\`: \`str\` - Raw LogoutResponse data.
+* \`binding\`: \`str = "redirect"\` - \`"redirect"\` or \`"post"\`.
+* \`**kwargs\` - \`issuer\` (expected issuer).
+
+Returns:
+
+\`SAMLLogoutResponse\` - Parsed response.
+
+\`\`\`python
+logout_response = sp.parse_logout_response(
+    encoded,
+    binding="post",
+    issuer="https://idp.example.com",
+)
+print(logout_response.status_code)
+>>> urn:oasis:names:tc:SAML:2.0:status:Success
+\`\`\`
+
+## Attribute Query
+
+Lets an SP request specific user attributes from the IdP.
+
+### Build AttributeQuery
+
+Method: \`sp.build_attribute_query\`
+
+Args:
+
+* \`subject\`: \`str\` - Subject to query attributes for.
+* \`issuer\`: \`str\` - SP entity ID.
+* \`destination\`: \`str\` - IdP attribute query endpoint URL.
+* \`attribute_names\`: \`list[str] | None\` - Specific attributes to request (\`None\` = all).
+* \`binding\`: \`str = "post"\` - \`"post"\` or \`"redirect"\`.
+
+Returns:
+
+\`str\` - POST: Base64-encoded signed XML. Redirect: signed redirect URL.
+
+\`\`\`python
+encoded = sp.build_attribute_query(
+    subject="user@example.com",
+    issuer="https://sp.example.com",
+    destination="https://idp.example.com/attr",
+    attribute_names=["email", "role"],
+    binding="post",
+)
+\`\`\`
+
+### Parse AttributeQuery
+
+Method: \`idp.parse_attribute_query\`
+
+Args:
+
+* \`saml_request\`: \`str\` - Raw AttributeQuery data.
+* \`binding\`: \`str = "redirect"\` - \`"redirect"\` or \`"post"\`.
+* \`**kwargs\` - \`issuer\` (expected issuer).
+
+Returns:
+
+\`SAMLAttributeQuery\` - Parsed query.
+
+\`\`\`python
+query = idp.parse_attribute_query(encoded, binding="post")
+print(query.subject)
+>>> user@example.com
+print(query.attribute_names)
+>>> ["email", "role"]
+\`\`\`
+
+### Build AttributeQueryResponse
+
+Method: \`idp.build_attribute_query_response\`
+
+Args:
+
+* \`in_response_to\`: \`str\` - AttributeQuery ID.
+* \`subject\`: \`str\` - The subject.
+* \`attributes\`: \`dict[str, Any]\` - User attributes.
+* \`issuer\`: \`str\` - IdP entity ID.
+* \`audience\`: \`str\` - SP entity ID.
+
+Returns:
+
+\`str\` - Signed SAML Response XML.
+
+\`\`\`python
+xml_str = idp.build_attribute_query_response(
+    in_response_to=query.id,
+    subject="user@example.com",
+    attributes={"email": "user@example.com", "role": "admin"},
+    issuer="https://idp.example.com",
+    audience="https://sp.example.com",
+)
+\`\`\`
+
+### Parse AttributeQueryResponse
+
+Method: \`sp.parse_attribute_query_response\`
+
+Same signature and return type as \`sp.parse_response\`.
+
+\`\`\`python
+result = sp.parse_attribute_query_response(
+    encoded,
+    binding="post",
+    audience="https://sp.example.com",
+    issuer="https://idp.example.com",
+)
+print(result.assertion.attributes)
+>>> {"email": "user@example.com", "role": "admin"}
+\`\`\`
+
+## Artifact Binding
+
+The SP receives an artifact instead of the actual message, then resolves it
+through a direct SOAP back-channel request to the IdP.
+
+### Create an artifact
+
+Method: \`saml.build_artifact\`
+
+Args:
+
+* \`source_message_id\`: \`str\` - ID of the referenced message.
+* \`issuer\`: \`str\` - Entity ID of the issuer.
+
+Returns:
+
+\`str\` - Base64-encoded artifact.
+
+\`\`\`python
+artifact = idp.build_artifact(
+    source_message_id=response_id,
+    issuer="https://idp.example.com",
+)
+print(artifact)
+>>> AQAAEAAA...
+\`\`\`
+
+### Build ArtifactResolve
+
+Method: \`sp.build_artifact_resolve\`
+
+Args:
+
+* \`artifact\`: \`str\` - The artifact to resolve.
+* \`issuer\`: \`str\` - SP entity ID.
+* \`destination\`: \`str\` - IdP artifact resolution service URL.
+* \`**kwargs\` - \`binding\` (\`"post"\`, \`"redirect"\`, or \`"soap"\`).
+
+Returns:
+
+\`str\` - POST: Base64. Redirect: signed URL. SOAP: raw XML.
+
+\`\`\`python
+resolve_xml = sp.build_artifact_resolve(
+    artifact=artifact,
+    issuer="https://sp.example.com",
+    destination="https://idp.example.com/artifact",
+    binding="soap",
+)
+\`\`\`
+
+### Parse ArtifactResolve
+
+Method: \`idp.parse_artifact_resolve\`
+
+Args:
+
+* \`saml_request\`: \`str\` - Raw ArtifactResolve data.
+* \`binding\`: \`str = "post"\` - \`"post"\`, \`"redirect"\`, or \`"soap"\`.
+* \`**kwargs\` - \`issuer\` (expected issuer).
+
+Returns:
+
+\`SAMLArtifactResolve\` - Parsed resolve request.
+
+\`\`\`python
+resolve = idp.parse_artifact_resolve(soap_envelope, binding="soap")
+print(resolve.artifact)
+>>> AQAAEAAA...
+\`\`\`
+
+### Build ArtifactResponse
+
+Method: \`idp.build_artifact_response\`
+
+Args:
+
+* \`in_response_to\`: \`str\` - ArtifactResolve ID.
+* \`original_message_xml\`: \`str\` - The original SAML message XML to embed.
+* \`issuer\`: \`str\` - IdP entity ID.
+* \`destination\`: \`str\` - SP endpoint URL.
+* \`**kwargs\` - \`binding\`, \`status_code\`.
+
+Returns:
+
+\`str\` - POST: Base64. Redirect: signed URL. SOAP: raw XML.
+
+\`\`\`python
+response_xml = idp.build_artifact_response(
+    in_response_to=resolve.id,
+    original_message_xml=original_response_xml,
+    issuer="https://idp.example.com",
+    destination="https://sp.example.com/acs",
+    binding="soap",
+)
+\`\`\`
+
+### Parse ArtifactResponse
+
+Method: \`sp.parse_artifact_response\`
+
+Args:
+
+* \`saml_response\`: \`str\` - Raw ArtifactResponse data.
+* \`binding\`: \`str = "post"\` - \`"post"\`, \`"redirect"\`, or \`"soap"\`.
+* \`**kwargs\` - \`issuer\` (expected issuer).
+
+Returns:
+
+\`SAMLArtifactResponse\` - Parsed response with the embedded \`original_message\`.
+
+\`\`\`python
+artifact_response = sp.parse_artifact_response(
+    soap_response,
+    binding="soap",
+)
+print(artifact_response.original_message)
+>>> <samlp:Response ...>
+\`\`\`
+
+### Resolve artifact over HTTP
+
+Method: \`sp.resolve_artifact\`
+
+Sends the ArtifactResolve as a SOAP request to the IdP's artifact resolution
+service and returns the original message.
+
+Args:
+
+* \`artifact\`: \`str\` - The artifact to resolve.
+* \`issuer\`: \`str\` - SP entity ID.
+* \`resolve_url\`: \`str\` - IdP artifact resolution service URL.
+* \`**kwargs\` - \`timeout\` (int, default 10), \`expected_issuer\` (IdP entity ID for validation).
+
+Returns:
+
+\`str\` - The original SAML message XML from the ArtifactResponse.
+
+\`\`\`python
+original_message = sp.resolve_artifact(
+    artifact=artifact,
+    issuer="https://sp.example.com",
+    resolve_url="https://idp.example.com/artifact",
+    timeout=15,
+)
+\`\`\`
+
+## NameID Management
+
+Change or terminate a NameID with the other party.
+
+### Build ManageNameIDRequest
+
+Method: \`saml.build_manage_name_id_request\`
+
+Args:
+
+* \`name_id\`: \`str\` - Current NameID.
+* \`issuer\`: \`str\` - Entity ID of the requester.
+* \`destination\`: \`str\` - Recipient endpoint URL.
+* \`new_id\`: \`str | None\` - New identifier (\`None\` = terminate).
+* \`binding\`: \`str = "post"\` - \`"post"\` or \`"redirect"\`.
+
+Returns:
+
+\`str\` - POST: Base64-encoded signed XML. Redirect: signed redirect URL.
+
+Change the identifier:
+
+\`\`\`python
+encoded = sp.build_manage_name_id_request(
+    name_id="user@example.com",
+    new_id="newuser@example.com",
+    issuer="https://sp.example.com",
+    destination="https://idp.example.com/nameid",
+    binding="post",
+)
+\`\`\`
+
+Terminate the identifier (no \`new_id\`):
+
+\`\`\`python
+encoded = sp.build_manage_name_id_request(
+    name_id="user@example.com",
+    issuer="https://sp.example.com",
+    destination="https://idp.example.com/nameid",
+    binding="post",
+)
+\`\`\`
+
+### Parse ManageNameIDRequest
+
+Method: \`idp.parse_manage_name_id_request\`
+
+Args:
+
+* \`saml_request\`: \`str\` - Raw ManageNameIDRequest data.
+* \`binding\`: \`str = "redirect"\` - \`"redirect"\` or \`"post"\`.
+* \`**kwargs\` - \`issuer\` (expected issuer).
+
+Returns:
+
+\`SAMLManageNameIDRequest\` - Parsed request.
+
+\`\`\`python
+request = idp.parse_manage_name_id_request(encoded, binding="post")
+print(request.name_id)
+>>> user@example.com
+print(request.new_id)
+>>> newuser@example.com
+\`\`\`
+
+### Build ManageNameIDResponse
+
+Method: \`saml.build_manage_name_id_response\`
+
+Args:
+
+* \`in_response_to\`: \`str\` - ManageNameIDRequest ID.
+* \`issuer\`: \`str\` - Entity ID of the responder.
+* \`destination\`: \`str\` - Endpoint URL of the requester.
+* \`status_code\`: \`str\` - SAML status code (default Success).
+* \`**kwargs\` - \`binding\`, \`relay_state\`.
+
+Returns:
+
+\`str\` - POST: Base64-encoded signed XML. Redirect: signed redirect URL.
+
+\`\`\`python
+encoded = idp.build_manage_name_id_response(
+    in_response_to=request.id,
+    issuer="https://idp.example.com",
+    destination="https://sp.example.com/nameid",
+    binding="post",
+)
+\`\`\`
+
+### Parse ManageNameIDResponse
+
+Method: \`sp.parse_manage_name_id_response\`
+
+Args:
+
+* \`saml_response\`: \`str\` - Raw ManageNameIDResponse data.
+* \`binding\`: \`str = "redirect"\` - \`"redirect"\` or \`"post"\`.
+* \`**kwargs\` - \`issuer\` (expected issuer).
+
+Returns:
+
+\`SAMLManageNameIDResponse\` - Parsed response.
+
+\`\`\`python
+response = sp.parse_manage_name_id_response(encoded, binding="post")
+print(response.status_code)
+>>> urn:oasis:names:tc:SAML:2.0:status:Success
+\`\`\`
+
+## Metadata
+
+### Generate metadata
+
+Method: \`saml.generate_metadata\`
+
+Args:
+
+* \`entity_id\`: \`str | None\` - Entity ID (defaults to the instance \`entity_id\`).
+* \`sso_url\`: \`str | None\` - SSO URL (IdP metadata).
+* \`acs_url\`: \`str | None\` - ACS URL (SP metadata).
+* \`role\`: \`str | None\` - \`"idp"\` or \`"sp"\` (defaults to the instance role).
+
+Returns:
+
+\`str\` - SAML metadata XML.
+
+\`\`\`python
+idp_metadata = idp.generate_metadata(
+    entity_id="https://idp.example.com",
+    sso_url="https://idp.example.com/sso",
+)
+
+sp_metadata = sp.generate_metadata(
+    entity_id="https://sp.example.com",
+    acs_url="https://sp.example.com/acs",
+)
+\`\`\`
+
+### Parse metadata
+
+Method: \`saml.parse_metadata\`
+
+Args:
+
+* \`metadata_xml\`: \`str\` - Raw metadata XML string.
+
+Returns:
+
+\`SAMLMetadata\` - Parsed metadata.
+
+\`\`\`python
+metadata = sp.parse_metadata(idp_metadata)
+print(metadata.entity_id)
+>>> https://idp.example.com
+print(metadata.sso_url)
+>>> https://idp.example.com/sso
+\`\`\`
+
+## Security
+
+### Signature verification
+
+Assertions and protocol messages are signed with RSA-SHA256 and an embedded
+certificate. The SP verifies assertions using the \`idp_public_key\`; the IdP
+verifies requests using \`sp_public_key\`. When no key is configured, the
+certificate embedded in the signature \`KeyInfo\` is used.
+
+Set \`want_assertions_signed=False\` on the SP to skip assertion signature
+verification:
+
+\`\`\`python
+sp = SAML(
+    role="sp",
+    want_assertions_signed=False,
+)
+\`\`\`
+
+### Clock skew
+
+Expired or not-yet-valid assertions are rejected. The \`allowed_clock_skew\`
+(default 120 seconds) tolerates small clock differences between the parties.
+
+### Replay protection
+
+Every incoming message ID is checked against the \`id_store\` before being
+consumed, which raises \`JamSAMLReplayDetected\` on duplicate IDs. Pass your own
+dict to share state between instances or processes:
+
+\`\`\`python
+sp = SAML(
+    role="sp",
+    id_store=shared_store,
+)
+\`\`\`
+
+### XXE protection
+
+Incoming XML is parsed with \`safe_fromstring\`, which rejects DTD/entity
+declarations, preventing XXE and entity-expansion attacks.
+
+## Exceptions
+
+| Exception | Description |
+|---|---|
+| \`JamSAMLError\` | Base SAML error. |
+| \`JamSAMLExpired\` | The assertion has expired. |
+| \`JamSAMLNotYetValid\` | The assertion is not yet valid. |
+| \`JamSAMLInvalidAudience\` | Audience validation failed. |
+| \`JamSAMLInvalidIssuer\` | Issuer validation failed. |
+| \`JamSAMLInvalidRecipient\` | SubjectConfirmationData Recipient does not match the expected ACS URL. |
+| \`JamSAMLReplayDetected\` | The message ID has already been consumed (replay attack). |
+| \`JamSAMLSOAPError\` | SOAP / artifact resolution failed. |
+| \`JamSAMLValidationError\` | Generic signature or XML validation failure. |
+| \`JamSAMLEmptyPrivateKey\` | Signing requires a \`private_key\`. |
+| \`JamSAMLEmptyPublicKey\` | Verification requires a \`public_key\`. |
+| \`JamSAMLUnsupportedAlgorithm\` | Unsupported SAML algorithm. |
+`} />
+  ),
+  "4.0.0/authentication--otp": () => (
+    <MarkdownRenderer content={`# OTP
+
+## Use in instance
+
+### Configuration
+
+Args:
+
+* \`type\`: \`str\` - \`totp\` for TOTP, \`hotp\` for HOTP.
+* \`digits\`: \`int\` - Number of digits for the OTP code.
+* \`digest\`: \`str\` - Hash algorithm to use for the OTP code.
+* \`interval\`: \`int\` - Interval in seconds for TOTP codes.
+
+Example:
+
+\`\`\`toml
+[jam.otp]
+type = "totp"
+digits = 6
+digest = "sha256"
+interval = 30
+\`\`\`
+
+### Usage
+
+\`jam.otp\` holds the configured OTP **class** (\`jam.otp.TOTP\` or
+\`jam.otp.HOTP\`). Instantiate it with the user's secret to work with codes:
+
+\`\`\`python
+from jam import Jam
+
+jam = Jam(config="config.toml")
+
+totp = jam.otp(secret="CCCUULFTIG5YMEX3HMNHEDCLFM")
+\`\`\`
+
+#### Get code
+
+Method: \`totp.now\`
+
+Returns: \`str\` - Current OTP code.
+
+\`\`\`python
+code = totp.now
+print(code)
+>>> 379982
+\`\`\`
+
+#### Code for a specified time / counter
+
+Method: \`totp.at\`
+
+Args:
+
+* \`factor\`: \`int | None = None\` - UNIX time in seconds (TOTP) or counter (HOTP). Defaults to \`None\` (current time / next counter).
+
+Returns:
+
+\`str\` - OTP code.
+
+\`\`\`python
+code = totp.at()
+print(code)
+>>> 379982
+\`\`\`
+
+#### Generate otpauth URI
+
+Method: \`totp.provisioning_uri\`
+
+Args:
+
+* \`name\`: \`str\` - Account name.
+* \`issuer\`: \`str\` - Issuer for the OTP code.
+* \`type_\`: \`str = "totp"\` - OTP type: \`"totp"\` or \`"hotp"\`.
+* \`counter\`: \`int | None = None\` - Counter for HOTP codes.
+
+Returns:
+
+\`str\` - URI.
+
+\`\`\`python
+uri = totp.provisioning_uri(
+    name="user@example.com",
+    issuer="MyApp",
+)
+print(uri)
+>>> otpauth://totp/MyApp%3Auser%40example.com?secret=CCCUULFTIG5YMEX3HMNHEDCLFM&issuer=MyApp&algorithm=SHA256&digits=6
+\`\`\`
+
+#### Verify code
+
+Method: \`totp.verify\`
+
+Args:
+
+* \`code\`: \`str\` - OTP code to verify.
+* \`factor\`: \`int | None = None\` - Factor for HOTP codes. Defaults to \`None\` for TOTP codes.
+* \`look_ahead\`: \`int = 1\` - Acceptable deviation in intervals (±window(totp) / ±look ahead(hotp)). Default is \`1\`.
+
+Returns:
+
+\`bool\` - Whether the code is valid.
+
+\`\`\`python
+valid = totp.verify(code="379982")
+print(valid)
+>>> True
+\`\`\`
+
+## Use out of instance
+
+Modules:
+
+* \`jam.otp.TOTP\`
+* \`jam.otp.HOTP\`
+
+### TOTP
+
+#### Built
+
+Module: \`jam.otp.TOTP\`
+
+Args:
+
+* \`secret\`: \`str | bytes\` - TOTP Secret.
+* \`digits\`: \`int = 6\` - Number of digits for the OTP code. Defaults to \`6\`.
+* \`algorithm\`: \`str = "sha1"\` - Algorithm for the OTP code. Defaults to \`"sha1"\`.
+* \`interval\`: \`int = 30\` - Interval for TOTP codes in seconds. Defaults to \`30\`.
+
+\`\`\`python
+from jam.otp import TOTP
+
+totp = TOTP(
+    secret="CCCUULFTIG5YMEX3HMNHEDCLFM",
+    digits=6,
+    algorithm="sha1",
+    interval=30,
+)
+\`\`\`
+
+#### Usage
+
+##### Current code
+
+Method: \`totp.now\`
+
+Returns: \`str\` - Current OTP code.
+
+\`\`\`python
+code = totp.now
+print(code)
+>>> 867877
+\`\`\`
+
+##### Code for specified time
+
+Method: \`totp.at\`
+
+Args:
+
+* \`factor\`: \`int | None = Non\` - Time in UNIX seconds.
+
+Returns:
+
+\`str\` - OTP code for the specified time.
+
+\`\`\`python
+code = totp.at(factor=None)
+print(code)
+>>> 867877
+\`\`\`
+
+##### Verify code
+
+Method: \`totp.verify\`
+
+Args:
+
+* \`code\`: \`str\` - OTP code to verify.
+* \`factor\`: \`int | None = None\` - Factor for HOTP codes. Defaults to \`None\` for TOTP codes.
+* \`look_ahead\`: \`int = 1\` - Acceptable deviation in intervals (±window(totp) / ±look ahead(hotp)). Default is \`1\`.
+
+Returns:
+
+\`bool\` - Whether the code is valid.
+
+\`\`\`python
+valid = totp.verify(code="379982")
+print(valid)
+>>> True
+\`\`\`
+
+### HOTP
+
+#### Built
+
+Module: \`jam.otp.HOTP\`
+
+Args:
+
+* \`secret\`: \`str\` - HOTP Secret.
+* \`digits\`: \`int = 6\` - Number of digits for the OTP code. Defaults to \`6\`.
+* \`digest\`: \`str = "sha1"\` - Algorithm for the OTP code. Defaults to \`"sha1"\`.
+
+\`\`\`python
+from jam.otp import HOTP
+
+hotp = HOTP(
+    secret="CCCUULFTIG5YMEX3HMNHEDCLFM",
+    digits=6,
+    digest="sha1",
+)
+\`\`\`
+
+#### Usage
+
+##### Get code
+
+Method \`hotp.at\`
+
+Args:
+
+* \`factor\`: \`int\` - Counter value for HOTP codes.
+
+Returns:
+
+\`str\` - Code
+
+\`\`\`python
+code = hotp.at(
+    factor=1
+)
+print(code)
+>>> 989760
+\`\`\`
+
+##### Verify code
+
+Method: \`hotp.verify\`
+
+Args:
+
+* \`code\`: \`str\` - OTP code to verify.
+* \`factor\`: \`int | None = None\` - Counter value for HOTP codes. Defaults to \`None\` for TOTP codes.
+* \`look_ahead\`: \`int = 1\` - Acceptable deviation in intervals (±window(totp) / ±look ahead(hotp)). Default is \`1\`.
+
+Returns:
+
+\`bool\` - Whether the code is valid.
+
+\`\`\`python
+valid = hotp.verify(code="379982", factor=1)
+print(valid)
+>>> True
+\`\`\`
+`} />
+  ),
+  "4.0.0/identity--oauth2": () => (
+    <MarkdownRenderer content={`# OAuth2
+
+## Use in instance
+
+### Configuration
+
+Args:
+
+* \`providers\`: \`hashmap\`
+  * \`client_id\`: \`str\` - Client ID in your app.
+  * \`client_secret\`: \`str\` - Client secret in your app.
+  * \`auth_url\`: \`str\` - Authorization URL.
+  * \`token_url\`: \`str\` - Token URL.
+  * \`redirect_url\`: \`str\` - Redirect URL.
+
+Example:
+
+\`\`\`toml
+[jam.oauth2.providers.linkedin]  # OAuth2 client
+client_id = "\$LINKEDIN_CLIENT_ID"
+client_secret = "\$LINKEDIN_CLIENT_SECRET"
+auth_url = "https://www.linkedin.com/oauth/v2/authorization"
+token_url = "https://www.linkedin.com/oauth/v2/accessToken"
+redirect_url = "https://example.com/callback/linkedin"
+
+[jam.oauth2.providers.github]  # builtin providers
+client_id = "\$GITHUB_CLIENT_ID"
+client_secret = "\$GITHUB_CLIENT_SECRET"
+redirect_url = "https://example.com/callback/github"
+\`\`\`
+
+
+### Usage
+
+Configured providers are exposed as \`jam.oauth2\`, a dict of
+\`provider_name -> OAuth2Client\`:
+
+\`\`\`python
+from jam import Jam
+
+jam = Jam(config="config.toml")
+
+github = jam.oauth2["github"]
+\`\`\`
+
+### Get auth url
+
+Method: \`jam.oauth2[provider].get_authorization_url\`
+
+Args:
+
+* \`scope\`: \`list[str]\` - Scope for provider.
+* \`**extra_params\` - Extra query params (e.g. \`access_type="offline"\`, \`state="xyz"\`).
+
+Returns:
+
+\`str\`: URL for authorization.
+
+\`\`\`python
+url = jam.oauth2["github"].get_authorization_url(scope=["gist"])
+\`\`\`
+
+### Fetch token
+
+Method: \`jam.oauth2[provider].fetch_token\`
+
+Args:
+
+* \`code\`: \`str\` - OAuth2 code.
+* \`grant_type\`: \`str = authorization_code\` - Type of oauth2 grant.
+
+Returns:
+
+\`dict[str, Any]\` - Tokens.
+
+\`\`\`python
+tokens = jam.oauth2["github"].fetch_token(code="HGvdskHG")
+\`\`\`
+
+### Refresh token
+
+Method: \`jam.oauth2[provider].refresh_token\`
+
+Args:
+
+* \`refresh_token\`: \`str\` - Refresh token.
+* \`grant_type\`: \`str = "refresh_token"\` - Grant type.
+
+Returns:
+
+\`dict[str, Any]\`: Tokens.
+
+\`\`\`python
+tokens = jam.oauth2["github"].refresh_token(refresh_token=token)
+\`\`\`
+
+### Client credentials flow
+
+Method: \`jam.oauth2[provider].client_credentials_flow\`
+
+Args:
+
+* \`scope\`: \`list[str]\` - Scope for provider.
+
+Returns:
+
+\`dict[str, Any]\`: Data.
+
+\`\`\`python
+tokens = jam.oauth2["github"].client_credentials_flow(scope=["gist"])
+\`\`\`
+
+## Use out of instance
+
+### Built
+
+#### Custom provider
+
+Module: \`jam.oauth2.client.OAuth2Client\`
+
+Args:
+
+* \`client_id\`: \`str\` - Client ID from oauth2 provider.
+* \`client_secret\`: \`str\` - Client secret from oauth2 provider.
+* \`auth_url\`: \`str\` - URL for authentication.
+* \`token_url\`: \`str\` - URL for token exchange.
+* \`redirect_url\`: \`str\` - Redirect URI for oauth2 flow.
+* \`serializer\`: \`BaseEncoder | type[BaseEncoder] = JsonEncoder\` - JSON Serializer.
+
+\`\`\`python
+from jam.oauth2 import OAuth2Client
+
+
+custom_service = OAuth2Client(
+    client_id="ID",
+    client_secret="SECRET",
+    auth_url="https://example.com/oauth2/auth",
+    token_url="https://example.com/oauth2/token",
+    redirect_url="https://example.com/oauth2/callback",
+)
+\`\`\`
+
+#### Builtin providers
+
+Modules:
+
+* \`jam.oauth2.GitHubOAuth2Client\`
+* \`jam.oauth2.GitLabOAuth2Client\`
+* \`jam.oauth2.GoogleOAuth2Client\`
+* \`jam.oauth2.YandexOAuth2Client\`
+
+Args:
+
+* \`client_id\`: \`str\` - Client ID from oauth2 provider.
+* \`client_secret\`: \`str\` - Client secret from oauth2 provider.
+* \`redirect_url\`: \`str\` - Redirect URL for oauth2 flow.
+
+
+\`\`\`python
+from jam.oauth2 import GitHubOAuth2Client
+
+github_oauth2 = GitHubOAuth2Client(
+    client_id="ID",
+    client_secret="SECRET",
+    redirect_url="https://example.com/oauth2/callback",
+)
+\`\`\`
+
+
+### Get auth url
+
+Method: \`oauth2.get_authorization_url\`
+
+Args:
+
+* \`scope\`: \`list[str]\` - Scope for the oauth2 flow.
+
+Returns:
+
+\`str\` - Authorization URL for the oauth2 flow.
+
+\`\`\`python
+url = oauth2.get_authorization_url(scope=["user", "email", "avatar"])
+\`\`\`
+
+### Fetch token
+
+Method: \`oauth2.fetch_token\`
+
+Args:
+
+* \`code\`: \`str\` - Authorization code from oauth2 provider.
+* \`grant_type\`: \`str = "authorization_code"\` - Grant type for oauth2 flow.
+
+Returns:
+
+\`dict\` - Token response from oauth2 provider.
+
+\`\`\`python
+tokens = oauth2.fetch_token(code="KJSKJDSLY7DJSK")
+\`\`\`
+
+### Refresh token
+
+Method: \`oauth2.refresh_token\`
+
+Args:
+
+* \`refresh_token\`: \`str\` - Refresh token from oauth2 provider.
+* \`grant_type\`: \`str = "refresh_token"\` - Grant type for oauth2 flow.
+
+Returns:
+
+\`dict\` - Token response from oauth2 provider.
+
+\`\`\`python
+tokens = oauth2.refresh_token(refresh_token=token)
+\`\`\`
+
+### Client credentials
+
+Method: \`oauth2.client_credentials_flow\`
+
+Args:
+
+* \`scope\`: \`list[str]\` - Scope for the oauth2 flow.
+
+Returns:
+
+\`dict\` - Token response from oauth2 provider.
+
+\`\`\`python
+tokens = oauth2.client_credentials_flow(scope=["user", "email", "avatar"])
+\`\`\`
+`} />
+  ),
+  "4.0.0/integrations--fastapi": () => (
+    <MarkdownRenderer content={`# FastAPI
+
+Install the extra:
+
+\`\`\`bash
+pip install "jamlib[fastapi]"
+\`\`\`
+
+\`JamAuth\` provides required, optional, and permission-aware dependencies.
+HTTP Bearer authentication is included in the generated OpenAPI schema.
+
+\`\`\`python
+from typing import Annotated
+
+from fastapi import Depends, FastAPI
+
+from jam import Jam
+from jam.authz import Principal
+from jam.ext.fastapi import JamAuth
+
+
+jam = Jam("config.toml")
+auth = JamAuth(jam)
+app = FastAPI()
+
+
+@app.get("/me")
+def me(
+    principal: Annotated[Principal, Depends(auth)],
+):
+    return principal.subject
+
+
+@app.get("/landing")
+def landing(
+    principal: Annotated[Principal | None, Depends(auth.optional)],
+):
+    return {"authenticated": principal is not None}
+
+
+@app.patch("/posts/{post_id}")
+def edit_post(
+    post_id: str,
+    principal: Annotated[
+        Principal,
+        Depends(auth.require("post:edit")),
+    ],
+):
+    return {"post_id": post_id, "editor": principal.subject}
+\`\`\`
+
+Required authentication returns \`401\` with \`WWW-Authenticate: Bearer\`.
+Authorization failure returns \`403\`. Dynamic policy context can be derived
+from the request:
+
+\`\`\`python
+from jam.authz import AuthorizationContext
+
+
+def context(request, principal):
+    return AuthorizationContext(resource={"id": request.path_params["post_id"]})
+
+
+can_edit = auth.require("post:edit", context=context)
+\`\`\`
+
+Additional cookie, header, or query sources use the shared source API:
+
+\`\`\`python
+from jam.ext.fastapi import CredentialSource
+
+auth = JamAuth(
+    jam,
+    sources=[
+        CredentialSource.bearer(),
+        CredentialSource.cookie("session"),
+    ],
+)
+\`\`\`
+`} />
+  ),
+  "4.0.0/integrations--starlette": () => (
+    <MarkdownRenderer content={`# Starlette
+
+Install the extra:
+
+\`\`\`bash
+pip install "jamlib[starlette]"
+\`\`\`
+
+\`JamAuthBackend\` is a standard Starlette authentication backend. It uses the
+same configured \`Jam\` instance for JWT, JWE, PASETO, and sessions; credential
+type detection is handled by \`Jam.authenticate()\`.
+
+\`\`\`python
+from starlette.applications import Starlette
+from starlette.authentication import requires
+from starlette.middleware import Middleware
+from starlette.middleware.authentication import AuthenticationMiddleware
+from starlette.responses import JSONResponse
+from starlette.routing import Route
+
+from jam import Jam
+from jam.ext.starlette import JamAuthBackend
+
+
+jam = Jam("config.toml")
+
+
+@requires("post:read")
+async def posts(request):
+    principal = request.user.principal
+    return JSONResponse({"subject": principal.subject})
+
+
+app = Starlette(
+    routes=[Route("/posts", posts)],
+    middleware=[
+        Middleware(
+            AuthenticationMiddleware,
+            backend=JamAuthBackend(jam),
+        )
+    ],
+)
+\`\`\`
+
+The default source is \`Authorization: Bearer <credential>\`. Sources are
+ordered and composable:
+
+\`\`\`python
+from jam.ext.starlette import CredentialSource, JamAuthBackend
+
+backend = JamAuthBackend(
+    jam,
+    sources=[
+        CredentialSource.bearer(),
+        CredentialSource.cookie("session"),
+        CredentialSource.header("X-API-Token"),
+    ],
+)
+\`\`\`
+
+On success:
+
+- \`request.user\` is a \`JamUser\`;
+- \`request.user.principal\` is the complete \`Principal\`;
+- \`request.auth.scopes\` contains \`authenticated\` and credential permissions;
+- \`request.state.jam\`, \`principal\`, and \`authentication\` are available.
+
+Invalid credentials are rejected by default. Set \`reject_invalid=False\` only
+when an invalid credential should be treated as anonymous.
+`} />
+  ),
+  "4.0.0/integrations--litestar": () => (
+    <MarkdownRenderer content={`# Litestar
+
+Install the extra:
+
+\`\`\`bash
+pip install "jamlib[litestar]"
+\`\`\`
+
+\`JamPlugin\` registers the configured instance as the \`jam\` dependency and,
+by default, installs authentication middleware.
+
+\`\`\`python
+from litestar import Litestar, Request, get
+
+from jam import Jam
+from jam.authz import Principal
+from jam.ext.litestar import JamPlugin, permission_guard
+
+
+jam = Jam("config.toml")
+
+
+@get("/me")
+async def me(request: Request) -> dict:
+    principal: Principal = request.user
+    return principal.subject
+
+
+@get("/posts", guards=[permission_guard(jam, "post:read")])
+async def posts() -> list:
+    return []
+
+
+app = Litestar(
+    route_handlers=[me, posts],
+    plugins=[JamPlugin(jam)],
+)
+\`\`\`
+
+Handlers receive the complete \`Principal\` as \`request.user\`.
+\`request.auth\` is the shared \`AuthenticationResult\`. The same values are also
+available as \`request.state.principal\`, \`authentication\`, and \`jam\`.
+
+Sources, explicit credential type, public route exclusions, and invalid-token
+behavior are configured per plugin instance:
+
+\`\`\`python
+from jam.ext.litestar import CredentialSource, JamPlugin
+
+plugin = JamPlugin(
+    jam,
+    sources=[
+        CredentialSource.bearer(),
+        CredentialSource.cookie("session"),
+    ],
+    exclude=["/health"],
+    reject_invalid=True,
+)
+\`\`\`
+
+Use \`JamPlugin(jam, middleware=False)\` when only dependency injection is
+needed. Unlike the previous adapters, middleware configuration is not stored
+on class attributes, so multiple apps remain isolated.
+`} />
+  ),
+  "4.0.0/integrations--flask": () => (
+    <MarkdownRenderer content={`# Flask
+
+Install the extra:
+
+\`\`\`bash
+pip install "jamlib[flask]"
+\`\`\`
+
+The extension supports both direct initialization and the application-factory
+pattern.
+
+\`\`\`python
+from flask import Flask
+
+from jam import Jam
+from jam.ext.flask import JamAuth, current_principal
+
+
+jam = Jam("config.toml")
+auth = JamAuth(jam=jam)
+
+
+def create_app():
+    app = Flask(__name__)
+    auth.init_app(app)
+
+    @app.get("/me")
+    @auth.login_required
+    def me():
+        return current_principal.subject
+
+    @app.patch("/posts/<post_id>")
+    @auth.permission_required("post:edit")
+    def edit_post(post_id):
+        return {"post_id": post_id}
+
+    return app
+\`\`\`
+
+The current request exposes:
+
+- \`current_principal\`;
+- \`g.principal\`, \`g.authentication\`, and \`g.jam\`;
+- \`get_jam()\` for extension-friendly access to the configured instance.
+
+Configure multiple credential sources in priority order:
+
+\`\`\`python
+from jam.ext.flask import CredentialSource, JamAuth
+
+auth = JamAuth(
+    jam=jam,
+    sources=[
+        CredentialSource.bearer(),
+        CredentialSource.cookie("session"),
+    ],
+)
+\`\`\`
+
+\`permission_required()\` accepts a zero-argument \`context\` callback for dynamic
+authorization policy values.
+`} />
+  ),
+  "4.0.0/dev--logging": () => (
+    <MarkdownRenderer content={`# Logging
+
+Jam uses the standard library \`logging\`. Each module logs through a
+module-level logger named after its module, e.g. \`jam.jose.jwt\`,
+\`jam.jose.__algorithms__\`, \`jam.sessions.json\`.
+
+Collect Jam logs with the standard Python API:
+
+\`\`\`python
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger("jam")
+\`\`\`
+
+The \`"jam"\` logger has a \`NullHandler\` attached, so Jam never logs
+unhandled output on its own. Configure your own handlers as usual:
+
+\`\`\`python
+import logging
+
+handler = logging.StreamHandler()
+handler.setFormatter(
+    logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
+)
+logging.getLogger("jam").addHandler(handler)
+logging.getLogger("jam").setLevel(logging.DEBUG)
+\`\`\`
+
+Because child loggers inherit from \`"jam"\`, configuring the parent
+covers \`jam.jose.*\`, \`jam.sessions.*\`, \`jam.paseto.*\`, and the rest.
+
+## Sensitive data redaction
+
+By default, a \`SensitiveDataFilter\` is attached to the \`"jam"\` logger.
+It scrubs tokens and secrets from every log record before it reaches a
+handler, replacing them with \`[REDACTED]\`. This protects:
+
+- JWS/JWT tokens (\`header.payload.signature\`)
+- JWE tokens (five-segment compact serialization)
+- PASETO tokens (\`v2.local...\`, \`v3.public...\`, ...)
+- PEM-encoded private keys
+- \`key=value\` style secrets (\`secret\`, \`secret_key\`, \`client_secret\`,
+  \`password\`, \`passphrase\`, \`token\`, \`api_key\`, \`private_key\`, ...)
+
+\`\`\`python
+import logging
+
+from jam import Jam
+
+logging.basicConfig(level=logging.INFO)
+
+jam = Jam(config={...})
+token = jam.jwt.encode(sub="123")
+logger = logging.getLogger("jam")
+
+logger.info("Issued token: %s", token)  # -> "Issued token: [REDACTED]"
+\`\`\`
+
+The filter never drops records — it only rewrites the message.
+
+### Disabling redaction
+
+Redaction is enabled by default. During development you may want to see
+the actual values in your logs. Set the environment variable
+\`JAM_DEBUG=True\` before starting your process:
+
+\`\`\`bash
+JAM_DEBUG=True python your_app.py
+\`\`\`
+
+or construct a \`SensitiveDataFilter\` manually and control it directly:
+
+\`\`\`python
+from jam.utils.redaction import SensitiveDataFilter
+
+jam_logger = logging.getLogger("jam")
+jam_logger.addFilter(SensitiveDataFilter(redact=False))
+\`\`\`
+
+Note that Jam's own log calls already use lazy \`%s\` formatting, so token
+values only materialize if the record is actually emitted.
+`} />
+  ),
+  "4.0.0/dev--testing": () => (
+    <MarkdownRenderer content={`# Test client
+
+\`TestJam\` and \`TestAsyncJam\` are in-memory instances for testing applications
+that depend on Jam. They use the real high-level \`issue\`, \`authenticate\` and
+\`authorize\` implementations. Only external boundaries are replaced:
+
+* JWT, JWS, JWE and PASETO do not use cryptographic keys;
+* sessions are stored in memory and isolated between instances;
+* OTP values and OAuth2 responses are deterministic;
+* authorization can be allowed, denied or controlled by a callback.
+
+This makes them suitable for application unit tests. Use a regular \`Jam\`
+instance with test keys and storage for integration tests of cryptography or
+specific storage backends.
+
+For example, you have a service for generating JWT tokens.
+
+!!! tip
+    For async services, you can use \`TestAsyncJam\` instead of \`TestJam\`.
+
+\`\`\`python
+from jam import Jam
+from jam.exceptions import JamError
+
+
+class AuthService:
+    def __init__(self, jam: Jam) -> None:
+        self.jam = jam
+
+    # Generate token
+    def generate_token(self, user) -> str:
+        return self.jam.issue(user, via="jwt", exp=3600)
+
+    # Validate token and return a principal or None
+    def validate_token(self, token):
+        try:
+            return self.jam.authenticate(token, via="jwt")
+        except JamError:
+            return None
+\`\`\`
+
+And you need to write tests for it:
+
+\`\`\`python
+import pytest
+from jam.tests import TestJam
+
+from your_app.services import AuthService
+
+
+@pytest.fixture
+def auth_service() -> AuthService:
+    return AuthService(jam=TestJam())
+
+def test_auth_user(auth_service):
+    user = {"id": 1, "username": "test_user"}
+    token = auth_service.generate_token(user)  # Generate token
+    assert token is not None
+
+    validated = auth_service.validate_token(token)  # Validate token
+    assert validated is not None
+    assert validated.subject["id"] == user["id"]
+
+    # if you want to test invalid token
+    from jam.tests.fakers import invalid_token
+    invalid_payload = auth_service.validate_token(invalid_token())
+    assert invalid_payload is None
+\`\`\`
+
+The test instance has the same module-oriented API as a configured production
+instance:
+
+\`\`\`python
+jam = TestJam(oauth2_providers=["github"])
+
+token = jam.jwt.encode(payload={"role": "admin"})
+payload = jam.jwt.decode(token)["payload"]
+
+session_id = jam.session.create("auth", {"user_id": 1})
+assert jam.session.get(session_id) == {"user_id": 1}
+
+assert jam.otp.now() == "123456"
+oauth_token = jam.oauth2["github"].fetch_token("code")
+\`\`\`
+
+Authorization allows access by default. Pass a boolean for a deny-by-default
+test, or a callback for a specific scenario:
+
+\`\`\`python
+jam = TestJam(authorization=False)
+assert jam.authorize({"id": "user-1"}, "post:delete") is False
+
+jam = TestJam(
+    authorization=lambda principal, permission, context: (
+        permission == "post:read"
+    )
+)
+assert jam.authorize({"id": "user-1"}, "post:read") is True
+
+# Calls are available for assertions.
+assert jam.policy.calls[0][1] == "post:read"
+\`\`\`
+
+Stateless modules of \`TestAsyncJam\` remain synchronous, just like those of
+\`AsyncJam\`; high-level credential operations, sessions and OAuth2 are
+awaitable:
+
+\`\`\`python
+jam = TestAsyncJam(oauth2_providers=["github"])
+
+token = await jam.issue({"id": "user-1"}, via="jwt")
+principal = await jam.authenticate(token)
+session_id = await jam.session.create("auth", {"user_id": "user-1"})
+oauth_token = await jam.oauth2["github"].fetch_token("code")
+\`\`\`
+`} />
+  ),
+  "4.0.0/dev--serializers": () => (
+    <MarkdownRenderer content={`# JSON serialization
+
+Jam makes it easy to replace the JSON serializer in your code; all you need to do is specify a serializer that inherits from \`jam.BaseEncoder\` in the configuration.
+
+
+\`\`\`python
+from abc import abstractmethod
+import os
+from typing import Any
+
+from jam import BaseEncoder, Jam
+
+
+class SomeEncoder(BaseEncoder):
+    @classmethod
+    @abstractmethod
+    def dumps(cls, var: dict[str, Any]) -> bytes:
+        """Dump dict."""
+        # some logic
+
+    @classmethod
+    @abstractmethod
+    def loads(cls, var: str | bytes) -> dict[str, Any]:
+        """Load json."""
+        # some logic
+
+
+config = {
+    "serializer": SomeEncoder,
+    "paseto": {
+        "version": "v3",
+        "purpose": "local",
+        "secret_key": os.getenv("PASETO_SECRET_KEY")
+    }
+}
+
+jam = Jam(
+    config=config,
+    # serializer=SomeSerializer  <- Or you can pass it as a parameter to the \`jam.Jam\` class
+)
+\`\`\`
+`} />
+  ),
+  "4.0.0/dev--cli": () => (
+    <MarkdownRenderer content={`# CLI
+
+Jam CLI is just a tool for generating different keys. For example, it is suitable for debugging with real keys or convenient deployment.
+
+## Installation
+
+\`\`\`bash
+pip install jamlib[cli]
+\`\`\`
+
+## Usage
+
+\`\`\`bash
+\$ jam [OPTIONS] COMMAND [ARGS]...
+\`\`\`
+
+### Options
+* \`--version\`: Show the version and exit.
+* \`--help\`: Show help message and exit.
+
+## Commands
+* \`keychain\`: Administer configured KeyChains.
+* \`keys\`: Generate cryptographic keys.
+* \`password\`: Password hashing and verification utilities.
+
+### Keychain
+See [keychain documentation](/usage/keychain/#cli).
+
+### Keys
+Generate cryptographic keys.
+
+\`\`\`bash
+\$ jam keys COMMAND [ARGS]...
+\`\`\`
+
+#### Commands
+* \`aes\`: Generate AES key.
+* \`ecdsa\`: Generate ECDSA P-384 key pair.
+* \`ed25519\`: Generate Ed25519 key pair.
+* \`rsa\`: Generate RSA key pair.
+* \`symmetric\`: Generate symmetric key.
+
+### Password
+Password hashing and verification utilities.
+
+\`\`\`bash
+\$ jam password [OPTIONS] COMMAND [ARGS]...
+\`\`\`
+
+#### Commands
+* \`hash\`: Hash a password.
+* \`verify\`: Verify a password against a hash.
 `} />
   ),
 };

@@ -1,7 +1,53 @@
 nav:
   - block: Getting Started
     pages:
-      - label: test
-        file: core/instans.md
-      - label: GitHub
-        link: https://github.com/mkrndk/jam
+      - label: Installation
+        file: gettingstarted/installation.md
+      - label: Configuration
+        file: gettingstarted/configuration.md
+      - label: Quick start
+        file: gettingstarted/quickstart.md
+  - block: Core concepts
+    pages:
+      - label: Jam instance
+        file: core/jam.md
+      - label: Subjects
+        file: core/subject.md
+      - label: Authorization
+        file: core/authz.md
+  - block: Authentication
+    pages:
+      - label: PASETO
+        file: authentication/paseto.md
+      - label: Sessions
+        file: authentication/sessions.md
+      - label: SAML
+        file: authentication/saml.md
+      - label: OTP
+        file: authentication/otp.md
+  - block: Identity
+    pages:
+      - label: OAuth2
+        file: identity/oauth2.md
+  - block: Framework integrations
+    pages:
+      - label: FastAPI
+        file: integrations/fastapi.md
+      - label: Starlette
+        file: integrations/starlette.md
+      - label: Litestart
+        file: integrations/litestar.md
+      - label: Flask
+        file: integrations/flask.md
+  - block: Developing
+    pages:
+      - label: Logging
+        file: dev/logging.md
+      - label: Testing
+        file: dev/testing.md
+      - label: Serialization
+        file: dev/serializers.md
+      - label: CLI
+        file: dev/cli.md
+      - label: Utils
+        file: dev/utils.md

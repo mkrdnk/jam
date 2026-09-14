@@ -577,10 +577,10 @@ const INTEGRATIONS = [
 ]
 
 const FOOTER_LINKS = [
-  { label: "Installation", slug: "installation" },
-  { label: "Configuration", slug: "configuration" },
-  { label: "Philosophy", slug: "philosophy" },
-  { label: "Contributing", slug: "contributing" },
+  { label: "Installation", slug: "/gettingstarted/installation" },
+  { label: "Configuration", slug: "/gettingstarted/configuration" },
+  // { label: "Philosophy", slug: "philosophy" },
+  // { label: "Contributing", slug: "contributing" },
 ]
 
 function HomePage({ onOpenMd }: { onOpenMd: (slug: string) => void }) {
@@ -642,7 +642,7 @@ function HomePage({ onOpenMd }: { onOpenMd: (slug: string) => void }) {
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button
-                onClick={() => onOpenMd("usage--quickstart")}
+                onClick={() => onOpenMd("gettingstarted--quickstart")}
                 style={{
                   background: "var(--accent)", color: "#fff",
                   border: "none", borderRadius: 5,

@@ -1,7 +1,6 @@
 {
   "versions": [
-    "4.0.0",
-    "v4.0.0"
+    "4.0.0"
   ],
   "docs": {
     "4.0.0": {
@@ -11,47 +10,209 @@
           "title": "Getting Started",
           "children": [
             {
-              "id": "core--instans",
-              "title": "Jam",
-              "slug": "core--instans"
-            }
-          ]
-        }
-      ],
-      "pages": [
-        {
-          "slug": "core--instans",
-          "title": "Jam"
-        }
-      ]
-    },
-    "v4.0.0": {
-      "nav": [
-        {
-          "id": "group:Getting Started",
-          "title": "Getting Started",
-          "children": [
-            {
-              "id": "core--instans",
+              "id": "gettingstarted--installation",
               "title": "Installation",
-              "slug": "core--instans"
+              "slug": "gettingstarted--installation"
             },
             {
-              "id": "core--test",
-              "title": "Title",
-              "slug": "core--test"
+              "id": "gettingstarted--configuration",
+              "title": "Configuration",
+              "slug": "gettingstarted--configuration"
+            },
+            {
+              "id": "gettingstarted--quickstart",
+              "title": "Quickstart",
+              "slug": "gettingstarted--quickstart"
+            }
+          ]
+        },
+        {
+          "id": "group:Core concepts",
+          "title": "Core concepts",
+          "children": [
+            {
+              "id": "core--jam",
+              "title": "Jam instance",
+              "slug": "core--jam"
+            },
+            {
+              "id": "core--subject",
+              "title": "Subjects",
+              "slug": "core--subject"
+            },
+            {
+              "id": "core--authz",
+              "title": "Authorization",
+              "slug": "core--authz"
+            }
+          ]
+        },
+        {
+          "id": "group:Authentication",
+          "title": "Authentication",
+          "children": [
+            {
+              "id": "authentication--paseto",
+              "title": "PASETO",
+              "slug": "authentication--paseto"
+            },
+            {
+              "id": "authentication--sessions",
+              "title": "Server side sessions",
+              "slug": "authentication--sessions"
+            },
+            {
+              "id": "authentication--saml",
+              "title": "SAML",
+              "slug": "authentication--saml"
+            },
+            {
+              "id": "authentication--otp",
+              "title": "OTP",
+              "slug": "authentication--otp"
+            }
+          ]
+        },
+        {
+          "id": "group:Identity",
+          "title": "Identity",
+          "children": [
+            {
+              "id": "identity--oauth2",
+              "title": "OAuth2",
+              "slug": "identity--oauth2"
+            }
+          ]
+        },
+        {
+          "id": "group:Framework integrations",
+          "title": "Framework integrations",
+          "children": [
+            {
+              "id": "integrations--fastapi",
+              "title": "FastAPI",
+              "slug": "integrations--fastapi"
+            },
+            {
+              "id": "integrations--starlette",
+              "title": "Starlette",
+              "slug": "integrations--starlette"
+            },
+            {
+              "id": "integrations--litestar",
+              "title": "Litestar",
+              "slug": "integrations--litestar"
+            },
+            {
+              "id": "integrations--flask",
+              "title": "Flask",
+              "slug": "integrations--flask"
+            }
+          ]
+        },
+        {
+          "id": "group:Developing",
+          "title": "Developing",
+          "children": [
+            {
+              "id": "dev--logging",
+              "title": "Logging",
+              "slug": "dev--logging"
+            },
+            {
+              "id": "dev--testing",
+              "title": "Test client",
+              "slug": "dev--testing"
+            },
+            {
+              "id": "dev--serializers",
+              "title": "JSON serialization",
+              "slug": "dev--serializers"
+            },
+            {
+              "id": "dev--cli",
+              "title": "CLI",
+              "slug": "dev--cli"
             }
           ]
         }
       ],
       "pages": [
         {
-          "slug": "core--instans",
+          "slug": "gettingstarted--installation",
           "title": "Installation"
         },
         {
-          "slug": "core--test",
-          "title": "Title"
+          "slug": "gettingstarted--configuration",
+          "title": "Configuration"
+        },
+        {
+          "slug": "gettingstarted--quickstart",
+          "title": "Quickstart"
+        },
+        {
+          "slug": "core--jam",
+          "title": "Jam instance"
+        },
+        {
+          "slug": "core--subject",
+          "title": "Subjects"
+        },
+        {
+          "slug": "core--authz",
+          "title": "Authorization"
+        },
+        {
+          "slug": "authentication--paseto",
+          "title": "PASETO"
+        },
+        {
+          "slug": "authentication--sessions",
+          "title": "Server side sessions"
+        },
+        {
+          "slug": "authentication--saml",
+          "title": "SAML"
+        },
+        {
+          "slug": "authentication--otp",
+          "title": "OTP"
+        },
+        {
+          "slug": "identity--oauth2",
+          "title": "OAuth2"
+        },
+        {
+          "slug": "integrations--fastapi",
+          "title": "FastAPI"
+        },
+        {
+          "slug": "integrations--starlette",
+          "title": "Starlette"
+        },
+        {
+          "slug": "integrations--litestar",
+          "title": "Litestar"
+        },
+        {
+          "slug": "integrations--flask",
+          "title": "Flask"
+        },
+        {
+          "slug": "dev--logging",
+          "title": "Logging"
+        },
+        {
+          "slug": "dev--testing",
+          "title": "Test client"
+        },
+        {
+          "slug": "dev--serializers",
+          "title": "JSON serialization"
+        },
+        {
+          "slug": "dev--cli",
+          "title": "CLI"
         }
       ]
     }
