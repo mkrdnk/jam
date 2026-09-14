@@ -1,0 +1,5 @@
+nav:
+  - block: Getting Started
+    pages:
+      - label: test
+        file: core/instans.md

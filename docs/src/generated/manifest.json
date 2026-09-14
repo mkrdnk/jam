@@ -1,0 +1,50 @@
+{
+  "versions": [
+    "4.0.0",
+    "v4.0.0"
+  ],
+  "docs": {
+    "4.0.0": {
+      "nav": [
+        {
+          "id": "group:Getting Started",
+          "title": "Getting Started",
+          "children": [
+            {
+              "id": "core--instans",
+              "title": "Jam",
+              "slug": "core--instans"
+            }
+          ]
+        }
+      ],
+      "pages": [
+        {
+          "slug": "core--instans",
+          "title": "Jam"
+        }
+      ]
+    },
+    "v4.0.0": {
+      "nav": [
+        {
+          "id": "group:Getting Started",
+          "title": "Getting Started",
+          "children": [
+            {
+              "id": "core--instans",
+              "title": "Installation",
+              "slug": "core--instans"
+            }
+          ]
+        }
+      ],
+      "pages": [
+        {
+          "slug": "core--instans",
+          "title": "Installation"
+        }
+      ]
+    }
+  }
+}
