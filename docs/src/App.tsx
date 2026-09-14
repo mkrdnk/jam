@@ -151,11 +151,11 @@ function VersionSwitcher({ versions, value, onChange, compact, disabled }: {
 }) {
   if (!versions.length) return null
   const base: React.CSSProperties = compact ? {
-    fontSize: 10.5, fontWeight: 600, fontFamily: "Inter, sans-serif",
+    fontSize: 12, fontWeight: 600, fontFamily: "Inter, sans-serif",
     color: "var(--accent)", cursor: !!disabled ? "default" : "pointer",
     background: "var(--accent-bg)",
     border: "1px solid color-mix(in srgb, var(--accent) 35%, transparent)",
-    borderRadius: 3, padding: "1px 4px",
+    borderRadius: 3, padding: "2px 6px",
     letterSpacing: "0.02em",
     outline: "none", opacity: disabled ? 0.6 : 1,
   } : {
@@ -233,35 +233,37 @@ function Header({ theme, onToggleTheme, onNavigate, onSearch, sidebarOpen, onTog
         <VersionSwitcher versions={versions || []} value={docVersion} onChange={onDocVersionChange} compact disabled={false} />
       </div>
 
-      <div style={{ flex: 1, maxWidth: 380, position: "relative" }}>
-        <div style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--text-3)", pointerEvents: "none" }}>
-          <SearchIcon size={13} />
-        </div>
-        <input
-          type="text"
-          placeholder="Search docs…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && q.trim()) { onSearch(q); setQ("") } }}
-          style={{
-            width: "100%", height: 32,
-            background: "var(--bg-subtle)", border: "1px solid var(--border)",
-            borderRadius: 5, padding: "0 2.25rem 0 1.875rem",
-            fontFamily: "Inter, sans-serif", fontSize: 13,
-            color: "var(--text)", outline: "none",
-            transition: "border-color 0.15s",
-          }}
-          onFocus={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
-          onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
-        />
-        <div style={{
-          position: "absolute", right: 7, top: "50%", transform: "translateY(-50%)",
-          fontSize: 10, color: "var(--text-3)",
-          background: "var(--bg-surface)", border: "1px solid var(--border)",
-          borderRadius: 3, padding: "1px 4px",
-          fontFamily: "JetBrains Mono, monospace",
-        }}>
-          ↵
+      <div style={{ flex: 1, display: "flex", justifyContent: "center", position: "relative" }}>
+        <div style={{ width: "100%", maxWidth: 380, position: "relative" }}>
+          <div style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--text-3)", pointerEvents: "none" }}>
+            <SearchIcon size={13} />
+          </div>
+          <input
+            type="text"
+            placeholder="Search docs…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && q.trim()) { onSearch(q); setQ("") } }}
+            style={{
+              width: "100%", height: 32,
+              background: "var(--bg-subtle)", border: "1px solid var(--border)",
+              borderRadius: 5, padding: "0 2.25rem 0 1.875rem",
+              fontFamily: "Inter, sans-serif", fontSize: 13.5,
+              color: "var(--text)", outline: "none",
+              transition: "border-color 0.15s",
+            }}
+            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
+            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
+          />
+          <div style={{
+            position: "absolute", right: 7, top: "50%", transform: "translateY(-50%)",
+            fontSize: 10, color: "var(--text-3)",
+            background: "var(--bg-surface)", border: "1px solid var(--border)",
+            borderRadius: 3, padding: "1px 4px",
+            fontFamily: "JetBrains Mono, monospace",
+          }}>
+            ↵
+          </div>
         </div>
       </div>
 
@@ -273,7 +275,7 @@ function Header({ theme, onToggleTheme, onNavigate, onSearch, sidebarOpen, onTog
           style={{
             display: "flex", alignItems: "center", gap: 5,
             color: "var(--text-2)", textDecoration: "none",
-            fontSize: 13, fontWeight: 500, fontFamily: "Inter, sans-serif",
+            fontSize: 13.5, fontWeight: 500, fontFamily: "Inter, sans-serif",
             padding: "4px 9px", borderRadius: 5,
             border: "1px solid var(--border)", background: "var(--bg-subtle)",
             transition: "border-color 0.15s",
@@ -319,8 +321,8 @@ function MdNavItemView({ item, depth, active, onClick }: {
           display: "flex", alignItems: "center", justifyContent: "space-between",
           width: "100%", textAlign: "left", textDecoration: "none",
           background: "none", border: "none",
-          padding: `0.28125rem calc(1rem - 2px + ${depth * 10}px)`,
-          fontSize: 13, fontWeight: 400,
+          padding: `0.28125rem calc(1rem + 4px + ${depth * 10}px)`,
+          fontSize: 13.5, fontWeight: 400,
           color: "var(--text-2)",
           fontFamily: "Inter, sans-serif",
           lineHeight: 1.5,
@@ -347,8 +349,8 @@ function MdNavItemView({ item, depth, active, onClick }: {
           border: "none",
           borderLeft: `2px solid ${isActive ? "var(--nav-active)" : "transparent"}`,
           cursor: "pointer",
-          padding: `0.28125rem calc(1rem - 2px + ${depth * 10}px)`,
-          fontSize: 13, fontWeight: isActive ? 600 : 400,
+          padding: `0.28125rem calc(1rem + 4px + ${depth * 10}px)`,
+          fontSize: 13.5, fontWeight: isActive ? 600 : 400,
           color: isActive ? "var(--nav-active)" : "var(--text-2)",
           fontFamily: "Inter, sans-serif",
           lineHeight: 1.5,
@@ -365,7 +367,7 @@ function MdNavItemView({ item, depth, active, onClick }: {
   return (
     <div style={{ marginBottom: "0.125rem" }}>
       <div style={{
-        fontSize: 10.5, fontWeight: 700,
+        fontSize: 11, fontWeight: 700,
         letterSpacing: "0.07em", textTransform: "uppercase",
         color: "var(--text-3)", padding: `0 ${0.875 + depth * 0.5}rem`,
         marginBottom: "0.125rem", marginTop: depth > 0 ? "0.375rem" : 0,
@@ -411,7 +413,7 @@ function Sidebar({ open, onClose, mdNav, activeMdSlug, onOpenMd }: {
         {mdNav.length > 0 && (
           <div style={{ marginBottom: "1.375rem" }}>
             <div style={{
-              fontSize: 10.5, fontWeight: 700,
+              fontSize: 11, fontWeight: 700,
               letterSpacing: "0.07em", textTransform: "uppercase",
               color: "var(--accent)", padding: "0 1rem",
               marginBottom: "0.25rem",
@@ -750,22 +752,33 @@ function HomePage({ onOpenMd }: { onOpenMd: (slug: string) => void }) {
               First-class framework support.
             </p>
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))",
+              gap: "1px",
+              background: "var(--border)",
+              border: "1px solid var(--border)",
+              borderRadius: 7,
+              overflow: "hidden",
+            }}>
             {INTEGRATIONS.map((it) => (
               <button
                 key={it.name}
                 onClick={() => onOpenMd(it.slug)}
                 style={{
-                  background: "var(--bg-subtle)", border: "1px solid var(--border)",
-                  borderRadius: 5, padding: "0.375rem 0.75rem",
-                  fontSize: 13, fontWeight: 500, color: "var(--text-2)",
-                  cursor: "pointer", fontFamily: "Inter, sans-serif",
-                  transition: "border-color 0.15s, color 0.15s",
+                  background: "var(--bg)",
+                  border: "none", cursor: "pointer",
+                  padding: "1rem 1.125rem",
+                  textAlign: "left",
+                  fontFamily: "Inter, sans-serif",
+                  transition: "background 0.1s",
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)" }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-2)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-subtle)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "var(--bg)")}
               >
-                {it.name}
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>
+                  {it.name}
+                </div>
               </button>
             ))}
           </div>
@@ -775,27 +788,33 @@ function HomePage({ onOpenMd }: { onOpenMd: (slug: string) => void }) {
         <div style={{ borderTop: "1px solid var(--border)", margin: "3rem 0 2rem" }} />
 
         {/* Footer */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-            <JamLogo size={18} />
-            <span style={{ fontSize: 12, color: "var(--text-3)", fontFamily: "Inter, sans-serif" }}>
-              Apache-2.0 License · Python 3.10+
-            </span>
-          </div>
-          <div style={{ display: "flex", gap: "1.25rem" }}>
-            {FOOTER_LINKS.map((l) => (
-              <button
-                key={l.slug}
-                onClick={() => onOpenMd(l.slug)}
-                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--text-3)", fontFamily: "Inter, sans-serif" }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-2)")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-3)")}
-              >
-                {l.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <SiteFooter onOpenMd={onOpenMd} />
+      </div>
+    </div>
+  )
+}
+
+function SiteFooter({ onOpenMd }: { onOpenMd: (slug: string) => void }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+        <JamLogo size={18} />
+        <span style={{ fontSize: 12, color: "var(--text-3)", fontFamily: "Inter, sans-serif" }}>
+          Apache-2.0 License · Python 3.10+
+        </span>
+      </div>
+      <div style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap" }}>
+        {FOOTER_LINKS.map((l) => (
+          <button
+            key={l.slug}
+            onClick={() => onOpenMd(l.slug)}
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--text-3)", fontFamily: "Inter, sans-serif" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-2)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-3)")}
+          >
+            {l.label}
+          </button>
+        ))}
       </div>
     </div>
   )
@@ -924,9 +943,12 @@ function NotFoundPage({ onHome, onDocs }: { onHome: () => void; onDocs: () => vo
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [theme, setTheme] = useState<Theme>(() =>
-    typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
-  )
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "light"
+    const stored = window.localStorage.getItem("jam-theme")
+    if (stored === "light" || stored === "dark") return stored
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+  })
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [docVersion, setDocVersion] = useState<string>(DOC_VERSIONS[0] || "")
   const location = useLocation()
@@ -936,6 +958,17 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark")
   }, [theme])
+
+  useEffect(() => {
+    const mql = window.matchMedia("(prefers-color-scheme: dark)")
+    const onChange = () => {
+      if (!window.localStorage.getItem("jam-theme")) {
+        setTheme(mql.matches ? "dark" : "light")
+      }
+    }
+    mql.addEventListener("change", onChange)
+    return () => mql.removeEventListener("change", onChange)
+  }, [])
 
   useEffect(() => { window.scrollTo(0, 0) }, [location.pathname, location.search])
 
@@ -969,7 +1002,13 @@ export default function App() {
     navigate(`/search?q=${encodeURIComponent(q)}&version=${encodeURIComponent(effectiveVersion)}`)
     setSidebarOpen(false)
   }, [effectiveVersion, navigate])
-  const toggleTheme = useCallback(() => setTheme((t) => (t === "light" ? "dark" : "light")), [])
+  const toggleTheme = useCallback(() => {
+    setTheme((t) => {
+      const next = t === "light" ? "dark" : "light"
+      window.localStorage.setItem("jam-theme", next)
+      return next
+    })
+  }, [])
   const toggleSidebar = useCallback(() => setSidebarOpen((o) => !o), [])
 
   const changeVersion = useCallback((v: string) => {
@@ -997,6 +1036,11 @@ export default function App() {
       <Header {...sharedHeaderProps} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} mdNav={mdNav} activeMdSlug={mdSlug} onOpenMd={openMd} />
       <main style={{ marginLeft: 248, paddingTop: 56, ...mainStyle }}>{children}</main>
+      <footer style={{ marginLeft: 248, padding: "0 2rem 3rem" }}>
+        <div style={{ maxWidth: 700, margin: "0 auto", borderTop: "1px solid var(--border)", paddingTop: "1.5rem" }}>
+          <SiteFooter onOpenMd={openMd} />
+        </div>
+      </footer>
       <style>{RESPONSIVE_CSS}</style>
     </div>
   )
@@ -1040,6 +1084,7 @@ const RESPONSIVE_CSS = `
     }
     .sidebar.open { transform: translateX(0); }
     main { margin-left: 0 !important; }
+    footer { margin-left: 0 !important; }
     .sidebar-overlay { display: block !important; }
   }
   @media (max-width: 700px) {
