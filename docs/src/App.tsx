@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, type ReactNode } from "react"
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import { CodeBlock } from "./components/CodeBlock"
 import { mdPages } from "./generated/pages"
 import manifest from "./generated/manifest.json"
@@ -926,71 +927,93 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(() =>
     typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
   )
-  const [page, setPage] = useState<PageId>("home")
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
   const [docVersion, setDocVersion] = useState<string>(DOC_VERSIONS[0] || "")
-  const [mdSlug, setMdSlug] = useState<string | null>(null)
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark")
   }, [theme])
 
-  useEffect(() => { window.scrollTo(0, 0) }, [page, mdSlug])
+  useEffect(() => { window.scrollTo(0, 0) }, [location.pathname, location.search])
+
+  const pathSegments = location.pathname.split("/").filter(Boolean)
+  const first = pathSegments[0] ?? ""
+  const isDocRoute = DOC_VERSIONS.includes(first) && pathSegments.length >= 2
+  const searchVersion = searchParams.get("version") ?? docVersion
+  const effectiveVersion = isDocRoute ? first : (first === "search" ? searchVersion : docVersion)
+  const mdSlug = isDocRoute ? pathSegments.slice(1).join("--") : null
+  const searchQuery = searchParams.get("q") ?? ""
+
+  let mode: "home" | "doc" | "search" | "notfound"
+  if (first === "search") mode = "search"
+  else if (pathSegments.length === 0) mode = "home"
+  else if (isDocRoute) mode = "doc"
+  else mode = "notfound"
 
   const openMd = useCallback((slug: string, version?: string) => {
-    if (version) setDocVersion(version)
-    setMdSlug(slug)
-    setPage("home")
+    const v = version ?? effectiveVersion
+    navigate(`/${v}/${slug.replace(/--/g, "/")}`)
     setSidebarOpen(false)
-  }, [])
+  }, [effectiveVersion, navigate])
 
-  const goHome = useCallback(() => { setPage("home"); setMdSlug(null); setSidebarOpen(false) }, [])
+  const goHome = useCallback(() => { navigate("/"); setSidebarOpen(false) }, [navigate])
   const goDocs = useCallback(() => {
-    setMdSlug(getFirstPageSlug(MD_MANIFEST.docs[docVersion]?.nav || []) || null)
-    setPage("home")
+    const firstSlug = getFirstPageSlug(MD_MANIFEST.docs[effectiveVersion]?.nav || [])
+    navigate(firstSlug ? `/${effectiveVersion}/${firstSlug.replace(/--/g, "/")}` : "/")
     setSidebarOpen(false)
-  }, [docVersion])
-  const handleSearch = useCallback((q: string) => { setSearchQuery(q); setPage("search"); setMdSlug(null); setSidebarOpen(false) }, [])
+  }, [effectiveVersion, navigate])
+  const handleSearch = useCallback((q: string) => {
+    navigate(`/search?q=${encodeURIComponent(q)}&version=${encodeURIComponent(effectiveVersion)}`)
+    setSidebarOpen(false)
+  }, [effectiveVersion, navigate])
   const toggleTheme = useCallback(() => setTheme((t) => (t === "light" ? "dark" : "light")), [])
   const toggleSidebar = useCallback(() => setSidebarOpen((o) => !o), [])
 
   const changeVersion = useCallback((v: string) => {
+    setSidebarOpen(false)
+    if (mode === "search") {
+      navigate(`/search?q=${encodeURIComponent(searchQuery)}&version=${encodeURIComponent(v)}`)
+      return
+    }
+    if (mode === "doc") {
+      const target = mdSlug && findPageBySlug(MD_MANIFEST.docs[v]?.nav || [], mdSlug)
+        ? mdSlug
+        : getFirstPageSlug(MD_MANIFEST.docs[v]?.nav || [])
+      navigate(target ? `/${v}/${target.replace(/--/g, "/")}` : "/")
+      return
+    }
     setDocVersion(v)
-    setMdSlug((prev) => {
-      if (prev && findPageBySlug(MD_MANIFEST.docs[v]?.nav || [], prev)) return prev
-      return getFirstPageSlug(MD_MANIFEST.docs[v]?.nav || []) || null
-    })
-  }, [])
+  }, [mdSlug, mode, navigate, searchQuery])
 
-  const sharedHeaderProps = { theme, onToggleTheme: toggleTheme, onNavigate: goHome, onSearch: handleSearch, sidebarOpen, onToggleSidebar: toggleSidebar, versions: DOC_VERSIONS, docVersion, onDocVersionChange: changeVersion }
+  const sharedHeaderProps = { theme, onToggleTheme: toggleTheme, onNavigate: goHome, onSearch: handleSearch, sidebarOpen, onToggleSidebar: toggleSidebar, versions: DOC_VERSIONS, docVersion: effectiveVersion, onDocVersionChange: changeVersion }
 
-  const mdNav = MD_MANIFEST.docs[docVersion]?.nav || []
+  const mdNav = MD_MANIFEST.docs[effectiveVersion]?.nav || []
 
-  if (page === "search") {
-    return (
-      <div style={{ minHeight: "100%", background: "var(--bg)" }}>
-        <Header {...sharedHeaderProps} />
-        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} mdNav={mdNav} activeMdSlug={mdSlug} onOpenMd={openMd} />
-        <main style={{ marginLeft: 248, paddingTop: 56 }}>
-          <SearchPage query={searchQuery} version={docVersion} onOpenMd={openMd} />
-        </main>
-        <style>{RESPONSIVE_CSS}</style>
-      </div>
+  const shell = (children: ReactNode, mainStyle: React.CSSProperties = {}) => (
+    <div style={{ minHeight: "100%", background: "var(--bg)" }}>
+      <Header {...sharedHeaderProps} />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} mdNav={mdNav} activeMdSlug={mdSlug} onOpenMd={openMd} />
+      <main style={{ marginLeft: 248, paddingTop: 56, ...mainStyle }}>{children}</main>
+      <style>{RESPONSIVE_CSS}</style>
+    </div>
+  )
+
+  if (mode === "search") {
+    return shell(<SearchPage query={searchQuery} version={effectiveVersion} onOpenMd={openMd} />)
+  }
+
+  if (mode === "doc" && mdSlug) {
+    return shell(
+      <MdPage version={effectiveVersion} slug={mdSlug} versions={DOC_VERSIONS} onVersionChange={changeVersion} onOpenMd={openMd} onHome={goHome} onDocs={goDocs} />,
+      { minHeight: "100vh" },
     )
   }
 
-  if (mdSlug) {
-    return (
-      <div style={{ minHeight: "100%", background: "var(--bg)" }}>
-        <Header {...sharedHeaderProps} />
-        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} mdNav={mdNav} activeMdSlug={mdSlug} onOpenMd={openMd} />
-        <main style={{ marginLeft: 248, paddingTop: 56, minHeight: "100vh" }}>
-          <MdPage version={docVersion} slug={mdSlug} versions={DOC_VERSIONS} onVersionChange={changeVersion} onOpenMd={openMd} onHome={goHome} onDocs={goDocs} />
-        </main>
-        <style>{RESPONSIVE_CSS}</style>
-      </div>
-    )
+  if (mode === "notfound") {
+    return shell(<NotFoundPage onHome={goHome} onDocs={goDocs} />)
   }
 
   return (

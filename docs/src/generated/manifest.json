@@ -35,6 +35,11 @@
               "id": "core--instans",
               "title": "Installation",
               "slug": "core--instans"
+            },
+            {
+              "id": "core--test",
+              "title": "Title",
+              "slug": "core--test"
             }
           ]
         }
@@ -43,6 +48,10 @@
         {
           "slug": "core--instans",
           "title": "Installation"
+        },
+        {
+          "slug": "core--test",
+          "title": "Title"
         }
       ]
     }

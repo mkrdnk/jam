@@ -41,4 +41,8 @@ async def home():
 Inline code: \`auth = JamAuth(jam)\`
 `} />
   ),
+  "v4.0.0/core--test": () => (
+    <MarkdownRenderer content={`# Title
+`} />
+  ),
 };

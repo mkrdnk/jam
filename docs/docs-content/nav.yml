@@ -3,3 +3,5 @@ nav:
     pages:
       - label: test
         file: core/instans.md
+      - label: another-test
+        file: core/test.md
