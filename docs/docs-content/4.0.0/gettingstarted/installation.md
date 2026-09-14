@@ -1,11 +1,13 @@
-# Installation
+---
+title: Installation
+---
 
 Stable release from [pypi](https://pypi.org/project/jamlib/):
-```shell
+```bash
 pip install jamlib
 ```
 
 Stable version(but not released) from github:
-```shell
+```bash
 pip install git+https://github.com/mkrdnk/jam.git@master
 ```

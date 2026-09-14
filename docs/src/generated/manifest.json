@@ -15,14 +15,14 @@
               "slug": "gettingstarted--installation"
             },
             {
-              "id": "gettingstarted--configuration",
-              "title": "Configuration",
-              "slug": "gettingstarted--configuration"
-            },
-            {
               "id": "gettingstarted--quickstart",
               "title": "Quickstart",
               "slug": "gettingstarted--quickstart"
+            },
+            {
+              "id": "gettingstarted--configuration",
+              "title": "Configuration",
+              "slug": "gettingstarted--configuration"
             }
           ]
         },
@@ -44,6 +44,16 @@
               "id": "core--authz",
               "title": "Authorization",
               "slug": "core--authz"
+            },
+            {
+              "id": "core--keychain",
+              "title": "KeyChain",
+              "slug": "core--keychain"
+            },
+            {
+              "id": "core--philosophy",
+              "title": "Philosophy",
+              "slug": "core--philosophy"
             }
           ]
         },
@@ -51,6 +61,47 @@
           "id": "group:Authentication",
           "title": "Authentication",
           "children": [
+            {
+              "id": "group:Authentication:JOSE",
+              "title": "JOSE",
+              "children": [
+                {
+                  "id": "authentication--jose--index",
+                  "title": "JOSE",
+                  "slug": "authentication--jose--index"
+                },
+                {
+                  "id": "authentication--jose--jwt",
+                  "title": "JWT",
+                  "slug": "authentication--jose--jwt"
+                },
+                {
+                  "id": "authentication--jose--jws",
+                  "title": "JWS",
+                  "slug": "authentication--jose--jws"
+                },
+                {
+                  "id": "authentication--jose--jwe",
+                  "title": "JWE",
+                  "slug": "authentication--jose--jwe"
+                },
+                {
+                  "id": "authentication--jose--jwk",
+                  "title": "JWK",
+                  "slug": "authentication--jose--jwk"
+                },
+                {
+                  "id": "authentication--jose--algorithms",
+                  "title": "Algorithms",
+                  "slug": "authentication--jose--algorithms"
+                },
+                {
+                  "id": "authentication--jose--lists",
+                  "title": "Lists",
+                  "slug": "authentication--jose--lists"
+                }
+              ]
+            },
             {
               "id": "authentication--paseto",
               "title": "PASETO",
@@ -111,8 +162,8 @@
           ]
         },
         {
-          "id": "group:Developing",
-          "title": "Developing",
+          "id": "group:Development",
+          "title": "Development",
           "children": [
             {
               "id": "dev--logging",
@@ -120,19 +171,76 @@
               "slug": "dev--logging"
             },
             {
-              "id": "dev--testing",
-              "title": "Test client",
-              "slug": "dev--testing"
-            },
-            {
               "id": "dev--serializers",
               "title": "JSON serialization",
               "slug": "dev--serializers"
             },
             {
+              "id": "dev--custom",
+              "title": "Custom modules",
+              "slug": "dev--custom"
+            },
+            {
               "id": "dev--cli",
               "title": "CLI",
               "slug": "dev--cli"
+            },
+            {
+              "id": "dev--testing",
+              "title": "Test client",
+              "slug": "dev--testing"
+            },
+            {
+              "id": "dev--contributing",
+              "title": "Contributing",
+              "slug": "dev--contributing"
+            }
+          ]
+        },
+        {
+          "id": "group:Reference",
+          "title": "Reference",
+          "children": [
+            {
+              "id": "reference--auth-utils",
+              "title": "Auth utils",
+              "slug": "reference--auth-utils"
+            },
+            {
+              "id": "reference--key-generators",
+              "title": "Key generators",
+              "slug": "reference--key-generators"
+            },
+            {
+              "id": "reference--test-client",
+              "title": "Test client",
+              "slug": "reference--test-client"
+            }
+          ]
+        },
+        {
+          "id": "group:Changelog",
+          "title": "Changelog",
+          "children": [
+            {
+              "id": "changes--deprecated",
+              "title": "Deprecated methods",
+              "slug": "changes--deprecated"
+            },
+            {
+              "id": "changes--jam114-to-200",
+              "title": "1.1.4 -> 2.0.0",
+              "slug": "changes--jam114-to-200"
+            },
+            {
+              "id": "changes--jam256-to-300",
+              "title": "2.5.6 -> 3.0.0",
+              "slug": "changes--jam256-to-300"
+            },
+            {
+              "id": "changes--jam330-to-400",
+              "title": "3.3.0 -> 4.0.0",
+              "slug": "changes--jam330-to-400"
             }
           ]
         }
@@ -143,12 +251,12 @@
           "title": "Installation"
         },
         {
-          "slug": "gettingstarted--configuration",
-          "title": "Configuration"
-        },
-        {
           "slug": "gettingstarted--quickstart",
           "title": "Quickstart"
+        },
+        {
+          "slug": "gettingstarted--configuration",
+          "title": "Configuration"
         },
         {
           "slug": "core--jam",
@@ -161,6 +269,42 @@
         {
           "slug": "core--authz",
           "title": "Authorization"
+        },
+        {
+          "slug": "core--keychain",
+          "title": "KeyChain"
+        },
+        {
+          "slug": "core--philosophy",
+          "title": "Philosophy"
+        },
+        {
+          "slug": "authentication--jose--index",
+          "title": "JOSE"
+        },
+        {
+          "slug": "authentication--jose--jwt",
+          "title": "JWT"
+        },
+        {
+          "slug": "authentication--jose--jws",
+          "title": "JWS"
+        },
+        {
+          "slug": "authentication--jose--jwe",
+          "title": "JWE"
+        },
+        {
+          "slug": "authentication--jose--jwk",
+          "title": "JWK"
+        },
+        {
+          "slug": "authentication--jose--algorithms",
+          "title": "Algorithms"
+        },
+        {
+          "slug": "authentication--jose--lists",
+          "title": "Lists"
         },
         {
           "slug": "authentication--paseto",
@@ -203,16 +347,52 @@
           "title": "Logging"
         },
         {
-          "slug": "dev--testing",
-          "title": "Test client"
-        },
-        {
           "slug": "dev--serializers",
           "title": "JSON serialization"
         },
         {
+          "slug": "dev--custom",
+          "title": "Custom modules"
+        },
+        {
           "slug": "dev--cli",
           "title": "CLI"
+        },
+        {
+          "slug": "dev--testing",
+          "title": "Test client"
+        },
+        {
+          "slug": "dev--contributing",
+          "title": "Contributing"
+        },
+        {
+          "slug": "reference--auth-utils",
+          "title": "Auth utils"
+        },
+        {
+          "slug": "reference--key-generators",
+          "title": "Key generators"
+        },
+        {
+          "slug": "reference--test-client",
+          "title": "Test client"
+        },
+        {
+          "slug": "changes--deprecated",
+          "title": "Deprecated methods"
+        },
+        {
+          "slug": "changes--jam114-to-200",
+          "title": "1.1.4 -> 2.0.0"
+        },
+        {
+          "slug": "changes--jam256-to-300",
+          "title": "2.5.6 -> 3.0.0"
+        },
+        {
+          "slug": "changes--jam330-to-400",
+          "title": "3.3.0 -> 4.0.0"
         }
       ]
     }

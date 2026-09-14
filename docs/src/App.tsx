@@ -312,6 +312,8 @@ function MdNavItemView({ item, depth, active, onClick }: {
   active: string | null | undefined
   onClick: (slug: string) => void
 }) {
+  const [expanded, setExpanded] = useState(depth === 0)
+
   if (item.url) {
     return (
       <a
@@ -367,15 +369,38 @@ function MdNavItemView({ item, depth, active, onClick }: {
 
   return (
     <div style={{ marginBottom: "0.125rem" }}>
-      <div style={{
-        fontSize: 12, fontWeight: 800,
-        letterSpacing: "0.07em", textTransform: "uppercase",
-        color: "var(--text-2)", padding: `0 ${1 + depth * 0.625}rem`,
-        lineHeight: 1.4, marginBottom: "0.25rem", marginTop: depth > 0 ? "0.5rem" : 0,
-      }}>
-        {item.title}
-      </div>
-      {item.children?.map((child) => (
+      {depth === 0 ? (
+        <div style={{
+          fontSize: 12, fontWeight: 800,
+          letterSpacing: "0.07em", textTransform: "uppercase",
+          color: "var(--text-2)", padding: `0 ${1 + depth * 0.625}rem`,
+          lineHeight: 1.4, marginBottom: "0.25rem",
+        }}>
+          {item.title}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          aria-expanded={expanded}
+          style={{
+            display: "flex", alignItems: "center", gap: 6, width: "100%",
+            background: "none", border: "none", cursor: "pointer",
+            color: "var(--text-2)", padding: `0.3125rem ${1 + depth * 0.625}rem`,
+            fontSize: 14, fontWeight: 400, lineHeight: 1.5,
+            fontFamily: "Inter, sans-serif", textAlign: "left",
+          }}
+        >
+          <span style={{
+            display: "inline-flex", transition: "transform 0.15s",
+            transform: expanded ? "rotate(90deg)" : "none",
+          }}>
+            <ChevronRight size={11} />
+          </span>
+          <span>{item.title}</span>
+        </button>
+      )}
+      {expanded && item.children?.map((child) => (
         <MdNavItemView key={child.id ?? child.title} item={child} depth={depth + 1} active={active} onClick={onClick} />
       ))}
     </div>

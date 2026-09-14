@@ -20,6 +20,7 @@ interface YmlPage {
   label: string;
   file?: string;
   url?: string;
+  pages?: YmlPage[];
 }
 
 interface YmlBlock {
@@ -62,29 +63,29 @@ function escapeForTs(s: string): string {
 }
 
 function buildNavFromYml(ymlRoot: YmlBlock[], versionDir: string): NavItem[] {
-  const nav: NavItem[] = [];
-
-  for (const block of ymlRoot) {
-    const children: NavItem[] = [];
-    for (const page of block.pages || []) {
-      if (page.url) {
-        children.push({ id: `url:${page.url}`, title: page.label, url: page.url });
-        continue;
+  const buildItems = (pages: YmlPage[], parentId: string): NavItem[] =>
+    pages.flatMap((page, index) => {
+      if (page.pages) {
+        const children = buildItems(page.pages, `${parentId}:${index}`);
+        return children.length
+          ? [{ id: `group:${parentId}:${page.label}`, title: page.label, children }]
+          : [];
       }
-      if (!page.file) continue;
+      if (page.url) return [{ id: `url:${page.url}`, title: page.label, url: page.url }];
+      if (!page.file) return [];
       const rel = page.file.replace(/\\/g, "/");
       const full = path.join(versionDir, rel);
-      if (!fs.existsSync(full)) continue;
+      if (!fs.existsSync(full)) return [];
       const slug = slugFromRelative(rel);
-      const title = titleFromFile(full, page.label);
-      children.push({ id: slug, title, slug });
-    }
-    if (children.length > 0) {
-      nav.push({ id: `group:${block.block}`, title: block.block, children });
-    }
-  }
+      return [{ id: slug, title: titleFromFile(full, page.label), slug }];
+    });
 
-  return nav;
+  return ymlRoot.flatMap((block) => {
+    const children = buildItems(block.pages || [], block.block);
+    return children.length
+      ? [{ id: `group:${block.block}`, title: block.block, children }]
+      : [];
+  });
 }
 
 function collectPages(items: NavItem[]): { slug: string; title: string }[] {

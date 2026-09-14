@@ -3,10 +3,10 @@ nav:
     pages:
       - label: Installation
         file: gettingstarted/installation.md
-      - label: Configuration
-        file: gettingstarted/configuration.md
       - label: Quick start
         file: gettingstarted/quickstart.md
+      - label: Configuration
+        file: gettingstarted/configuration.md
   - block: Core concepts
     pages:
       - label: Jam instance
@@ -15,15 +15,35 @@ nav:
         file: core/subject.md
       - label: Authorization
         file: core/authz.md
+      - label: KeyChain
+        file: core/keychain.md
+      - label: Philosophy
+        file: core/philosophy.md
   - block: Authentication
     pages:
+      - label: JOSE
+        pages:
+          - label: Overview
+            file: authentication/jose/index.md
+          - label: JWT
+            file: authentication/jose/jwt.md
+          - label: JWS
+            file: authentication/jose/jws.md
+          - label: JWE
+            file: authentication/jose/jwe.md
+          - label: JWK
+            file: authentication/jose/jwk.md
+          - label: Algorithms
+            file: authentication/jose/algorithms.md
+          - label: Algorithm lists
+            file: authentication/jose/lists.md
       - label: PASETO
         file: authentication/paseto.md
       - label: Sessions
         file: authentication/sessions.md
       - label: SAML
         file: authentication/saml.md
-      - label: OTP
+      - label: OTP / TOTP
         file: authentication/otp.md
   - block: Identity
     pages:
@@ -39,15 +59,35 @@ nav:
         file: integrations/litestar.md
       - label: Flask
         file: integrations/flask.md
-  - block: Developing
+  - block: Development
     pages:
       - label: Logging
         file: dev/logging.md
-      - label: Testing
-        file: dev/testing.md
       - label: Serialization
         file: dev/serializers.md
+      - label: Customization
+        file: dev/custom.md
       - label: CLI
         file: dev/cli.md
-      - label: Utils
-        file: dev/utils.md
+      - label: Testing
+        file: dev/testing.md
+      - label: Contributing
+        file: dev/contributing.md
+  - block: Reference
+    pages:
+      - label: Authentication utilities
+        file: reference/auth-utils.md
+      - label: Key generators
+        file: reference/key-generators.md
+      - label: Test client
+        file: reference/test-client.md
+  - block: Changelog
+    pages:
+      - label: Deprecated features
+        file: changes/deprecated.md
+      - label: From 1.1.4 to 2.0.0
+        file: changes/jam114-to-200.md
+      - label: From 2.5.6 to 3.0.0
+        file: changes/jam256-to-300.md
+      - label: From 3.3.0 to 4.0.0
+        file: changes/jam330-to-400.md
