@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-"""JAM - Universal auth* library.
+"""Jam - A universal auth* framework that provides
+popular auth mechanisms strictly according to the specification.
 
 Source code: https://github.com/mkrdnk/jam
 Documentation: https://jam.makridenko.ru
@@ -24,7 +25,7 @@ logging.getLogger("jam").addHandler(logging.NullHandler())
 logging.getLogger("jam").addFilter(SensitiveDataFilter())
 
 
-__version__ = "4.0.0rc0"
+__version__ = "4.0.0rc1"
 __all__ = [
     "Jam",
     "BaseJam",
