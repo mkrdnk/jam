@@ -30,7 +30,7 @@ from jam import BaseSubject, Jam
 @dataclass
 class User(BaseSubject):
     id: int
-    email: str = ""
+    email: str
 
 
 jam = Jam(config="config.toml", subject=User)
@@ -38,7 +38,7 @@ jam = Jam(config="config.toml", subject=User)
 user = User(id=1, email="user@example.com")
 
 token = jam.issue(subject=user, via="jwt")
-principal = jam.authenticate(token)
+principal = jam.authenticate(token, via="jwt")
 user = principal.subject
 
 allowed: bool = jam.authorize(
@@ -50,21 +50,31 @@ allowed: bool = jam.authorize(
 ## Why Jam?
 Jam is a library that provides the most popular AUTH* mechanisms right out of the box.
 
-* [JOSE](https://jam.makridenko.ru/usage/jose/)
-* [PASETO](https://jam.makridenko.ru/usage/paseto/)
-* [Server side sessions](https://jam.makridenko.ru/usage/sessions/)
-* [OTP](https://jam.makridenko.ru/usage/otp/)
-* [OAuth2](https://jam.makridenko.ru/usage/oauth2/)
-* [SAML](https://jam.makridenko.ru/usage/saml/)
+* [JOSE](https://jam.makridenko.ru/4.0.0/authentication/jose/index)
+* [PASETO](https://jam.makridenko.ru/4.0.0/authentication/paseto)
+* [Server side sessions](https://jam.makridenko.ru/4.0.0/authentication/sessions/)
+* [OTP](https://jam.makridenko.ru/4.0.0/authentication/otp/)
+* [OAuth2](https://jam.makridenko.ru/4.0.0/identity/oauth2/)
+* [SAML](https://jam.makridenko.ru/4.0.0/authentication/saml/)
+
+### Authorization
+Jam combines permissions granted to one credential with server-side policy rules. This makes it possible to issue two tokens for the same user with different permissions and to restrict those permissions using the current time, resource or request.
+
+```python
+principal = jam.authenticate(token)
+
+if jam.authorize(principal, "user:delete"):
+    ...
+```
 
 ### Framework integrations
 
 Jam provides ready-to-use integrations for the most popular frameworks:
 
-* [FastAPI](https://jam.makridenko.ru/framework_integrations/fastapi)
-* [Starlette](https://jam.makridenko.ru/framework_integrations/starlette)
-* [Litestar](https://jam.makridenko.ru/framework_integrations/litestar)
-* [Flask](https://jam.makridenko.ru/framework_integrations/flask)
+* [FastAPI](https://jam.makridenko.ru/4.0.0/integrations/fastapi)
+* [Starlette](https://jam.makridenko.ru/4.0.0/integrations/starlette)
+* [Litestar](https://jam.makridenko.ru/4.0.0/integrations/litestar)
+* [Flask](https://jam.makridenko.ru/4.0.0/integrations/flask)
 
 Each integration offers built-in middleware or plugin support for JWT and session-based authentication.
 
