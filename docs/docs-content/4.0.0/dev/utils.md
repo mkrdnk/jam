@@ -1,6 +1,4 @@
----
-title: Auth utils
----
+# Utils
 
 For convenience, Jam includes some utilities for authentication mechanisms and simple encryption.
 

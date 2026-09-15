@@ -24,7 +24,26 @@ $ jam [OPTIONS] COMMAND [ARGS]...
 * `password`: Password hashing and verification utilities.
 
 ### Keychain
-See [keychain documentation](/usage/keychain/#cli).
+Administer configured KeyChains.
+
+```bash
+$ jam keychain [OPTIONS] COMMAND [ARGS]...
+```
+
+#### Options
+* `--config FILE`: Jam configuration file containing keychains.
+
+#### Commands
+* `activate`: Make a key current and retire the old current key.
+* `add`: Generate a standby key.
+* `current`: Show the current issuing key.
+* `list`: List key metadata.
+* `remove`: Permanently delete a non-current key.
+* `retire`: Retire a key while retaining it for verification.
+* `revoke`: Immediately reject credentials using a compromised key.
+* `rotate`: Generate and activate a new key.
+* `show`: Show metadata for one key.
+
 
 ### Keys
 Generate cryptographic keys.

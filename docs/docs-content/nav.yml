@@ -17,8 +17,6 @@ nav:
         file: core/authz.md
       - label: KeyChain
         file: core/keychain.md
-      - label: Philosophy
-        file: core/philosophy.md
   - block: Authentication
     pages:
       - label: JOSE
@@ -59,37 +57,29 @@ nav:
         file: integrations/litestar.md
       - label: Flask
         file: integrations/flask.md
-  - block: Development
+  - block: While development
     pages:
       - label: Logging
         file: dev/logging.md
       - label: Serialization
         file: dev/serializers.md
-      - label: Customization
-        file: dev/custom.md
       - label: CLI
         file: dev/cli.md
       - label: Testing
         file: dev/testing.md
-      - label: Contributing
-        file: dev/contributing.md
+      - label: Utils
+        file: dev/utils.md
+      - label: Key generators
+        file: dev/key-generators.md
+      - label: Customization
+        file: dev/custom.md
   - block: Reference
     pages:
       - label: API reference
         file: api/index.md
-      - label: Authentication utilities
-        file: reference/auth-utils.md
-      - label: Key generators
-        file: reference/key-generators.md
-      - label: Test client
-        file: reference/test-client.md
-  - block: Changelog
-    pages:
-      - label: Deprecated features
-        file: changes/deprecated.md
-      - label: From 1.1.4 to 2.0.0
-        file: changes/jam114-to-200.md
-      - label: From 2.5.6 to 3.0.0
-        file: changes/jam256-to-300.md
-      - label: From 3.3.0 to 4.0.0
-        file: changes/jam330-to-400.md
+      - label: GitHub
+        url: https://github.com/mkrdnk/jam
+      - label: PyPi
+        url: https://pypi.org/project/jamlib
+      - label: Changelog
+        url: https://github.com/mkrdnk/jam/blob/master/CHANGELOG.md

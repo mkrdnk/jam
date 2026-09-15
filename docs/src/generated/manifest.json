@@ -49,11 +49,6 @@
               "id": "core--keychain",
               "title": "KeyChain",
               "slug": "core--keychain"
-            },
-            {
-              "id": "core--philosophy",
-              "title": "Philosophy",
-              "slug": "core--philosophy"
             }
           ]
         },
@@ -162,8 +157,8 @@
           ]
         },
         {
-          "id": "group:Development",
-          "title": "Development",
+          "id": "group:While development",
+          "title": "While development",
           "children": [
             {
               "id": "dev--logging",
@@ -176,11 +171,6 @@
               "slug": "dev--serializers"
             },
             {
-              "id": "dev--custom",
-              "title": "Custom modules",
-              "slug": "dev--custom"
-            },
-            {
               "id": "dev--cli",
               "title": "CLI",
               "slug": "dev--cli"
@@ -191,9 +181,19 @@
               "slug": "dev--testing"
             },
             {
-              "id": "dev--contributing",
-              "title": "Contributing",
-              "slug": "dev--contributing"
+              "id": "dev--utils",
+              "title": "Utils",
+              "slug": "dev--utils"
+            },
+            {
+              "id": "dev--key-generators",
+              "title": "Key generators",
+              "slug": "dev--key-generators"
+            },
+            {
+              "id": "dev--custom",
+              "title": "Custom modules",
+              "slug": "dev--custom"
             }
           ]
         },
@@ -207,45 +207,19 @@
               "slug": "api--index"
             },
             {
-              "id": "reference--auth-utils",
-              "title": "Auth utils",
-              "slug": "reference--auth-utils"
+              "id": "url:https://github.com/mkrdnk/jam",
+              "title": "GitHub",
+              "url": "https://github.com/mkrdnk/jam"
             },
             {
-              "id": "reference--key-generators",
-              "title": "Key generators",
-              "slug": "reference--key-generators"
+              "id": "url:https://pypi.org/project/jamlib",
+              "title": "PyPi",
+              "url": "https://pypi.org/project/jamlib"
             },
             {
-              "id": "reference--test-client",
-              "title": "Test client",
-              "slug": "reference--test-client"
-            }
-          ]
-        },
-        {
-          "id": "group:Changelog",
-          "title": "Changelog",
-          "children": [
-            {
-              "id": "changes--deprecated",
-              "title": "Deprecated methods",
-              "slug": "changes--deprecated"
-            },
-            {
-              "id": "changes--jam114-to-200",
-              "title": "1.1.4 -> 2.0.0",
-              "slug": "changes--jam114-to-200"
-            },
-            {
-              "id": "changes--jam256-to-300",
-              "title": "2.5.6 -> 3.0.0",
-              "slug": "changes--jam256-to-300"
-            },
-            {
-              "id": "changes--jam330-to-400",
-              "title": "3.3.0 -> 4.0.0",
-              "slug": "changes--jam330-to-400"
+              "id": "url:https://github.com/mkrdnk/jam/blob/master/CHANGELOG.md",
+              "title": "Changelog",
+              "url": "https://github.com/mkrdnk/jam/blob/master/CHANGELOG.md"
             }
           ]
         }
@@ -278,10 +252,6 @@
         {
           "slug": "core--keychain",
           "title": "KeyChain"
-        },
-        {
-          "slug": "core--philosophy",
-          "title": "Philosophy"
         },
         {
           "slug": "authentication--jose--index",
@@ -356,10 +326,6 @@
           "title": "JSON serialization"
         },
         {
-          "slug": "dev--custom",
-          "title": "Custom modules"
-        },
-        {
           "slug": "dev--cli",
           "title": "CLI"
         },
@@ -368,40 +334,20 @@
           "title": "Test client"
         },
         {
-          "slug": "dev--contributing",
-          "title": "Contributing"
+          "slug": "dev--utils",
+          "title": "Utils"
+        },
+        {
+          "slug": "dev--key-generators",
+          "title": "Key generators"
+        },
+        {
+          "slug": "dev--custom",
+          "title": "Custom modules"
         },
         {
           "slug": "api--index",
           "title": "API reference"
-        },
-        {
-          "slug": "reference--auth-utils",
-          "title": "Auth utils"
-        },
-        {
-          "slug": "reference--key-generators",
-          "title": "Key generators"
-        },
-        {
-          "slug": "reference--test-client",
-          "title": "Test client"
-        },
-        {
-          "slug": "changes--deprecated",
-          "title": "Deprecated methods"
-        },
-        {
-          "slug": "changes--jam114-to-200",
-          "title": "1.1.4 -> 2.0.0"
-        },
-        {
-          "slug": "changes--jam256-to-300",
-          "title": "2.5.6 -> 3.0.0"
-        },
-        {
-          "slug": "changes--jam330-to-400",
-          "title": "3.3.0 -> 4.0.0"
         }
       ],
       "apiModules": [

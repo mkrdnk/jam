@@ -1,11 +1,9 @@
----
-title: Key generators
----
+# Key generators
 
 For your convenience, Jam includes several utilities for generating keys.
 
 !!! tip
-    All of these utilities are available in the **Jam CLI**. See the [documentation](/usage/cli).
+    All of these utilities are available in the **Jam CLI**. See the [documentation](/4.0.0/dev/cli).
 
 ## Symmetric key generator
 

@@ -1009,28 +1009,6 @@ jam keychain --config jam.toml remove jwt 2026-09 --yes
 and SHA-256 fingerprints only; they never print key material.
 `} />
   ),
-  "4.0.0/core--philosophy": () => (
-    <MarkdownRenderer content={`# Philosophy
-
-
-**Minimalism. Flexibility. Control.**
-
-Jam is a lightweight Python authorization library designed to put you in full control:
-
-- **Simple types** — methods return only standard Python objects (\`str\`, \`int\`, \`dict\`, \`list\`, etc.).  
-- **Fully replaceable modules** — any component, including \`jam.Jam\`, can be extended via inheritance.
-
-**Trade-offs for your control:**
-
-| Choice                  | Benefit                              |
-|-------------------------|--------------------------------------|
-| Manual configuration    | Transparency and control             |
-| Inheritance over DI     | Easy extension without hidden magic  |
-| Simple types            | Compatibility and easy serialization |
-
-![thinker](https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Le_Penseur_by_Rodin_%28Kunsthalle_Bielefeld%29_2014-04-10.JPG/500px-Le_Penseur_by_Rodin_%28Kunsthalle_Bielefeld%29_2014-04-10.JPG?raw=true)
-`} />
-  ),
   "4.0.0/authentication--jose--index": () => (
     <MarkdownRenderer content={`
 ## Overview
@@ -5194,6 +5172,465 @@ jam = Jam(
 \`\`\`
 `} />
   ),
+  "4.0.0/dev--cli": () => (
+    <MarkdownRenderer content={`# CLI
+
+Jam CLI is just a tool for generating different keys. For example, it is suitable for debugging with real keys or convenient deployment.
+
+## Installation
+
+\`\`\`bash
+pip install jamlib[cli]
+\`\`\`
+
+## Usage
+
+\`\`\`bash
+\$ jam [OPTIONS] COMMAND [ARGS]...
+\`\`\`
+
+### Options
+* \`--version\`: Show the version and exit.
+* \`--help\`: Show help message and exit.
+
+## Commands
+* \`keychain\`: Administer configured KeyChains.
+* \`keys\`: Generate cryptographic keys.
+* \`password\`: Password hashing and verification utilities.
+
+### Keychain
+Administer configured KeyChains.
+
+\`\`\`bash
+\$ jam keychain [OPTIONS] COMMAND [ARGS]...
+\`\`\`
+
+#### Options
+* \`--config FILE\`: Jam configuration file containing keychains.
+
+#### Commands
+* \`activate\`: Make a key current and retire the old current key.
+* \`add\`: Generate a standby key.
+* \`current\`: Show the current issuing key.
+* \`list\`: List key metadata.
+* \`remove\`: Permanently delete a non-current key.
+* \`retire\`: Retire a key while retaining it for verification.
+* \`revoke\`: Immediately reject credentials using a compromised key.
+* \`rotate\`: Generate and activate a new key.
+* \`show\`: Show metadata for one key.
+
+
+### Keys
+Generate cryptographic keys.
+
+\`\`\`bash
+\$ jam keys COMMAND [ARGS]...
+\`\`\`
+
+#### Commands
+* \`aes\`: Generate AES key.
+* \`ecdsa\`: Generate ECDSA P-384 key pair.
+* \`ed25519\`: Generate Ed25519 key pair.
+* \`rsa\`: Generate RSA key pair.
+* \`symmetric\`: Generate symmetric key.
+
+### Password
+Password hashing and verification utilities.
+
+\`\`\`bash
+\$ jam password [OPTIONS] COMMAND [ARGS]...
+\`\`\`
+
+#### Commands
+* \`hash\`: Hash a password.
+* \`verify\`: Verify a password against a hash.
+`} />
+  ),
+  "4.0.0/dev--testing": () => (
+    <MarkdownRenderer content={`# Test client
+
+\`TestJam\` and \`TestAsyncJam\` are in-memory instances for testing applications
+that depend on Jam. They use the real high-level \`issue\`, \`authenticate\` and
+\`authorize\` implementations. Only external boundaries are replaced:
+
+* JWT, JWS, JWE and PASETO do not use cryptographic keys;
+* sessions are stored in memory and isolated between instances;
+* OTP values and OAuth2 responses are deterministic;
+* authorization can be allowed, denied or controlled by a callback.
+
+This makes them suitable for application unit tests. Use a regular \`Jam\`
+instance with test keys and storage for integration tests of cryptography or
+specific storage backends.
+
+For example, you have a service for generating JWT tokens.
+
+!!! tip
+    For async services, you can use \`TestAsyncJam\` instead of \`TestJam\`.
+
+\`\`\`python
+from jam import Jam
+from jam.exceptions import JamError
+
+
+class AuthService:
+    def __init__(self, jam: Jam) -> None:
+        self.jam = jam
+
+    # Generate token
+    def generate_token(self, user) -> str:
+        return self.jam.issue(user, via="jwt", exp=3600)
+
+    # Validate token and return a principal or None
+    def validate_token(self, token):
+        try:
+            return self.jam.authenticate(token, via="jwt")
+        except JamError:
+            return None
+\`\`\`
+
+And you need to write tests for it:
+
+\`\`\`python
+import pytest
+from jam.tests import TestJam
+
+from your_app.services import AuthService
+
+
+@pytest.fixture
+def auth_service() -> AuthService:
+    return AuthService(jam=TestJam())
+
+def test_auth_user(auth_service):
+    user = {"id": 1, "username": "test_user"}
+    token = auth_service.generate_token(user)  # Generate token
+    assert token is not None
+
+    validated = auth_service.validate_token(token)  # Validate token
+    assert validated is not None
+    assert validated.subject["id"] == user["id"]
+
+    # if you want to test invalid token
+    from jam.tests.fakers import invalid_token
+    invalid_payload = auth_service.validate_token(invalid_token())
+    assert invalid_payload is None
+\`\`\`
+
+The test instance has the same module-oriented API as a configured production
+instance:
+
+\`\`\`python
+jam = TestJam(oauth2_providers=["github"])
+
+token = jam.jwt.encode(payload={"role": "admin"})
+payload = jam.jwt.decode(token)["payload"]
+
+session_id = jam.session.create("auth", {"user_id": 1})
+assert jam.session.get(session_id) == {"user_id": 1}
+
+assert jam.otp.now() == "123456"
+oauth_token = jam.oauth2["github"].fetch_token("code")
+\`\`\`
+
+Authorization allows access by default. Pass a boolean for a deny-by-default
+test, or a callback for a specific scenario:
+
+\`\`\`python
+jam = TestJam(authorization=False)
+assert jam.authorize({"id": "user-1"}, "post:delete") is False
+
+jam = TestJam(
+    authorization=lambda principal, permission, context: (
+        permission == "post:read"
+    )
+)
+assert jam.authorize({"id": "user-1"}, "post:read") is True
+
+# Calls are available for assertions.
+assert jam.policy.calls[0][1] == "post:read"
+\`\`\`
+
+Stateless modules of \`TestAsyncJam\` remain synchronous, just like those of
+\`AsyncJam\`; high-level credential operations, sessions and OAuth2 are
+awaitable:
+
+\`\`\`python
+jam = TestAsyncJam(oauth2_providers=["github"])
+
+token = await jam.issue({"id": "user-1"}, via="jwt")
+principal = await jam.authenticate(token)
+session_id = await jam.session.create("auth", {"user_id": "user-1"})
+oauth_token = await jam.oauth2["github"].fetch_token("code")
+\`\`\`
+`} />
+  ),
+  "4.0.0/dev--utils": () => (
+    <MarkdownRenderer content={`# Utils
+
+For convenience, Jam includes some utilities for authentication mechanisms and simple encryption.
+
+
+## Password hashing
+
+### Create hash
+
+Util: \`jam.utils.hash_password\`
+
+Args:
+
+* \`password\`: \`str\` - Password.
+* \`salt\`: \`bytes | None = None\` - Some salt.
+* \`iterations\`: \`int = 100_000\` - Number of iterations for hashing.
+* \`salt_size\`: \`int = 16\` - Size of salt in bytes.
+
+Returns:
+
+\`tuple[str, str]\` - hex salt, hex hash
+
+\`\`\`python
+from jam.utils import hash_password
+
+some_password = "qwerty1234"
+salt, hash_ = hash_password(
+    password=some_password
+)
+print(salt)
+>>> 92053744b136bed21397f25a7c19bc40
+print(hash_)
+>>> 0b1ee2ad3bda7c1697ae09733c96449b69c951fe425ef36b7620700f3e77f184
+\`\`\`
+
+### Verify password hash
+
+Util: \`jam.utils.check_password\`
+
+Args:
+
+* \`password\`: \`str\` - Password to check.
+* \`salt_hex\`: \`str\` - Salt.
+* \`hash_hex\`: \`str\` - Hash.
+* \`iterations\`: \`int = 100_000\` - Number of iterations for hashing.
+
+Returns:
+
+\`bool\` - Whether the password matches the hash.
+
+\`\`\`python
+from jam.utils import check_password
+
+valid = check_password(
+    password="qwerty1234",
+    salt_hex=salt,
+    hash_hex=hash_
+)
+print(valid)
+>>> True
+\`\`\`
+
+## Basic auth
+
+#### Encode header
+
+Util: \`jam.utils.basic_auth_encode\`
+
+Args:
+
+* \`login\`: \`str\` - Login.
+* \`password\`: \`str\` - Password.
+
+Returns:
+
+\`str\` - Basic auth header value.
+
+\`\`\`python
+from jam.utils import basic_auth_encode
+
+auth_header = basic_auth_encode(
+    login="user",
+    password="password"
+)
+print(auth_header)
+>>> "dXNlcjpwYXNzd29yZA=="
+\`\`\`
+
+### Decode header
+
+Util: \`jam.utils.basic_auth_decode\`
+
+Args:
+
+* \`data\`: \`str\`
+
+Returns:
+
+\`tuple[str, str]\` - Login, Password.
+
+\`\`\`python
+from jam.utils import basic_auth_decode
+
+login, password = basic_auth_decode(
+    data="dXNlcjpwYXNzd29yZA=="
+)
+print(login)
+>>> "user"
+print(password)
+>>> "password"
+\`\`\`
+
+## XOR data
+
+Util: \`jam.utils.xor_my_data\`
+
+Args:
+
+* \`data\`: \`str\` - Data to XOR.
+* \`key\`: \`str\` - XOR key.
+
+Returns:
+
+\`str\` - XORed data.
+
+\`\`\`python
+from jam.utils import xor_my_data
+
+data = "secret"
+key = "key"
+xored = xor_my_data(data=data, key=key)
+print(xored)
+>>> "18001a19000d"
+\`\`\`
+`} />
+  ),
+  "4.0.0/dev--key-generators": () => (
+    <MarkdownRenderer content={`# Key generators
+
+For your convenience, Jam includes several utilities for generating keys.
+
+!!! tip
+    All of these utilities are available in the **Jam CLI**. See the [documentation](/4.0.0/dev/cli).
+
+## Symmetric key generator
+
+Util: \`jam.utils.generate_symmetric_key\`
+
+Args:
+
+* \`n\`: \`int = 32\` - Key length in bytes.
+
+Returns:
+
+\`str\` - Symmetric key.
+
+\`\`\`python
+from jam.utils import generate_symmetric_key
+
+key = generate_symmetric_key()
+print(key)
+>>> KwMcnHqffc-jEKLrCdk93pNBHrTgyFH-MeWu2Z_udco
+\`\`\`
+
+## AES key generator
+
+Util: \`jam.utils.generate_aes_key\`
+
+Returns:
+
+\`bytes\`: AES key.
+
+\`\`\`python
+from jam.utils import generate_aes_key
+
+key = generate_aes_key()
+print(key)
+>>> b'NMuwX-O7wgSrOv8NMXkjFrMAwKQsUpWpnkmEnAM0TzE='
+\`\`\`
+
+## ED keypair
+
+Utils:
+
+* \`jam.utils.generate_ed25519_keypair\`
+* \`jam.utils.generate_ecdsa_p384_keypair\`
+
+Returns:
+
+\`dict[str, str]\` - Dict in format \`{"private": KEY, "public": KEY}\`.
+
+\`\`\`python
+from jam.utils import generate_ed25519_keypair
+
+ed25519_keypair = generate_ed25519_keypair()
+print(ed25519_keypair)
+>>> {'private': '', 'public': ''}
+####
+from jam.utils import generate_ecdsa_p384_keypair
+
+ecdsa_p384_keypair = generate_ecdsa_p384_keypair()
+print(ecdsa_p384_keypair)
+>>> {'private': '', 'public': ''}
+\`\`\`
+
+## OTP specific key
+
+Utils:
+
+* \`jam.utils.generate_otp_key\`
+
+Args:
+
+* \`entropy_bits\`: \`int = 128\` - Number of entropy bits to use for key generation.
+
+Returns:
+
+\`str\` - OTP key.
+
+* \`jam.utils.otp_key_from_string\`
+
+Args:
+
+* \`s\`: \`str\` - Some string to generate.
+
+Returns:
+
+\`str\` - OTP Key.
+
+
+\`\`\`python
+from jam.utils import generate_otp_key
+
+key = generate_otp_key()
+print(key)
+>>> SSDEWUXGHUG3XG53JMVYO555WI
+
+### from string
+from jam.utils import otp_key_from_string
+
+key = otp_key_from_string("someusername@example.com")
+print(key)
+>>> CUK2QXKSV5DSNPI46DPK46TYYRIMX7QK
+\`\`\`
+
+## RSA keypair
+
+Util \`jam.utils.generate_rsa_key_pair\`
+
+Args:
+
+* \`key_size\`: \`int = 2048\` - Key size in bits.
+
+Returns:
+
+\`dict[str, str]\` - Dict in format \`{"private": KEY, "public": KEY}\`
+
+\`\`\`python
+from jam.utils import generate_rsa_key_pair
+
+rsa_keypair = generate_rsa_key_pair()
+print(rsa_keypair)
+>>> {'private': '', 'public': ''}
+\`\`\`
+`} />
+  ),
   "4.0.0/dev--custom": () => (
     <MarkdownRenderer content={`# Custom modules
 
@@ -5366,301 +5803,6 @@ class MyJWT(BaseJWT):
 
 jwt = MyJWT(secret_key="your_secret")
 token = jwt.encode(payload={"user_id": 123})
-\`\`\`
-`} />
-  ),
-  "4.0.0/dev--cli": () => (
-    <MarkdownRenderer content={`# CLI
-
-Jam CLI is just a tool for generating different keys. For example, it is suitable for debugging with real keys or convenient deployment.
-
-## Installation
-
-\`\`\`bash
-pip install jamlib[cli]
-\`\`\`
-
-## Usage
-
-\`\`\`bash
-\$ jam [OPTIONS] COMMAND [ARGS]...
-\`\`\`
-
-### Options
-* \`--version\`: Show the version and exit.
-* \`--help\`: Show help message and exit.
-
-## Commands
-* \`keychain\`: Administer configured KeyChains.
-* \`keys\`: Generate cryptographic keys.
-* \`password\`: Password hashing and verification utilities.
-
-### Keychain
-See [keychain documentation](/usage/keychain/#cli).
-
-### Keys
-Generate cryptographic keys.
-
-\`\`\`bash
-\$ jam keys COMMAND [ARGS]...
-\`\`\`
-
-#### Commands
-* \`aes\`: Generate AES key.
-* \`ecdsa\`: Generate ECDSA P-384 key pair.
-* \`ed25519\`: Generate Ed25519 key pair.
-* \`rsa\`: Generate RSA key pair.
-* \`symmetric\`: Generate symmetric key.
-
-### Password
-Password hashing and verification utilities.
-
-\`\`\`bash
-\$ jam password [OPTIONS] COMMAND [ARGS]...
-\`\`\`
-
-#### Commands
-* \`hash\`: Hash a password.
-* \`verify\`: Verify a password against a hash.
-`} />
-  ),
-  "4.0.0/dev--testing": () => (
-    <MarkdownRenderer content={`# Test client
-
-\`TestJam\` and \`TestAsyncJam\` are in-memory instances for testing applications
-that depend on Jam. They use the real high-level \`issue\`, \`authenticate\` and
-\`authorize\` implementations. Only external boundaries are replaced:
-
-* JWT, JWS, JWE and PASETO do not use cryptographic keys;
-* sessions are stored in memory and isolated between instances;
-* OTP values and OAuth2 responses are deterministic;
-* authorization can be allowed, denied or controlled by a callback.
-
-This makes them suitable for application unit tests. Use a regular \`Jam\`
-instance with test keys and storage for integration tests of cryptography or
-specific storage backends.
-
-For example, you have a service for generating JWT tokens.
-
-!!! tip
-    For async services, you can use \`TestAsyncJam\` instead of \`TestJam\`.
-
-\`\`\`python
-from jam import Jam
-from jam.exceptions import JamError
-
-
-class AuthService:
-    def __init__(self, jam: Jam) -> None:
-        self.jam = jam
-
-    # Generate token
-    def generate_token(self, user) -> str:
-        return self.jam.issue(user, via="jwt", exp=3600)
-
-    # Validate token and return a principal or None
-    def validate_token(self, token):
-        try:
-            return self.jam.authenticate(token, via="jwt")
-        except JamError:
-            return None
-\`\`\`
-
-And you need to write tests for it:
-
-\`\`\`python
-import pytest
-from jam.tests import TestJam
-
-from your_app.services import AuthService
-
-
-@pytest.fixture
-def auth_service() -> AuthService:
-    return AuthService(jam=TestJam())
-
-def test_auth_user(auth_service):
-    user = {"id": 1, "username": "test_user"}
-    token = auth_service.generate_token(user)  # Generate token
-    assert token is not None
-
-    validated = auth_service.validate_token(token)  # Validate token
-    assert validated is not None
-    assert validated.subject["id"] == user["id"]
-
-    # if you want to test invalid token
-    from jam.tests.fakers import invalid_token
-    invalid_payload = auth_service.validate_token(invalid_token())
-    assert invalid_payload is None
-\`\`\`
-
-The test instance has the same module-oriented API as a configured production
-instance:
-
-\`\`\`python
-jam = TestJam(oauth2_providers=["github"])
-
-token = jam.jwt.encode(payload={"role": "admin"})
-payload = jam.jwt.decode(token)["payload"]
-
-session_id = jam.session.create("auth", {"user_id": 1})
-assert jam.session.get(session_id) == {"user_id": 1}
-
-assert jam.otp.now() == "123456"
-oauth_token = jam.oauth2["github"].fetch_token("code")
-\`\`\`
-
-Authorization allows access by default. Pass a boolean for a deny-by-default
-test, or a callback for a specific scenario:
-
-\`\`\`python
-jam = TestJam(authorization=False)
-assert jam.authorize({"id": "user-1"}, "post:delete") is False
-
-jam = TestJam(
-    authorization=lambda principal, permission, context: (
-        permission == "post:read"
-    )
-)
-assert jam.authorize({"id": "user-1"}, "post:read") is True
-
-# Calls are available for assertions.
-assert jam.policy.calls[0][1] == "post:read"
-\`\`\`
-
-Stateless modules of \`TestAsyncJam\` remain synchronous, just like those of
-\`AsyncJam\`; high-level credential operations, sessions and OAuth2 are
-awaitable:
-
-\`\`\`python
-jam = TestAsyncJam(oauth2_providers=["github"])
-
-token = await jam.issue({"id": "user-1"}, via="jwt")
-principal = await jam.authenticate(token)
-session_id = await jam.session.create("auth", {"user_id": "user-1"})
-oauth_token = await jam.oauth2["github"].fetch_token("code")
-\`\`\`
-`} />
-  ),
-  "4.0.0/dev--contributing": () => (
-    <MarkdownRenderer content={`# Contributing
-
-If you want to help develop Jam, there are a few rules to follow.
-
-## Code style
-
-- Python >= 3.10
-- Line length: 80 characters, indented 4 spaces
-- Import order: stdlib → third-party → library modules (handled by ruff/isort)
-- Docstrings: Google convention (handled by ruff/pydocstyle)
-
-\`\`\`python
-# Built-in libraries
-from typing import Literal
-
-# Third-party libraries
-from cryptography.hazmat.primitives import hashes
-
-# Library modules
-from jam.jwt import Token
-
-
-class SomeClass:
-    """Long class description."""
-
-    def __init__(self, some_value: str) -> None:
-        """Class constructor.
-
-        Args:
-            some_value (str): Some value
-        """
-        self.sv = some_value
-
-    def some_method(self, something: int) -> int:
-        """Method description.
-
-        Args:
-            something (int): Argument description
-
-        Raises:
-            ValueError: if something < 1
-
-        Returns:
-            int: Something plus one
-        """
-        if something < 1:
-            raise ValueError("something < 1")
-
-        return something + 1
-\`\`\`
-
-## Development Tools
-
-- **ruff** — linter + formatter (\`uv run ruff check\`, \`uv run ruff format\`)
-- **pytest** — tests (\`uv run pytest\`)
-- **pyrefly** — type checking (\`uv run pyrefly check\`)
-- **pre-commit** — \`uv run pre-commit run --all-files\`
-
-## Gitflow
-
-### Commits
-
-The project must have \`pre-commit\`
-
-* \`[+]\` Adding new functionality
-* \`[-]\` Removing something, e.g. removing a function or deleting a file
-* \`[*]\` Changing the logic
-* \`[~]\` Changes that do not affect the logic, documentation, linters, etc
-
-The keys in the commit body are also used:
-
-* \`R\`(reason): Reason for change, deletion, etc
-* \`FB\`(fix by): How it was made or fixed
-* \`N\`(note): A note of some kind
-
-Example of a correct commit:
-
-\`\`\`
-[*] Changed JWT decryption logic
-R: Used a third-party heavy dependency that slowed down the code
-FB: Removed the dependency and wrote independently
-\`\`\`
-
-### Branches
-
-All branches are created from \`master\` and adhere to strict branch naming:
-
-* New feature: \`feature/<id-issue-if-it-is>-<pair-words-about-feature>\`
-* Bug fixes: \`fix/<id-issue-if-it-is>-<pair-words-about-bug>\`
-* Refactoring: \`refactor/<id-issue-if-it-is>-<what-exactly-you-do>\`
-* Writing documentation: \`docs/<what-exactly-you-do>\`
-
-Examples:
-
-* \`feature/validate-redis-session\`
-* \`fix/18-jwt-making\`
-
-### Pull requests
-
-The title of the pull request must contain a keyword:
-
-* \`FEAT\` — Adding a new feature
-* \`BUGFIX\` — Bug fix
-* \`HOTFIX\` — Urgent bug fix
-* \`DOCS\` — Edits/additions to documentation
-
-Example:
-
-\`\`\`markdown
-FEAT Validation of a redis session
-
-## What was done
-
-- Brief description of what was done
-
-## Test report
-
-- How you tested
 \`\`\`
 `} />
   ),
@@ -13071,965 +13213,6 @@ Example:
     >>> print(encrypted)
     <...encrypted hex string...>
     \`\`\`
-`} />
-  ),
-  "4.0.0/reference--auth-utils": () => (
-    <MarkdownRenderer content={`
-For convenience, Jam includes some utilities for authentication mechanisms and simple encryption.
-
-
-## Password hashing
-
-### Create hash
-
-Util: \`jam.utils.hash_password\`
-
-Args:
-
-* \`password\`: \`str\` - Password.
-* \`salt\`: \`bytes | None = None\` - Some salt.
-* \`iterations\`: \`int = 100_000\` - Number of iterations for hashing.
-* \`salt_size\`: \`int = 16\` - Size of salt in bytes.
-
-Returns:
-
-\`tuple[str, str]\` - hex salt, hex hash
-
-\`\`\`python
-from jam.utils import hash_password
-
-some_password = "qwerty1234"
-salt, hash_ = hash_password(
-    password=some_password
-)
-print(salt)
->>> 92053744b136bed21397f25a7c19bc40
-print(hash_)
->>> 0b1ee2ad3bda7c1697ae09733c96449b69c951fe425ef36b7620700f3e77f184
-\`\`\`
-
-### Verify password hash
-
-Util: \`jam.utils.check_password\`
-
-Args:
-
-* \`password\`: \`str\` - Password to check.
-* \`salt_hex\`: \`str\` - Salt.
-* \`hash_hex\`: \`str\` - Hash.
-* \`iterations\`: \`int = 100_000\` - Number of iterations for hashing.
-
-Returns:
-
-\`bool\` - Whether the password matches the hash.
-
-\`\`\`python
-from jam.utils import check_password
-
-valid = check_password(
-    password="qwerty1234",
-    salt_hex=salt,
-    hash_hex=hash_
-)
-print(valid)
->>> True
-\`\`\`
-
-## Basic auth
-
-#### Encode header
-
-Util: \`jam.utils.basic_auth_encode\`
-
-Args:
-
-* \`login\`: \`str\` - Login.
-* \`password\`: \`str\` - Password.
-
-Returns:
-
-\`str\` - Basic auth header value.
-
-\`\`\`python
-from jam.utils import basic_auth_encode
-
-auth_header = basic_auth_encode(
-    login="user",
-    password="password"
-)
-print(auth_header)
->>> "dXNlcjpwYXNzd29yZA=="
-\`\`\`
-
-### Decode header
-
-Util: \`jam.utils.basic_auth_decode\`
-
-Args:
-
-* \`data\`: \`str\`
-
-Returns:
-
-\`tuple[str, str]\` - Login, Password.
-
-\`\`\`python
-from jam.utils import basic_auth_decode
-
-login, password = basic_auth_decode(
-    data="dXNlcjpwYXNzd29yZA=="
-)
-print(login)
->>> "user"
-print(password)
->>> "password"
-\`\`\`
-
-## XOR data
-
-Util: \`jam.utils.xor_my_data\`
-
-Args:
-
-* \`data\`: \`str\` - Data to XOR.
-* \`key\`: \`str\` - XOR key.
-
-Returns:
-
-\`str\` - XORed data.
-
-\`\`\`python
-from jam.utils import xor_my_data
-
-data = "secret"
-key = "key"
-xored = xor_my_data(data=data, key=key)
-print(xored)
->>> "18001a19000d"
-\`\`\`
-`} />
-  ),
-  "4.0.0/reference--key-generators": () => (
-    <MarkdownRenderer content={`
-For your convenience, Jam includes several utilities for generating keys.
-
-!!! tip
-    All of these utilities are available in the **Jam CLI**. See the [documentation](/usage/cli).
-
-## Symmetric key generator
-
-Util: \`jam.utils.generate_symmetric_key\`
-
-Args:
-
-* \`n\`: \`int = 32\` - Key length in bytes.
-
-Returns:
-
-\`str\` - Symmetric key.
-
-\`\`\`python
-from jam.utils import generate_symmetric_key
-
-key = generate_symmetric_key()
-print(key)
->>> KwMcnHqffc-jEKLrCdk93pNBHrTgyFH-MeWu2Z_udco
-\`\`\`
-
-## AES key generator
-
-Util: \`jam.utils.generate_aes_key\`
-
-Returns:
-
-\`bytes\`: AES key.
-
-\`\`\`python
-from jam.utils import generate_aes_key
-
-key = generate_aes_key()
-print(key)
->>> b'NMuwX-O7wgSrOv8NMXkjFrMAwKQsUpWpnkmEnAM0TzE='
-\`\`\`
-
-## ED keypair
-
-Utils:
-
-* \`jam.utils.generate_ed25519_keypair\`
-* \`jam.utils.generate_ecdsa_p384_keypair\`
-
-Returns:
-
-\`dict[str, str]\` - Dict in format \`{"private": KEY, "public": KEY}\`.
-
-\`\`\`python
-from jam.utils import generate_ed25519_keypair
-
-ed25519_keypair = generate_ed25519_keypair()
-print(ed25519_keypair)
->>> {'private': '', 'public': ''}
-####
-from jam.utils import generate_ecdsa_p384_keypair
-
-ecdsa_p384_keypair = generate_ecdsa_p384_keypair()
-print(ecdsa_p384_keypair)
->>> {'private': '', 'public': ''}
-\`\`\`
-
-## OTP specific key
-
-Utils:
-
-* \`jam.utils.generate_otp_key\`
-
-Args:
-
-* \`entropy_bits\`: \`int = 128\` - Number of entropy bits to use for key generation.
-
-Returns:
-
-\`str\` - OTP key.
-
-* \`jam.utils.otp_key_from_string\`
-
-Args:
-
-* \`s\`: \`str\` - Some string to generate.
-
-Returns:
-
-\`str\` - OTP Key.
-
-
-\`\`\`python
-from jam.utils import generate_otp_key
-
-key = generate_otp_key()
-print(key)
->>> SSDEWUXGHUG3XG53JMVYO555WI
-
-### from string
-from jam.utils import otp_key_from_string
-
-key = otp_key_from_string("someusername@example.com")
-print(key)
->>> CUK2QXKSV5DSNPI46DPK46TYYRIMX7QK
-\`\`\`
-
-## RSA keypair
-
-Util \`jam.utils.generate_rsa_key_pair\`
-
-Args:
-
-* \`key_size\`: \`int = 2048\` - Key size in bits.
-
-Returns:
-
-\`dict[str, str]\` - Dict in format \`{"private": KEY, "public": KEY}\`
-
-\`\`\`python
-from jam.utils import generate_rsa_key_pair
-
-rsa_keypair = generate_rsa_key_pair()
-print(rsa_keypair)
->>> {'private': '', 'public': ''}
-\`\`\`
-`} />
-  ),
-  "4.0.0/reference--test-client": () => (
-    <MarkdownRenderer content={`
-\`TestJam\` and \`TestAsyncJam\` are in-memory instances for testing applications
-that depend on Jam. They use the real high-level \`issue\`, \`authenticate\` and
-\`authorize\` implementations. Only external boundaries are replaced:
-
-* JWT, JWS, JWE and PASETO do not use cryptographic keys;
-* sessions are stored in memory and isolated between instances;
-* OTP values and OAuth2 responses are deterministic;
-* authorization can be allowed, denied or controlled by a callback.
-
-This makes them suitable for application unit tests. Use a regular \`Jam\`
-instance with test keys and storage for integration tests of cryptography or
-specific storage backends.
-
-For example, you have a service for generating JWT tokens.
-
-!!! tip
-    For async services, you can use \`TestAsyncJam\` instead of \`TestJam\`.
-
-\`\`\`python
-from jam import Jam
-from jam.exceptions import JamError
-
-
-class AuthService:
-    def __init__(self, jam: Jam) -> None:
-        self.jam = jam
-
-    # Generate token
-    def generate_token(self, user) -> str:
-        return self.jam.issue(user, via="jwt", exp=3600)
-
-    # Validate token and return a principal or None
-    def validate_token(self, token):
-        try:
-            return self.jam.authenticate(token, via="jwt")
-        except JamError:
-            return None
-\`\`\`
-
-And you need to write tests for it:
-
-\`\`\`python
-import pytest
-from jam.tests import TestJam
-
-from your_app.services import AuthService
-
-
-@pytest.fixture
-def auth_service() -> AuthService:
-    return AuthService(jam=TestJam())
-
-def test_auth_user(auth_service):
-    user = {"id": 1, "username": "test_user"}
-    token = auth_service.generate_token(user)  # Generate token
-    assert token is not None
-
-    validated = auth_service.validate_token(token)  # Validate token
-    assert validated is not None
-    assert validated.subject["id"] == user["id"]
-
-    # if you want to test invalid token
-    from jam.tests.fakers import invalid_token
-    invalid_payload = auth_service.validate_token(invalid_token())
-    assert invalid_payload is None
-\`\`\`
-
-The test instance has the same module-oriented API as a configured production
-instance:
-
-\`\`\`python
-jam = TestJam(oauth2_providers=["github"])
-
-token = jam.jwt.encode(payload={"role": "admin"})
-payload = jam.jwt.decode(token)["payload"]
-
-session_id = jam.session.create("auth", {"user_id": 1})
-assert jam.session.get(session_id) == {"user_id": 1}
-
-assert jam.otp.now() == "123456"
-oauth_token = jam.oauth2["github"].fetch_token("code")
-\`\`\`
-
-Authorization allows access by default. Pass a boolean for a deny-by-default
-test, or a callback for a specific scenario:
-
-\`\`\`python
-jam = TestJam(authorization=False)
-assert jam.authorize({"id": "user-1"}, "post:delete") is False
-
-jam = TestJam(
-    authorization=lambda principal, permission, context: (
-        permission == "post:read"
-    )
-)
-assert jam.authorize({"id": "user-1"}, "post:read") is True
-
-# Calls are available for assertions.
-assert jam.policy.calls[0][1] == "post:read"
-\`\`\`
-
-Stateless modules of \`TestAsyncJam\` remain synchronous, just like those of
-\`AsyncJam\`; high-level credential operations, sessions and OAuth2 are
-awaitable:
-
-\`\`\`python
-jam = TestAsyncJam(oauth2_providers=["github"])
-
-token = await jam.issue({"id": "user-1"}, via="jwt")
-principal = await jam.authenticate(token)
-session_id = await jam.session.create("auth", {"user_id": "user-1"})
-oauth_token = await jam.oauth2["github"].fetch_token("code")
-\`\`\`
-`} />
-  ),
-  "4.0.0/changes--deprecated": () => (
-    <MarkdownRenderer content={`
-<!--Everything is relevant 👌-->
-
-- \`jam.Jam.jwt_make_payload\`: The JWT specification has been introduced, so signing is now done via JWS
-- \`jam.Jam.jwt_create\`: Use \`jam.Jam.jwt_encode\`
-- \`jam.jwt.JWT\`: Use \`jam.jose.JWT\`
-- \`jam.Jam.jwt_encode\`, \`jam.Jam.jwt_decode\`, \`jam.Jam.session_*\`, \`jam.Jam.otp_*\`,
-  \`jam.Jam.oauth2_*\`, \`jam.Jam.paseto_*\`, \`jam.Jam.jws_*\`, \`jam.Jam.jwe_*\` (sync facade):
-  removed in 4.0.0. Use \`jam.issue\` / \`jam.authenticate\` or the module
-  attributes (\`jam.jwt\`, \`jam.session\`, ...). The same methods remain available
-  as awaitables on \`jam.aio.Jam\`. See [3.0.0 -> 4.0.0](jam300_to_400.md).
-- \`jam.sessions.create_instance\` param \`sessions_type\`: deprecated alias for \`session_type\`.
-`} />
-  ),
-  "4.0.0/changes--jam114-to-200": () => (
-    <MarkdownRenderer content={`
-# Breaking changes 1.1.4 to 2.0.0
-
-## Instance
-
-With the introduction of a more convenient configuration format, it was decided to move \`auth_type\` to the config.
-
-Old format:
-\`\`\`python
-from jam import Jam
-
-jam = Jam(auth_type="jwt", config=config)
-\`\`\`
-
-
-New format:
-\`\`\`python
-from jam import Jam
-
-'''config.yml
-jam:
-  auth_type: jwt
-  alg: HS256
-  secret_key: SECRET_KEY
-  expire: 3600
-'''
-
-jam = Jam(config="config.yml")
-\`\`\`
-More about configurations: [jam.makridenko.ru/config](/config)
-
-## Configuring JWT lists
-
-Previously, lists were configured by passing an instance of the \`jam.jwt.lists.*\` class:
-\`\`\`python
-from jam import Jam
-from jam.jwt.lists.json import JSONList
-
-config = {
-    "alg": "HS256",
-    "secret_key": "some_key",
-    "expire": 3600,
-    "list": JSONList(type="black", json_path="blacklist.json")
-}
-jam = Jam(auth_type="jwt", config=config)
-\`\`\`
-
-Now, custom settings are passed for standard \`redis\` and \`json\` lists. Example in \`dict\` configuration:
-\`\`\`python
-from jam import Jam
-
-config = {
-    "alg": "HS256",
-    "secret_key": "some_key",
-    "expire": 3600,
-    "list": {
-        "type": "black",
-        "backend": "redis",
-        "redis_uri": "redis://0.0.0.0:6379/0"
-    }
-}
-
-jam = Jam(config=config)
-\`\`\`
-
-For custom lists:
-\`\`\`python
-from jam import Jam
-
-config = {
-    "alg": "HS256",
-    "secret_key": "some_key",
-    "expire": 3600,
-    "list": {
-        "type": "black",
-        "backend": "custom",
-        "custom_module": "app.some_module.SomeModule",
-        "param1": "val1",
-        "param2": 123
-    }
-}
-
-jam = Jam(config=config)
-\`\`\`
-
-## Renaming \`ABCList\`
-It was decided to name all abstract modules \`Base<NAME>\`, so \`ABCList\` was renamed to \`BaseJWTList\`.
-More details: [\`jam.jwt.list.__abc_list_repo__\`](/api/jwt/lists/abc_lists/)
-
-
-## Renaming \`__AbstractInstance\`:
-It was decided to name all abstract modules \`Base<NAME>\`, so \`__AbstractInstance\` was renamed to \`BaseJam\`.
-More details: [\`jam.__abc_instances__.BaseJam\`](/api/abc_instance/)
-
-## Removal of \`jam.utils.make_jwt_config\`
-Configuration is now done by writing config files, so a separate function is no longer needed.
-
-## Optional dependencies
-Renamed:
-* \`pip install jamlib[json-lists]\` -> \`pip install jamlib[json]\`
-* \`pip install jamlib[redis-lists]\` -> \`pip install jamlib[redis]\``} />
-  ),
-  "4.0.0/changes--jam256-to-300": () => (
-    <MarkdownRenderer content={`
-# Breaking changes 2.5.6 to 3.0.0
-
-## Delete deprecated methods
-
-### Config
-The old configuration type is no longer relevant.
-This helps to implement several types of authorization in a single instance,
-for example, JWT + OAuth2.
-
-Old version:
-\`\`\`toml
-[jam]
-auth_type = "jwt"
-secret_key = "SECRET"
-\`\`\`
-In this version of the config,
-to implement another type of authorization,
-it was necessary to create another instance:
-\`\`\`toml
-[another_jam]
-auth_type = "sessions"
-session_type = "redis"
-redis_uri = "redis://0.0.0.0:6379"
-\`\`\`
-And:
-\`\`\`python
-from jam import Jam
-
-jwt_jam = Jam(config="config.toml")
-sessions_jam = Jam(config="config.toml", pointer="another_jam")
-\`\`\`
-
-New version:
-\`\`\`toml
-[jam.jwt]
-alg = "HS256"
-secret_key = "SECRET"
-
-[jam.sessions]
-session_type = "redis"
-redis_uri = "redis://0.0.0.0:6379"
-\`\`\`
-And:
-\`\`\`python
-from jam import Jam
-
-jam = Jam(config="config.toml")
-
-#  Now we can use both authorization options in one instance.
-jwt_token = jam.jwt_create_token({"user": 1})
-session_id = jam.session_create("user", {"user": 1})
-\`\`\`
-
-### Instance methods
-It was decided to bring all methods to a single naming format: \`<auth_type>_<action>\`.
-As a result, the following methods were renamed:
-
-* \`gen_jwt_token\` -> \`jwt_create\`
-* \`make_payload\` -> \`jwt_make_payload\`
-* \`verify_jwt_token\` -> \`jwt_decode\`
-* \`clear_sessions\` -> \`session_clear\`
-* \`get_session\` -> \`session_get\`
-* \`create_session\` -> \`session_create\`
-* \`delete_session\` -> \`session_delete\`
-* \`update_session\` -> \`session_update\`
-* \`rework_session\` -> \`session_rework\`
-* \`get_otp_code\` -> \`otp_code\`
-* \`get_otp_uri\` -> \`otp_uri\`
-* \`verify_otp_code\` -> \`otp_verify_code\`
-
-### Quick methods
-Removed \`jam.quick\` as unnecessary.
-
-## Module System Refactoring
-
-### Unified Module Initialization
-
-All modules now use factory functions (\`create_instance\`) instead of wrapper classes for consistency and better performance.
-
-**What changed:**
-- \`jam.modules.SessionModule\` → Removed, use \`jam.sessions.create_instance\`
-- \`jam.modules.OAuth2Module\` → Removed, use \`jam.oauth2.create_instance\`
-- \`jam.sessions.utils.init_session_instance\` → Removed, use \`jam.sessions.create_instance\`
-- \`jam.paseto.utils.init_paseto_instance\` → Removed, use \`jam.paseto.create_instance\`
-- \`jam.otp.utils.init_otp_instance\` → Removed, use \`jam.otp.create_instance\`
-
-**Impact on users:**
-
-#### For most users: NO CHANGES NEEDED
-The public API (\`jam.jwt_*()\`, \`jam.session_*()\`, \`jam.oauth2_*()\`, etc.) remains unchanged.
-
-#### For users directly importing wrapper classes:
-
-**Before:**
-\`\`\`python
-from jam.modules import SessionModule, OAuth2Module
-
-# This will no longer work
-session = SessionModule(sessions_type="redis", redis_uri="redis://localhost")
-oauth2 = OAuth2Module(config={"providers": {...}})
-\`\`\`
-
-**After:**
-\`\`\`python
-from jam.sessions import create_instance as create_session
-from jam.oauth2 import create_instance as create_oauth2
-
-# Use factory functions instead
-session = create_session(session_type="redis", redis_uri="redis://localhost")
-oauth2 = create_oauth2(providers={...})
-\`\`\`
-
-#### For users accessing internal structure:
-
-**\`self.oauth2\` internal structure changed:**
-
-**Before:**
-\`\`\`python
-jam = Jam(config="config.yml")
-# self.oauth2 was OAuth2Module object with methods
-jam.oauth2.get_authorization_url("github", ["read:user"])
-\`\`\`
-
-**After:**
-\`\`\`python
-jam = Jam(config="config.yml")
-# self.oauth2 is now a dict: {provider_name: client_instance}
-jam.oauth2["github"].get_authorization_url(["read:user"])
-
-# Public API methods still work the same:
-jam.oauth2_get_authorized_url("github", ["read:user"])  # ← USE THIS
-\`\`\`
-
-## Redis sessions
-
-Rename parameter \`default_ttl\` to \`ttl\`.
-
-## Framework integration
-
-A complete overhaul of framework integrations; see the documentation.
-`} />
-  ),
-  "4.0.0/changes--jam330-to-400": () => (
-    <MarkdownRenderer content={`
-# Breaking changes 3.3.0 to 4.0.0
-
-## New facade: \`issue\` / \`authenticate\`
-
-The synchronous facade was unified. All the scattered \`<auth_type>_<action>\`
-methods (\`jwt_encode\`, \`session_create\`, \`otp_code\`, ...) were replaced with
-two methods that cover all modules:
-
-* \`jam.issue(subject, via="jwt" | "paseto" | "session", **claims)\` — create a token.
-* \`jam.authenticate(token, via=None | "jwt" | "jwe" | "paseto" | "session")\` — validate a token.
-  When \`via\` is not given, the token type is detected automatically.
-* \`jam.authorize(subject, permission)\` — new authorization check, see below.
-
-Old version:
-\`\`\`python
-jwt_token = jam.jwt_encode({"user": 1})
-session_id = jam.session_create("user", {"user": 1})
-code = jam.otp_code(secret="...")
-\`\`\`
-
-New version:
-\`\`\`python
-jwt_token = jam.issue({"user": 1}, via="jwt")
-session_id = jam.issue({"user": 1}, via="session")
-code = jam.otp(secret="...").now()
-
-jam.authenticate(jwt_token, via="jwt")     # validate JWT
-jam.authenticate(jwt_token)                # or auto-detect the format
-\`\`\`
-
-### Removed synchronous methods
-
-The following \`jam.Jam\` methods no longer exist on the synchronous instance.
-Use the module attributes or \`jam.issue\`/\`jam.authenticate\` instead:
-
-* \`jam.jwt_make_payload\`, \`jam.jwt_create\`, \`jam.jwt_encode\`, \`jam.jwt_decode\`
-  → \`jam.issue(via="jwt")\`, \`jam.authenticate(via="jwt")\` or \`jam.jwt.encode/decode\`.
-* \`jam.jws_sign\`, \`jam.jws_verify\` → \`jam.jws.sign/verify\`.
-* \`jam.jwe_encrypt\`, \`jam.jwe_decrypt\` → \`jam.jwe.encrypt/decrypt\`.
-* \`jam.paseto_make_payload\`, \`jam.paseto_create\`, \`jam.paseto_decode\`
-  → \`jam.issue(via="paseto")\`, \`jam.authenticate(via="paseto")\` or \`jam.paseto.encode/decode\`.
-* \`jam.session_create/get/delete/update/clear/rework\` → \`jam.session.*\` or
-  \`jam.issue(via="session")\`.
-* \`jam.otp_code\`, \`jam.otp_uri\`, \`jam.otp_verify_code\`
-  → \`jam.otp(secret=...).now/verify/provisioning_uri\`.
-* \`jam.oauth2_get_authorized_url\`, \`jam.oauth2_fetch_token\`,
-  \`jam.oauth2_refresh_token\`, \`jam.oauth2_client_credentials_flow\`
-  → \`jam.oauth2["provider"]\` methods.
-
-### Async facade
-
-\`jam.aio.AsyncJam\` is an independent asynchronous facade. Use
-\`await jam.issue(...)\` and \`await jam.authenticate(...)\` for high-level
-credential operations. Session stores, token lists, and OAuth2 requests use
-async backends.
-
-Pure operations are not artificial coroutines: JWT/JWS/JWE, PASETO, OTP, and
-\`authorize()\` remain synchronous on their module objects. \`jam.aio.Jam\` is an
-import-compatible alias for \`AsyncJam\`.
-
-## Module attributes
-
-Modules are now exposed as attributes on the instance:
-
-* \`jam.jwt\`, \`jam.jws\`, \`jam.jwe\`, \`jam.jose\`
-* \`jam.paseto\`
-* \`jam.session\` (was \`jam.sessions\`)
-* \`jam.otp\` — stores the class; create an instance with \`jam.otp(secret=...)\`
-* \`jam.oauth2\` — a dict \`{provider_name: client}\`
-
-## Subjects
-
-\`issue\`/\`authenticate\` work with subjects. Pass a subject class to the
-instance and read it back from \`authenticate\`:
-
-\`\`\`python
-from dataclasses import dataclass
-from jam import BaseSubject, Jam
-
-@dataclass
-class User(BaseSubject):
-    id: str
-    email: str = ""
-
-jam = Jam(config="config.toml", subject=User)
-token = jam.issue(User(id="1", email="user@example.com"), via="jwt")
-principal = jam.authenticate(token, via="jwt")
-user = principal.subject  # -> User(id="1", email="user@example.com")
-\`\`\`
-
-\`BaseSubject\` now requires an \`id\` field. \`from_dict\` ignores unknown claims
-instead of failing. \`authenticate\` returns a \`Principal\` so authorization can
-use both the typed subject and claims belonging to the specific credential.
-
-## Authorization
-
-New \`jam.authorize(principal, permission, context=None)\` and the \`[jam.authz]\`
-config section. Permissions can be granted to an individual credential:
-
-\`\`\`python
-token = jam.issue(user, permissions=["profile:read", "user:delete"])
-principal = jam.authenticate(token)
-jam.authorize(principal, "user:delete")
-\`\`\`
-
-Policies support allow/deny effects, wildcard permissions and dynamic
-conditions over \`subject.*\`, \`token.*\` and \`context.*\`. See
-[Authorization](/usage/authz) for the complete configuration syntax.
-
-## Framework integrations
-
-Framework integrations now use one configured \`Jam\` instance instead of
-creating separate JWT, PASETO, session, and OAuth2 modules. This keeps token
-handling, subject conversion, and authorization consistent with
-\`jam.authenticate()\` and \`jam.authorize()\`.
-
-The integrations no longer accept module configuration or module-specific
-keyword arguments. Create \`Jam\` once and pass it to the framework adapter:
-
-\`\`\`python
-from jam import Jam
-
-jam = Jam("config.toml", subject=User)
-\`\`\`
-
-All authentication integrations use \`Authorization: Bearer <credential>\` by
-default. Additional sources are configured explicitly and checked in order:
-
-\`\`\`python
-from jam.ext import CredentialSource
-
-sources = [
-    CredentialSource.bearer(),
-    CredentialSource.cookie("session"),
-    CredentialSource.header("X-API-Token"),
-]
-\`\`\`
-
-\`CredentialSource\` supports Bearer headers, arbitrary headers, cookies, and
-query parameters. \`Jam.authenticate()\` detects JWT, JWE, PASETO, and session
-credentials automatically. Pass \`via="jwt" | "jwe" | "paseto" | "session"\`
-to an adapter only when detection must be restricted.
-
-### Starlette
-
-\`JWTBackend\`, \`PASETOBackend\`, and \`SessionBackend\` were replaced by one
-\`JamAuthBackend\`:
-
-\`\`\`python
-# 3.x
-backend = JWTBackend(config="config.toml", header_name="Authorization")
-
-# 4.x
-from jam.ext.starlette import JamAuthBackend
-
-backend = JamAuthBackend(jam, sources=sources)
-\`\`\`
-
-\`BaseUser\` and \`SimpleUser\` were removed. On successful authentication,
-\`request.user\` is a \`JamUser\`, the complete principal is available as
-\`request.user.principal\`, and credential permissions are exposed through
-\`request.auth.scopes\`. Invalid credentials are rejected by default; use
-\`reject_invalid=False\` to treat them as anonymous.
-
-### FastAPI
-
-FastAPI no longer re-exports the Starlette module-specific backends. It has a
-native dependency API with OpenAPI Bearer security:
-
-\`\`\`python
-from typing import Annotated
-
-from fastapi import Depends
-from jam.authz import Principal
-from jam.ext.fastapi import JamAuth
-
-auth = JamAuth(jam, sources=sources)
-
-
-@app.get("/me")
-def me(principal: Annotated[Principal, Depends(auth)]):
-    return principal.subject
-
-
-@app.get("/landing")
-def landing(
-    principal: Annotated[Principal | None, Depends(auth.optional)],
-):
-    return {"authenticated": principal is not None}
-
-
-@app.patch("/posts/{post_id}")
-def edit_post(
-    principal: Annotated[
-        Principal,
-        Depends(auth.require("post:edit")),
-    ],
-):
-    return principal.subject
-\`\`\`
-
-\`Depends(auth)\` returns \`401\` when authentication fails.
-\`Depends(auth.require("permission"))\` additionally evaluates the configured
-Jam policy and returns \`403\` when access is denied.
-
-### Flask
-
-\`JWTExtension\`, \`PASETOExtension\`, \`SessionExtension\`, and \`OAuth2Extension\`
-were replaced by \`JamAuth\`. OAuth2 clients are already available through
-\`jam.oauth2\` and no longer need a framework extension.
-
-\`\`\`python
-# 3.x
-JWTExtension(
-    app,
-    header_name="Authorization",
-    alg="HS256",
-    secret="secret",
-)
-
-# 4.x
-from jam.ext.flask import JamAuth
-
-auth = JamAuth(jam=jam, sources=sources)
-auth.init_app(app)
-\`\`\`
-
-\`g.payload\` was replaced by the full principal:
-
-\`\`\`python
-from jam.ext.flask import current_principal
-
-
-@app.get("/me")
-@auth.login_required
-def me():
-    return current_principal.subject
-\`\`\`
-
-Use \`@auth.permission_required("post:edit")\` for authorization. The same data
-is available as \`g.principal\`, \`g.authentication\`, and \`g.jam\`.
-
-### Litestar
-
-\`JWTPlugin\`, \`PASETOPlugin\`, \`SessionPlugin\`, and \`OAuth2Plugin\` were replaced
-by one instance-scoped \`JamPlugin\`:
-
-\`\`\`python
-# 3.x
-plugin = JWTPlugin(
-    config="config.toml",
-    header_name="Authorization",
-    user=SimpleUser,
-)
-
-# 4.x
-from jam.ext.litestar import JamPlugin, permission_guard
-
-plugin = JamPlugin(jam, sources=sources)
-can_edit = permission_guard(jam, "post:edit")
-\`\`\`
-
-\`BaseUser\`, \`SimpleUser\`, and \`Token\` were removed. \`request.user\` now contains
-the complete \`Principal\`, while \`request.auth\` contains the shared
-\`AuthenticationResult\`. Middleware configuration is stored per plugin
-instance, so configuring one application no longer changes another
-application's middleware class attributes.
-
-## Config changes
-
-### PASETO: \`key\` → \`secret_key\`
-
-The \`key\` parameter of \`jam.paseto.PASETOv1\`–\`v4\` was renamed to \`secret_key\`.
-
-\`\`\`toml
-[jam.paseto]
-version = "v4"
-purpose = "local"
-secret_key = "\$PASETO_SECRET_KEY"   # was: key
-\`\`\`
-
-### Sessions: parameter renames
-
-* \`session_type\` → \`type\` (\`"redis"\` or \`"json"\`).
-* \`session_path\` → \`redis_sessions_key\` (default \`"sessions"\`).
-* \`default_ttl\` → \`ttl\` (already renamed in 3.0.0).
-
-\`\`\`toml
-[jam.session]
-type = "redis"
-redis_uri = "redis://localhost:6379/0"
-ttl = 3600
-redis_sessions_key = "sessions"
-\`\`\`
-
-### OAuth2: \`redirect_uri\` → \`redirect_url\`
-
-\`\`\`toml
-[jam.oauth2.github]
-client_id = "ID"
-client_secret = "SECRET"
-redirect_url = "https://example.com/callback"
-\`\`\`
-
-## OTP
-
-\`jam.otp\` is a class, not an instance. To get a code:
-
-\`\`\`python
-code = jam.otp(secret="...").now()
-\`\`\`
 `} />
   ),
 };
