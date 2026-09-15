@@ -10,7 +10,7 @@ from jam.ext.fastapi import JamAuth
 
 
 def make_app(jam):
-    auth = JamAuth(jam)
+    auth = JamAuth(jam, via="jwt")
     app = FastAPI()
 
     @app.get("/required")

@@ -17,6 +17,7 @@ def test_sources_are_checked_in_order_and_parse_scheme_case_insensitively():
             CredentialSource.bearer(),
             CredentialSource.cookie("session"),
         ],
+        via="session"
     )
 
     assert authenticator.extract(
@@ -32,7 +33,7 @@ def test_sources_are_checked_in_order_and_parse_scheme_case_insensitively():
 def test_authentication_result_preserves_expected_error():
     jam = MagicMock()
     jam.authenticate.side_effect = JamValidationError(message="invalid")
-    result = Authenticator(jam).authenticate("token")
+    result = Authenticator(jam, via="jwt").authenticate("token")
 
     assert not result.is_authenticated
     assert isinstance(result.error, JamValidationError)
@@ -44,7 +45,7 @@ def test_configuration_errors_are_not_hidden():
     jam.authenticate.side_effect = JamConfigurationError(message="broken")
 
     with pytest.raises(JamConfigurationError):
-        Authenticator(jam).authenticate("token")
+        Authenticator(jam, via="jwt").authenticate("token")
 
 
 def test_unexpected_errors_are_not_hidden():
@@ -52,7 +53,7 @@ def test_unexpected_errors_are_not_hidden():
     jam.authenticate.side_effect = RuntimeError("bug")
 
     with pytest.raises(RuntimeError, match="bug"):
-        Authenticator(jam).authenticate("token")
+        Authenticator(jam, via="jwt").authenticate("token")
 
 
 def test_successful_authentication_returns_principal():
@@ -60,7 +61,7 @@ def test_successful_authentication_returns_principal():
     principal = Principal({"id": "42"}, {}, "jwt")
     jam.authenticate.return_value = principal
 
-    result = Authenticator(jam).authenticate("token")
+    result = Authenticator(jam, via="jwt").authenticate("token")
 
     assert result.is_authenticated
     assert result.principal is principal

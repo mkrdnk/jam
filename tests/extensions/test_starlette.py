@@ -31,13 +31,13 @@ async def test_backend_authenticates_any_jam_credential():
         "jwt",
     )
     jam.authenticate.return_value = principal
-    backend = JamAuthBackend(jam)
+    backend = JamAuthBackend(jam, via="jwt")
 
     credentials, user = await backend.authenticate(
         connection([(b"authorization", b"Bearer valid")])
     )
 
-    jam.authenticate.assert_called_once_with("valid", via=None)
+    jam.authenticate.assert_called_once_with("valid", via="jwt")
     assert credentials.scopes == ["authenticated", "post:read"]
     assert isinstance(user, JamUser)
     assert user.principal is principal
@@ -64,7 +64,7 @@ async def test_backend_supports_cookie_and_explicit_via():
 @pytest.mark.asyncio
 async def test_backend_returns_none_without_credential():
     jam = MagicMock()
-    backend = JamAuthBackend(jam)
+    backend = JamAuthBackend(jam, via="jwt")
 
     assert await backend.authenticate(connection([])) is None
     jam.authenticate.assert_not_called()
@@ -76,7 +76,7 @@ async def test_backend_rejects_invalid_credential_by_default():
     jam.authenticate.side_effect = JamValidationError(
         message="secret decoder detail"
     )
-    backend = JamAuthBackend(jam)
+    backend = JamAuthBackend(jam, via="jwt")
 
     with pytest.raises(AuthenticationError, match="Invalid authentication"):
         await backend.authenticate(
@@ -88,7 +88,7 @@ async def test_backend_rejects_invalid_credential_by_default():
 async def test_backend_can_treat_invalid_credential_as_anonymous():
     jam = MagicMock()
     jam.authenticate.side_effect = JamValidationError(message="invalid")
-    backend = JamAuthBackend(jam, reject_invalid=False)
+    backend = JamAuthBackend(jam, reject_invalid=False, via="jwt")
 
     result = await backend.authenticate(
         connection([(b"authorization", b"Bearer invalid")])

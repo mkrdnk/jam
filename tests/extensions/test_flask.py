@@ -12,7 +12,7 @@ from jam.ext.flask import JamAuth, current_principal, get_jam
 def test_flask_extension_supports_app_factory_and_current_principal():
     jam = MagicMock()
     jam.authenticate.return_value = Principal({"id": "42"}, {}, "jwt")
-    auth = JamAuth(jam=jam)
+    auth = JamAuth(jam=jam, via="jwt")
     app = Flask(__name__)
     auth.init_app(app)
 
@@ -31,11 +31,11 @@ def test_flask_extension_supports_app_factory_and_current_principal():
 
     assert response.status_code == 200
     assert response.get_json() == {"id": "42", "same_jam": True}
-    jam.authenticate.assert_called_once_with("token", via=None)
+    jam.authenticate.assert_called_once_with("token", via="jwt")
 
 
 def test_login_required_returns_401():
-    auth = JamAuth(jam=MagicMock())
+    auth = JamAuth(jam=MagicMock(), via="paseto")
     app = Flask(__name__)
     auth.init_app(app)
 
@@ -56,6 +56,7 @@ def test_permission_required_returns_403_or_calls_view():
     auth = JamAuth(
         jam=jam,
         sources=[CredentialSource.cookie("access_token")],
+        via="jwt"
     )
     app = Flask(__name__)
     auth.init_app(app)
