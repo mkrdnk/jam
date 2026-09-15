@@ -87,6 +87,15 @@ body {
   line-height: 1.6;
 }
 
+button, a, input, select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* ---- Prose ---- */
 .prose { max-width: 680px; }
 .prose h1 { font-size: 1.875rem; font-weight: 750; line-height: 1.15; margin: 0 0 0.625rem; color: var(--text); letter-spacing: -0.03em; }
@@ -207,3 +216,4 @@ body {
 
 /* ---- Transitions ---- */
 .transition-theme { transition: background 0.2s, color 0.2s, border-color 0.2s; }
+

@@ -10,7 +10,7 @@ import type { NavItem as MdNavItem, VersionManifest } from "./types"
 
 const MD_MANIFEST = manifest as unknown as VersionManifest
 const DOC_VERSIONS: string[] = MD_MANIFEST.versions
-const DOC_LAYOUT_WIDTH = 980
+const DOC_LAYOUT_WIDTH = 1040
 
 type Theme = "light" | "dark"
 type PageId = "home" | "search"
@@ -200,15 +200,18 @@ function Header({ theme, onToggleTheme, onNavigate, onSearch, sidebarOpen, onTog
   const [q, setQ] = useState("")
 
   return (
-    <header style={{
+    <header className="site-header" style={{
       position: "fixed", top: 0, left: 0, right: 0, height: 56,
       background: "var(--bg)", borderBottom: "1px solid var(--border)",
       display: "flex", alignItems: "center", padding: "0 1.25rem", gap: 12,
       zIndex: 100,
     }}>
       <button
+        type="button"
         onClick={onToggleSidebar}
         className="mobile-menu-btn"
+        aria-label={sidebarOpen ? "Close navigation" : "Open navigation"}
+        aria-expanded={sidebarOpen}
         style={{
           display: "none", background: "none", border: "none",
           cursor: "pointer", color: "var(--text-2)", padding: "4px",
@@ -220,7 +223,9 @@ function Header({ theme, onToggleTheme, onNavigate, onSearch, sidebarOpen, onTog
 
       <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
         <button
+          type="button"
           onClick={() => onNavigate("home")}
+          aria-label="Go to Jam home"
           style={{
             display: "flex", alignItems: "center", gap: 7,
             background: "none", border: "none", cursor: "pointer", padding: 0,
@@ -234,7 +239,7 @@ function Header({ theme, onToggleTheme, onNavigate, onSearch, sidebarOpen, onTog
         <VersionSwitcher versions={versions || []} value={docVersion} onChange={onDocVersionChange} compact disabled={false} />
       </div>
 
-      <div style={{ flex: 1, display: "flex", justifyContent: "center", position: "relative" }}>
+      <div className="header-search" style={{ flex: 1, display: "flex", justifyContent: "center", position: "relative" }}>
         <div style={{ width: "100%", maxWidth: 380, position: "relative" }}>
           <div style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--text-3)", pointerEvents: "none" }}>
             <SearchIcon size={13} />
@@ -268,7 +273,7 @@ function Header({ theme, onToggleTheme, onNavigate, onSearch, sidebarOpen, onTog
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto", flexShrink: 0 }}>
+      <div className="header-actions" style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto", flexShrink: 0 }}>
         <a
           href="https://github.com/mkrdnk/jam"
           target="_blank"
@@ -288,7 +293,9 @@ function Header({ theme, onToggleTheme, onNavigate, onSearch, sidebarOpen, onTog
           GitHub
         </a>
         <button
+          type="button"
           onClick={onToggleTheme}
+          aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
           style={{
             background: "var(--bg-subtle)", border: "1px solid var(--border)",
             cursor: "pointer", color: "var(--text-2)",
@@ -645,10 +652,10 @@ function MdPage({ version, slug, versions, onVersionChange, onOpenMd, onHome, on
   const { prev, next } = getAdjacentPages(nav, slug)
 
   return (
-    <div style={{ maxWidth: DOC_LAYOUT_WIDTH, margin: "0 auto", padding: "2.25rem 2rem 4rem", display: "flex", gap: "4rem", alignItems: "flex-start" }}>
-      <div ref={contentRef} style={{ width: 700, minWidth: 0 }}>
+    <div className="doc-layout" style={{ maxWidth: DOC_LAYOUT_WIDTH, margin: "0 auto", padding: "2.25rem 2rem 4rem", display: "flex", gap: "4rem", alignItems: "flex-start" }}>
+      <div className="doc-content" ref={contentRef} style={{ width: 700, minWidth: 0 }}>
         <Breadcrumb crumbs={crumbs} onNavigate={onHome} />
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.875rem" }}>
+        <div className="version-toolbar" style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.875rem" }}>
           <VersionSwitcher versions={versions} value={version} onChange={onVersionChange} disabled={versions.length <= 1} />
         </div>
         <PageComp />
@@ -694,8 +701,8 @@ const INTEGRATIONS = [
 ]
 
 const FOOTER_LINKS = [
-  { label: "Installation", slug: "/gettingstarted/installation" },
-  { label: "Configuration", slug: "/gettingstarted/configuration" },
+  { label: "Installation", slug: "gettingstarted--installation" },
+  { label: "Configuration", slug: "gettingstarted--configuration" },
   // { label: "Philosophy", slug: "philosophy" },
   // { label: "Contributing", slug: "contributing" },
 ]
@@ -703,19 +710,9 @@ const FOOTER_LINKS = [
 function HomePage({ onOpenMd }: { onOpenMd: (slug: string) => void }) {
   return (
     <div style={{ background: "var(--bg)" }}>
-      {/* Header strip */}
-      <div style={{
-        position: "fixed", top: 0, left: 0, right: 0, height: 56,
-        background: "var(--bg)", borderBottom: "1px solid var(--border)", zIndex: 50,
-        display: "flex", alignItems: "center", justifyContent: "flex-end",
-        padding: "0 1.5rem", gap: 8,
-      }}>
-        {/* handled by parent */}
-      </div>
-
       {/* Hero */}
-      <div style={{ maxWidth: 1040, margin: "0 auto", padding: "5rem 2rem 0" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 480px", gap: "4rem", alignItems: "start" }}>
+      <div className="home-hero" style={{ maxWidth: DOC_LAYOUT_WIDTH, margin: "0 auto", padding: "5rem 2rem 0" }}>
+        <div className="home-hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 480px", gap: "4rem", alignItems: "start" }}>
 
           {/* Left */}
           <div>
@@ -811,8 +808,8 @@ function HomePage({ onOpenMd }: { onOpenMd: (slug: string) => void }) {
       </div>
 
       {/* Modules */}
-      <div style={{ maxWidth: 1040, margin: "0 auto", padding: "3rem 2rem" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: "3rem", alignItems: "start" }}>
+      <div className="home-sections" style={{ maxWidth: DOC_LAYOUT_WIDTH, margin: "0 auto", padding: "3rem 2rem" }}>
+        <div className="home-section-grid" style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: "3rem", alignItems: "start" }}>
           <div>
             <h2 style={{ margin: "0 0 0.5rem", fontSize: "0.9375rem", fontWeight: 700, color: "var(--text)", letterSpacing: "-0.01em", fontFamily: "Inter, sans-serif" }}>
               Modules
@@ -860,7 +857,7 @@ function HomePage({ onOpenMd }: { onOpenMd: (slug: string) => void }) {
         <div style={{ borderTop: "1px solid var(--border)", margin: "3rem 0" }} />
 
         {/* Integrations */}
-        <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: "3rem", alignItems: "center" }}>
+        <div className="home-section-grid" style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: "3rem", alignItems: "center" }}>
           <div>
             <h2 style={{ margin: "0 0 0.5rem", fontSize: "0.9375rem", fontWeight: 700, color: "var(--text)", letterSpacing: "-0.01em", fontFamily: "Inter, sans-serif" }}>
               Integrations
@@ -1057,53 +1054,66 @@ function NotFoundPage({ onHome, onDocs }: { onHome: () => void; onDocs: () => vo
   )
 }
 
-function ApiSidebar({ modules, onBack, open }: { modules: string[]; onBack: () => void; open: boolean }) {
+function ApiSidebar({ modules, onBack, onClose, open }: { modules: string[]; onBack: () => void; onClose: () => void; open: boolean }) {
   const headingId = (module: string) => module.toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, "").replace(/\s+/g, "-")
 
   return (
-    <nav className={open ? "api-sidebar open" : "api-sidebar"} style={{
-      position: "fixed", top: 56, left: 0, bottom: 0, width: 248,
-      background: "var(--bg-subtle)", borderRight: "1px solid var(--border)",
-      overflowY: "auto", padding: "1rem 0 2rem", zIndex: 95,
-    }}>
-      <button
-        type="button"
-        onClick={onBack}
-        style={{
-          margin: "0 1rem 1rem", padding: 0, background: "none", border: "none",
-          color: "var(--text-3)", cursor: "pointer", font: "12px Inter, sans-serif",
-        }}
-      >
-        ← Documentation
-      </button>
-      <div style={{
-        padding: "0 1rem", marginBottom: "0.5rem", color: "var(--accent)",
-        fontSize: 12, fontWeight: 800, letterSpacing: "0.07em", textTransform: "uppercase",
-      }}>
-        API reference
-      </div>
-      {modules.map((module) => (
-        <a
-          key={module}
-          href={`#${headingId(module)}`}
-          onClick={(event) => {
-            event.preventDefault()
-            const target = Array.from(document.querySelectorAll<HTMLElement>(".prose h2"))
-              .find((heading) => heading.textContent?.trim() === module)
-            if (!target) return
-            target.scrollIntoView({ behavior: "smooth", block: "start" })
-            window.history.replaceState(null, "", `#${headingId(module)}`)
-          }}
+    <>
+      {open && (
+        <div
+          className="sidebar-overlay"
+          onClick={onClose}
           style={{
-            display: "block", padding: "0.25rem 1rem", color: "var(--text-2)",
-            textDecoration: "none", cursor: "pointer", font: "13px 'JetBrains Mono', monospace",
-            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+            display: "none", position: "fixed", inset: 0,
+            background: "rgba(0,0,0,0.4)", zIndex: 90,
+          }}
+        />
+      )}
+      <nav className={open ? "api-sidebar open" : "api-sidebar"} style={{
+        position: "fixed", top: 56, left: 0, bottom: 0, width: 248,
+        background: "var(--bg-subtle)", borderRight: "1px solid var(--border)",
+        overflowY: "auto", padding: "1rem 0 2rem", zIndex: 95,
+      }}>
+        <button
+          type="button"
+          onClick={onBack}
+          style={{
+            margin: "0 1rem 1rem", padding: 0, background: "none", border: "none",
+            color: "var(--text-3)", cursor: "pointer", font: "12px Inter, sans-serif",
           }}
         >
-          {module}
-        </a>
-      ))}
-    </nav>
+          ← Documentation
+        </button>
+        <div style={{
+          padding: "0 1rem", marginBottom: "0.5rem", color: "var(--accent)",
+          fontSize: 12, fontWeight: 800, letterSpacing: "0.07em", textTransform: "uppercase",
+        }}>
+          API reference
+        </div>
+        {modules.map((module) => (
+          <a
+            key={module}
+            href={`#${headingId(module)}`}
+            onClick={(event) => {
+              event.preventDefault()
+              const target = Array.from(document.querySelectorAll<HTMLElement>(".prose h2"))
+                .find((heading) => heading.textContent?.trim() === module)
+              if (!target) return
+              target.scrollIntoView({ behavior: "smooth", block: "start" })
+              window.history.replaceState(null, "", `#${headingId(module)}`)
+              onClose()
+            }}
+            style={{
+              display: "block", padding: "0.25rem 1rem", color: "var(--text-2)",
+              textDecoration: "none", cursor: "pointer", font: "13px 'JetBrains Mono', monospace",
+              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+            }}
+          >
+            {module}
+          </a>
+        ))}
+      </nav>
+    </>
   )
 }
 
@@ -1125,6 +1135,15 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark")
   }, [theme])
+
+  useEffect(() => {
+    if (!sidebarOpen) return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSidebarOpen(false)
+    }
+    document.addEventListener("keydown", closeOnEscape)
+    return () => document.removeEventListener("keydown", closeOnEscape)
+  }, [sidebarOpen])
 
   useEffect(() => {
     const mql = window.matchMedia("(prefers-color-scheme: dark)")
@@ -1214,7 +1233,7 @@ export default function App() {
       <Header {...sharedHeaderProps} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} mdNav={mdNav} activeMdSlug={mdSlug} onOpenMd={openMd} />
       <main style={{ marginLeft: 248, paddingTop: 56, ...mainStyle }}>{children}</main>
-      <footer style={{ marginLeft: 248, padding: "0 2rem 3rem" }}>
+      <footer className="site-shell-footer" style={{ marginLeft: 248, padding: "0 2rem 3rem" }}>
         <div style={{ maxWidth: DOC_LAYOUT_WIDTH, margin: "0 auto", borderTop: "1px solid var(--border)", paddingTop: "1.5rem" }}>
           <SiteFooter onOpenMd={openMd} />
         </div>
@@ -1230,10 +1249,10 @@ export default function App() {
     return (
       <div style={{ minHeight: "100%", background: "var(--bg)" }}>
         <Header {...sharedHeaderProps} />
-        <ApiSidebar modules={MD_MANIFEST.docs[effectiveVersion]?.apiModules || []} onBack={goDocs} open={sidebarOpen} />
+        <ApiSidebar modules={MD_MANIFEST.docs[effectiveVersion]?.apiModules || []} onBack={goDocs} onClose={() => setSidebarOpen(false)} open={sidebarOpen} />
         <main style={{ marginLeft: 248, paddingTop: 56, minHeight: "100vh" }}>
           <div style={{ maxWidth: DOC_LAYOUT_WIDTH, margin: "0 auto", padding: "2.25rem 2rem 4rem" }}>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.875rem" }}>
+            <div className="version-toolbar" style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.875rem" }}>
               <VersionSwitcher versions={DOC_VERSIONS} value={effectiveVersion} onChange={changeVersion} disabled={DOC_VERSIONS.length <= 1} />
             </div>
             <ApiPage />
@@ -1272,7 +1291,7 @@ export default function App() {
 
 const RESPONSIVE_CSS = `
   @media (max-width: 1180px) {
-    aside { display: none !important; }
+    .doc-layout > aside { display: none !important; }
     main { margin-right: 0 !important; }
   }
   @media (max-width: 860px) {
@@ -1292,8 +1311,25 @@ const RESPONSIVE_CSS = `
     .sidebar-overlay { display: block !important; }
   }
   @media (max-width: 700px) {
-    div[style*="grid-template-columns: 1fr 480px"] { grid-template-columns: 1fr !important; }
-    div[style*="grid-template-columns: 200px 1fr"] { grid-template-columns: 1fr !important; gap: 1rem !important; }
-    div[style*="grid-template-columns: 196px 1fr"] { grid-template-columns: 1fr !important; }
+    .home-hero-grid, .home-section-grid { grid-template-columns: 1fr !important; gap: 1.5rem !important; }
+    .doc-layout { display: block !important; }
+    .doc-content { width: auto !important; }
+    .version-toolbar { justify-content: flex-start !important; }
+    .prose { max-width: none !important; }
+    .prose pre { overflow-x: auto; }
+    .prose table { display: block; overflow-x: auto; }
+    .home-hero-grid > div:last-child { order: -1; }
+  }
+  @media (max-width: 560px) {
+    .site-header { padding-inline: 0.875rem !important; gap: 8px !important; }
+    .header-actions a { display: none !important; }
+    .header-search input { font-size: 12px !important; }
+    .header-search input::placeholder { color: transparent; }
+    .home-hero, .home-sections { padding-inline: 1rem !important; }
+    .home-hero { padding-top: 2.5rem !important; }
+    .home-hero-grid h1 { font-size: 2.5rem !important; }
+    .home-hero-grid button, .home-hero-grid a { min-height: 42px; }
+    .doc-layout { padding: 1.5rem 1rem 3rem !important; }
+    .prose h1 { font-size: 1.65rem; }
   }
 `
