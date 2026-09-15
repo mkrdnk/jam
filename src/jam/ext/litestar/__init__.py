@@ -1,32 +1,18 @@
 # -*- coding: utf-8 -*-
 
-"""
-Litestar integration.
+"""Litestar authentication and authorization integration."""
 
-Litestar docs: https://docs.litestar.dev
-"""
-
-from .objects import (
-    BaseUser,
-    SimpleUser,
-    Token
+from jam.ext._base import CredentialSource
+from jam.ext.litestar.plugin import (
+    JamAuthenticationMiddleware,
+    JamPlugin,
+    permission_guard,
 )
 
-from .plugins import (
-    BasePlugin,
-    JWTPlugin,
-    SessionPlugin,
-    PASETOPlugin,
-    OAuth2Plugin,
-)
 
 __all__ = [
-    "BaseUser",
-    "SimpleUser",
-    "Token",
-    "BasePlugin",
-    "JWTPlugin",
-    "SessionPlugin",
-    "PASETOPlugin",
-    "OAuth2Plugin",
+    "CredentialSource",
+    "JamAuthenticationMiddleware",
+    "JamPlugin",
+    "permission_guard",
 ]

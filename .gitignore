@@ -14,7 +14,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -179,3 +178,5 @@ sessions.json
 *.pem
 *.aes
 *.key
+plan.md
+docs/docs-content/*/api/

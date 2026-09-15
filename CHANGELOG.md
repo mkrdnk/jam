@@ -21,6 +21,128 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 -->
 
+## 4.0.0 - [unreleased]
+
+### Added
+- `ConfigMeta` metaclass (`jam.utils.config_meta`) — classes accept `config` /
+  `pointer` kwargs; config values are injected into `__init__` parameters by
+  signature, explicit kwargs always win
+- `jam.lists` module with `BaseList`, `MemoryList`, `RedisList`, `JSONList`
+  and the `build_list(config)` factory
+- `jam.subject.BaseSubject` — dataclass contract for auth subjects (mandatory
+  `id` field) with generic `to_dict()` / `from_dict()` serialization
+- `jam.authz` — `BasePolicy` interface and declarative `Policy` built from
+  compact predicates or structured allow/deny rules; supports credential
+  permissions, permission wildcards, dynamic authorization context,
+  `all` / `any` / `not` conditions and deny-by-default evaluation
+- `Principal` authentication result preserves the typed subject and verified
+  credential claims; `AuthorizationContext` supplies the current time,
+  resource, request and application attributes to authorization policies
+- Config-driven module init: JWT/JWS/JWE, PASETO (`v1`-`v4`), sessions
+  (`redis`/`json`), OAuth2 providers and authz are built directly from
+  `[jam]` config sections
+- New `Jam` facade API:
+  - `issue(subject, via=None, exp/iss/aud/nbf/jti, permissions, **claims)` —
+    issues a JWT, PASETO or session with per-credential permission grants
+    (auto-detects when `via=None`)
+  - `authenticate(token, via=None)` — verifies a token/session and returns a
+    `Principal`
+  - `authorize(principal, permission, context=None)` — checks credential
+    grants and the `[jam.authz]` policy
+  - `subject` / `config` as class attributes overridable via `__init__`
+- Independent `jam.aio.AsyncJam` facade with awaitable `issue()` and
+  `authenticate()`, native async Redis sessions/token lists and async OAuth2
+  HTTP; `jam.aio.Jam` remains an import-compatible alias
+- Async context management closes Redis and OAuth2 clients created by
+  `AsyncJam`
+- Config caching — config files are parsed once and cached per
+  path + pointer (`JAM_CONFIG_CACHING=true`, default). Set
+  `JAM_CONFIG_CACHING=false` to re-read config on every instance creation
+  for runtime config updates. Manual invalidation via
+  `jam.utils.config_maker.__config_cache_clear__`
+- `jam.utils.redaction.SensitiveDataFilter` — attached to the `"jam"`
+  logger by default; redacts JWT/JWE/PASETO tokens, PEM private keys and
+  `key=value` secrets from log records (disable with `JAM_DEBUG=True`)
+- `NullHandler` added to the `"jam"` logger so Jam emits no log output
+  unless the application configures logging
+- `authz.Policy` supports `@`-prefixed `value` references that resolve another
+  field path (e.g. `subject.id == @context.resource.author_id`) for
+  field-to-field comparisons
+- `authz.Policy` field resolution supports arbitrary objects (pydantic models,
+  ORM instances, plain classes) via public attributes, not just mappings and
+  dataclasses; methods, callables and private attributes are never evaluated.
+  Structured rules fail closed when a referenced `field` or `@`-value is
+  missing (`exists` still reports absence explicitly)
+- Key rotation manager `jam.keychain`.
+
+### Changed
+- JWT: `__init__` accepts `config` / `pointer`; `list` parameter accepts
+  `dict | BaseList | None`; `decode()` gained `check_list: bool = True`
+- JWS/JWE: `config` / `pointer` kwargs added
+- PASETO: `BasePASETO.__init__(purpose, secret_key, list, config,
+  pointer)`; `.key()` kept as an alias; white/black list handling moved into
+  the base (`_list_add` / `_list_check`)
+- Sessions: `BaseSessionModule` uses `ConfigMeta` with `_SESSION_TYPE`
+  validation (`sessions_type` kept as a deprecated alias)
+- OAuth2: `create_instance` replaced by `build_clients(providers, serializer)`
+- The module config schema moved from `[jam.jwt]` to `[jam.jose.jwt]`
+- PASETO v1–v4 refactored onto shared mixins in `jam.paseto.__base__`
+  (`LegacyAEADMixin`, `XChaChaMixin`, `KeyLoadMixin`); local encode/decode and
+  footer parsing are now defined once
+- `JamConfigurationError` raises in JWT/PASETO carry machine-readable
+  `error_code` values (`configuration.jwt.*`, `configuration.paseto.*`)
+- Logging calls in hot paths (sign/verify/wrap/unwrap, sessions, lists) use
+  lazy `%s` formatting on module-level `logging.getLogger(__name__)` loggers
+- `BaseJam.__init__` uses `None` defaults for `config` / `plugins` instead of
+  mutable class attributes
+- `BaseSubject.from_dict` ignores unknown keys; `id` is a plain field
+  annotation; dead `__abstract_methods__` marker removed
+- `authz.Policy._match` compares `field=value` predicates literal-aware
+  (via `ast.literal_eval`) with a string fallback
+- `Jam.issue(via="paseto")` now forwards `nbf` to the PASETO payload
+- `JamPASTOKeyVerificationError` (typo) renamed to
+  `JamPASETOKeyVerificationError`; `JamPASETOInvalidPurpose` now inherits from
+  `JamConfigurationError`
+- Documentation refactoring. Migrate from mkdocs.
+
+### Deprecated
+- `sessions_type` parameter in session modules (use `session_type`)
+
+### Removed
+- `jam.logger` module with `BaseLogger` / `JamLogger` — all modules now use
+  the standard `logging` library with `logging.getLogger(__name__)` loggers
+- `logger` / `log_level` kwargs from `Jam`, `BaseJam`, `JWT`, `JWS`, `JWE`,
+  PASETO, session modules and lists; logging is configured through the
+  standard `logging` API instead
+- `build_list(config, logger)` — the `logger` argument is gone
+- `jam.jose.create_jwt_instance` / `create_jws_instance` / `create_jwe_instance`
+  / `create_instance` factories — construct `JWT` / `JWS` / `JWE` directly
+- Deprecated `jam.jwt` module and the `[jam.jwt]` → `[jam.jose.jwt]` config
+  migration
+- All deprecated `Jam` wrapper methods: `jwt_make_payload`, `jwt_create`,
+  `jwt_encode`, `jwt_decode`, `jws_sign`, `jws_verify`, `jwe_encrypt`,
+  `jwe_decrypt`, `session_*`, `otp_*`, `oauth2_*`, `paseto_make_payload`,
+  `paseto_create`, `paseto_decode` — use the module attributes and the new
+  `issue` / `authenticate` / `authorize` API
+- `BaseJam` old abstract interface and the `MODULES` factory map
+- Dead code: the `jam.jose.lists` package alias, `MsgspecJsonEncoder`,
+  `paseto.utils.__b64url_nopad__`, and the never-raised exceptions
+  `JamJWTEmptySecretKey`, `JamJWTEmptyPrivateKey`,
+  `JamJWTValidationError`, `JamJWKMissingParameterError`
+
+### Fixed
+- PASETO v1: dead length check on the local key no longer shadows key loading
+- JWT `_detect_key_type` tries PEM/DER public key loaders before falling back
+  to symmetric, so JWE with a public key is handled correctly
+- `Jam.authenticate` / token auto-detection now routes JWE tokens (4 segments)
+  to `jwt.decrypt` instead of failing as a session
+- JWS/JWE/JWT `encode` / `decode` raise `JamConfigurationError` with
+  `error_code` when the module is not configured instead of a bare assert
+
+### Security
+
+---
+
 ## [3.3.0] - 01.08.2026
 
 ### Added
@@ -162,8 +284,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-- [3.2.0] https://github.com/mkrdnk/jam/compare/v3.1.2...v3.2.0
-- [3.1.2] https://github.com/mkrdnk/jam/compare/v3.1.1...v3.1.2
-- [3.1.1] https://github.com/mkrdnk/jam/compare/v3.1.0...v3.1.1
-- [3.1.0] https://github.com/mkrdnk/jam/compare/v3.0.0...v3.1.0
-- [3.0.0] https://github.com/mkrdnk/jam/compare/v2.5.6...v3.0.0
+- [3.3.0] https://github.com/lyaguxafrog/jam/compare/v3.2.0...v3.3.0
+- [3.2.0] https://github.com/lyaguxafrog/jam/compare/v3.1.2...v3.2.0
+- [3.1.2] https://github.com/lyaguxafrog/jam/compare/v3.1.1...v3.1.2
+- [3.1.1] https://github.com/lyaguxafrog/jam/compare/v3.1.0...v3.1.1
+- [3.1.0] https://github.com/lyaguxafrog/jam/compare/v3.0.0...v3.1.0
+- [3.0.0] https://github.com/lyaguxafrog/jam/compare/v2.5.6...v3.0.0

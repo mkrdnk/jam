@@ -10,11 +10,6 @@ from uuid import uuid4
 from jam.exceptions import JamPASETOInvalidSymmetricKey
 
 
-def __b64url_nopad__(b: bytes) -> str:
-    """Return B64 nopad."""
-    return base64.urlsafe_b64encode(b).rstrip(b"=").decode("ascii")
-
-
 def __gen_hash__(key: bytes, msg: bytes, hash_size: int = 0) -> bytes:
     """Generate hash."""
     try:
@@ -67,10 +62,6 @@ def base64url_encode(data: bytes | str) -> bytes:
     else:
         bv = data.encode("ascii")
     return base64.urlsafe_b64encode(bv).replace(b"=", b"")
-
-
-# init_paseto_instance has been removed and replaced with jam.paseto.create_instance
-# Use: from jam.paseto import create_instance
 
 
 def payload_maker(expire: int | None, data: dict[str, Any]) -> dict[str, Any]:

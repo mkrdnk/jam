@@ -1,6 +1,6 @@
 [project]
 name = "jamlib"
-version = "3.3.0.post1"
+version = "4.0.0rc0"
 description = "Simple and universal library for authorization."
 authors = [
     {name = "Makridenko Adrian",email = "adrianmakridenko@duck.com"},
@@ -10,8 +10,11 @@ license = {text = "Apache-2.0"}
 readme = {file = "README.md", content-type = "text/markdown"}
 keywords = [
     "Authentication",
+    "Authorization",
     "Backend",
-    "JWT",
+    "JOSE",
+    "PASETO",
+    "SAML",
     "Sessions",
     "OTP",
     "TOTP",
@@ -61,6 +64,7 @@ jam = "jam.cli:cli"
 cli=["click>=8.3.1"]
 redis=["redis>=7.3.0"]
 json=["tinydb>=4.8.2"]
+oauth2=["httpx>=0.28.1"]
 yaml=["pyyaml>=6.0.3"]
 toml=["toml>=0.10.2"]
 litestar=["litestar>=2.21.1"]
@@ -86,15 +90,6 @@ dev = [
     "ruff>=0.15.6",
     "unicecream>=0.2.1",
     "uvicorn>=0.41.0",
-]
-docs = [
-    "mkdocs>=1.6.1",
-    "mkdocs-gen-files>=0.6.0",
-    "mkdocs-literate-nav>=0.6.2",
-    "mkdocs-material>=9.6.19",
-    "mkdocstrings>=0.30.0",
-    "mkdocstrings-python>=1.18.2",
-    "termynal>=0.13.0",
 ]
 tests = [
     "pytest>=9.0.2",

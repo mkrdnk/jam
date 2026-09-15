@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
-from jam.jose.lists.__base__ import BaseJWTList
+from jam.lists import BaseJWTList
 
 
 class BaseJWT(ABC):

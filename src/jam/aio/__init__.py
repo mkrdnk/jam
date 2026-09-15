@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-"""Async Jam package."""
+"""Asynchronous Jam facade and I/O modules."""
 
-from .instance import Jam
+from .instance import AsyncJam, Jam
 
-__all__ = ["Jam"]
+__all__ = ["AsyncJam", "Jam"]

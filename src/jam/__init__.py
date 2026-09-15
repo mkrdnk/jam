@@ -6,9 +6,32 @@ Source code: https://github.com/mkrdnk/jam
 Documentation: https://jam.makridenko.ru
 """
 
+import logging
+
 from jam.__base__ import BaseJam
+from jam.authz import (
+    AuthorizationContext,
+    BasePolicy,
+    Policy,
+    Principal,
+)
 from jam.instance import Jam
+from jam.subject import BaseSubject
+from jam.utils.redaction import SensitiveDataFilter
 
 
-__version__ = "3.3.0.post1"
-__all__ = ["Jam", "BaseJam"]
+logging.getLogger("jam").addHandler(logging.NullHandler())
+logging.getLogger("jam").addFilter(SensitiveDataFilter())
+
+
+__version__ = "4.0.0rc0"
+__all__ = [
+    "Jam",
+    "BaseJam",
+    "BaseSubject",
+    "BasePolicy",
+    "Policy",
+    "Principal",
+    "AuthorizationContext",
+    "SensitiveDataFilter",
+]

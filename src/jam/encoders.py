@@ -3,12 +3,6 @@
 import json
 from typing import Any
 
-
-try:
-    import msgspec
-except ImportError:
-    pass
-
 from jam.__base_encoder__ import BaseEncoder
 
 
@@ -26,22 +20,3 @@ class JsonEncoder(BaseEncoder):
     def loads(cls, var: str | bytes) -> dict[str, Any]:
         """Load json."""
         return json.loads(var)
-
-
-class MsgspecJsonEncoder(BaseEncoder):
-    """JSON encoder based on msgspec.
-
-    To use it, you need to install the optional msgspec: `pip install msgspec`
-    """
-
-    @classmethod
-    def dumps(cls, var: dict[str, Any]) -> bytes:
-        """Dump dict."""
-        return msgspec.json.encode(var)
-
-    @classmethod
-    def loads(cls, var: str | bytes) -> dict[str, Any]:
-        """Load JSON to dict."""
-        return msgspec.json.decode(
-            var if isinstance(var, bytes) else var.encode("utf-8")
-        )

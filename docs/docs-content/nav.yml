@@ -1,0 +1,85 @@
+nav:
+  - block: Getting Started
+    pages:
+      - label: Installation
+        file: gettingstarted/installation.md
+      - label: Configuration
+        file: gettingstarted/configuration.md
+      - label: Quick start
+        file: gettingstarted/quickstart.md
+  - block: Core concepts
+    pages:
+      - label: Jam instance
+        file: core/jam.md
+      - label: Subjects
+        file: core/subject.md
+      - label: Authorization
+        file: core/authz.md
+      - label: KeyChain
+        file: core/keychain.md
+  - block: Authentication
+    pages:
+      - label: JOSE
+        pages:
+          - label: Overview
+            file: authentication/jose/index.md
+          - label: JWT
+            file: authentication/jose/jwt.md
+          - label: JWS
+            file: authentication/jose/jws.md
+          - label: JWE
+            file: authentication/jose/jwe.md
+          - label: JWK
+            file: authentication/jose/jwk.md
+          - label: Algorithms
+            file: authentication/jose/algorithms.md
+          - label: Algorithm lists
+            file: authentication/jose/lists.md
+      - label: PASETO
+        file: authentication/paseto.md
+      - label: Sessions
+        file: authentication/sessions.md
+      - label: SAML
+        file: authentication/saml.md
+      - label: OTP / TOTP
+        file: authentication/otp.md
+  - block: Identity
+    pages:
+      - label: OAuth2
+        file: identity/oauth2.md
+  - block: Framework integrations
+    pages:
+      - label: FastAPI
+        file: integrations/fastapi.md
+      - label: Starlette
+        file: integrations/starlette.md
+      - label: Litestart
+        file: integrations/litestar.md
+      - label: Flask
+        file: integrations/flask.md
+  - block: While development
+    pages:
+      - label: Logging
+        file: dev/logging.md
+      - label: Serialization
+        file: dev/serializers.md
+      - label: CLI
+        file: dev/cli.md
+      - label: Testing
+        file: dev/testing.md
+      - label: Utils
+        file: dev/utils.md
+      - label: Key generators
+        file: dev/key-generators.md
+      - label: Customization
+        file: dev/custom.md
+  - block: Reference
+    pages:
+      - label: API reference
+        file: api/index.md
+      - label: GitHub
+        url: https://github.com/mkrdnk/jam
+      - label: PyPi
+        url: https://pypi.org/project/jamlib
+      - label: Changelog
+        url: https://github.com/mkrdnk/jam/blob/master/CHANGELOG.md

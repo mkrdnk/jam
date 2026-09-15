@@ -6,21 +6,28 @@ on:
       - "v*"
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
 
-    if: |
-      startsWith(github.ref_name, 'v') &&
-      !contains(github.ref_name, 'rc') &&
-      !contains(github.ref_name, 'alpha') &&
-      !contains(github.ref_name, 'beta')
-
     steps:
+      - name: Validate stable version tag
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Not a stable release tag: $GITHUB_REF_NAME"
+            exit 1
+          fi
+
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -29,41 +36,40 @@ jobs:
           git fetch origin master
 
           if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then
-            echo "Tag is not from master branch. Skipping."
+            echo "Tag is not from master branch."
             exit 1
           fi
 
-      - name: Configure Git Credentials
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
         with:
-          python-version: "3.x"
-
-      - name: Set cache id
-        run: |
-          echo "cache_id=$(date --utc '+%V')" >> "$GITHUB_ENV"
-
-      - name: Cache MkDocs dependencies
-        uses: actions/cache@v4
-        with:
-          key: mkdocs-material-${{ env.cache_id }}
-          path: .cache
-          restore-keys: |
-            mkdocs-material-
-
-      - name: Install uv
-        run: |
-          python -m pip install --upgrade pip
-          pip install uv
+          node-version: 22
+          cache: npm
 
       - name: Install dependencies
-        run: |
-          uv sync --group docs
+        run: npm ci
 
-      - name: Deploy documentation
-        run: |
-          uv run mkdocs gh-deploy --force
+      - name: Build documentation
+        run: npm run build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

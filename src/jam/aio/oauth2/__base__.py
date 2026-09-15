@@ -36,7 +36,7 @@ class BaseAsyncOAuth2Client(ABC):
         self._serializer = serializer
 
     @abstractmethod
-    async def get_authorization_url(
+    def get_authorization_url(
         self, scope: list[str], **extra_params: Any
     ) -> str:
         """Get OAuth2 url.

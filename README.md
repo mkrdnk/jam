@@ -9,7 +9,7 @@
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/mkrdnk/jam)
 [![GitHub License](https://img.shields.io/github/license/mkrdnk/jam)](https://github.com/mkrdnk/jam/blob/master/LICENSE.md)
 
-**Jam (Jam Auth Module)** - A universal auth* combine that provides popular auth mechanisms strictly according to the specification.
+**Jam (Jam Auth Module)** - A universal auth* framework that provides popular auth mechanisms strictly according to the specification.
 
 * Documentation: [jam.makridenko.ru](https://jam.makridenko.ru)
 * Changelog: [CHANGELOG.md](https://github.com/mkrdnk/jam/blob/master/CHANGELOG.md)
@@ -22,13 +22,29 @@ pip install jamlib
 
 ## Quick example
 ```python
-from jam import Jam
+from dataclasses import dataclass
 
-jam = Jam(config="config.toml")
+from jam import BaseSubject, Jam
 
-jwt = jam.jwt_encode(payload={"user": 1})
-session_id = jam.session_create(session_key="username", data={"user": 1})
-otp_code = jam.otp_code(secret="3DB7FOAOFBCI3WFDRE7EPF43CA")
+
+@dataclass
+class User(BaseSubject):
+    id: int
+    email: str = ""
+
+
+jam = Jam(config="config.toml", subject=User)
+
+user = User(id=1, email="user@example.com")
+
+token = jam.issue(subject=user, via="jwt")
+principal = jam.authenticate(token)
+user = principal.subject
+
+allowed: bool = jam.authorize(
+    principal=principal,
+    permission="post:create"
+)
 ```
 
 ## Why Jam?

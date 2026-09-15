@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from abc import ABC
+from typing import Any
 
 
 class BasePlugin(ABC):
@@ -48,7 +49,7 @@ class BasePlugin(ABC):
         """Called when plugin is initialized."""
         pass
 
-    def emit(self, event: str, **kwargs) -> None:
+    def emit(self, event: str, **kwargs: Any) -> None:
         """Emit event.
 
         Args:

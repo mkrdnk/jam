@@ -33,11 +33,6 @@ class JamJWKInvalidKeyTypeError(JamValidationError):
     default_code = "jwk.invalid_key_type"
 
 
-class JamJWKMissingParameterError(JamValidationError):
-    default_message = "Missing required JWK parameter."
-    default_code = "jwk.missing_parameter"
-
-
 class JamJWEEncryptionError(JamValidationError):
     default_message = "JWE encryption failed."
     default_code = "jwe.encryption_error"

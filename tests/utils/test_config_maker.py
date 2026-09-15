@@ -2,7 +2,6 @@
 
 import os
 import tempfile
-from pathlib import Path
 from textwrap import dedent
 
 from jam.exceptions import JamConfigurationError
@@ -23,9 +22,10 @@ class TestYAMLConfigParser:
         """Create a basic YAML config file."""
         content = dedent("""
             jam:
-              jwt:
-                alg: HS256
-                secret_key: test_secret
+              jose:
+                jwt:
+                  alg: HS256
+                  secret_key: test_secret
               session:
                 session_type: json
         """).strip()
@@ -41,9 +41,10 @@ class TestYAMLConfigParser:
         """Create a YAML config file with environment variables."""
         content = dedent("""
             jam:
-              jwt:
-                alg: ${JWT_ALG}
-                secret_key: ${JWT_SECRET}
+              jose:
+                jwt:
+                  alg: ${JWT_ALG}
+                  secret_key: ${JWT_SECRET}
               session:
                 session_type: redis
                 redis_uri: redis://${REDIS_HOST}:${REDIS_PORT}/0
@@ -60,9 +61,10 @@ class TestYAMLConfigParser:
         """Create a YAML config file with environment variables and defaults."""
         content = dedent("""
             jam:
-              jwt:
-                alg: ${JWT_ALG:-HS256}
-                secret_key: ${JWT_SECRET}
+              jose:
+                jwt:
+                  alg: ${JWT_ALG:-HS256}
+                  secret_key: ${JWT_SECRET}
               session:
                 session_type: redis
                 redis_uri: redis://${REDIS_HOST:-localhost}:${REDIS_PORT:-6379}/0
@@ -84,9 +86,10 @@ class TestYAMLConfigParser:
         """Create a YAML config file with short form environment variables."""
         content = dedent("""
             jam:
-              jwt:
-                alg: HS256
-                secret_key: $JWT_SECRET
+              jose:
+                jwt:
+                  alg: HS256
+                  secret_key: $JWT_SECRET
         """).strip()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(content)
@@ -98,8 +101,8 @@ class TestYAMLConfigParser:
     def test_yaml_basic_parsing(self, yaml_config_basic):
         """Test basic YAML parsing without environment variables."""
         config = _yaml_parser(yaml_config_basic)
-        assert config["jwt"]["alg"] == "HS256"
-        assert config["jwt"]["secret_key"] == "test_secret"
+        assert config["jose"]["jwt"]["alg"] == "HS256"
+        assert config["jose"]["jwt"]["secret_key"] == "test_secret"
         assert config["session"]["session_type"] == "json"
 
     def test_yaml_env_substitution(self, yaml_config_with_env):
@@ -111,9 +114,12 @@ class TestYAMLConfigParser:
 
         try:
             config = _yaml_parser(yaml_config_with_env)
-            assert config["jwt"]["alg"] == "HS512"
-            assert config["jwt"]["secret_key"] == "super_secret"
-            assert config["session"]["redis_uri"] == "redis://redis.example.com:6380/0"
+            assert config["jose"]["jwt"]["alg"] == "HS512"
+            assert config["jose"]["jwt"]["secret_key"] == "super_secret"
+            assert (
+                config["session"]["redis_uri"]
+                == "redis://redis.example.com:6380/0"
+            )
         finally:
             del os.environ["JWT_ALG"]
             del os.environ["JWT_SECRET"]
@@ -127,11 +133,17 @@ class TestYAMLConfigParser:
 
         try:
             config = _yaml_parser(yaml_config_with_defaults)
-            assert config["jwt"]["alg"] == "HS256"
-            assert config["jwt"]["secret_key"] == "my_secret"
+            assert config["jose"]["jwt"]["alg"] == "HS256"
+            assert config["jose"]["jwt"]["secret_key"] == "my_secret"
             assert config["session"]["redis_uri"] == "redis://localhost:6379/0"
-            assert config["oauth2"]["providers"]["google"]["client_id"] == "google_id_123"
-            assert config["oauth2"]["providers"]["google"]["client_secret"] == "default_secret"
+            assert (
+                config["oauth2"]["providers"]["google"]["client_id"]
+                == "google_id_123"
+            )
+            assert (
+                config["oauth2"]["providers"]["google"]["client_secret"]
+                == "default_secret"
+            )
         finally:
             del os.environ["JWT_SECRET"]
             del os.environ["GOOGLE_CLIENT_ID"]
@@ -150,7 +162,7 @@ class TestYAMLConfigParser:
 
         try:
             config = _yaml_parser(yaml_config_with_short_form)
-            assert config["jwt"]["secret_key"] == "short_secret"
+            assert config["jose"]["jwt"]["secret_key"] == "short_secret"
         finally:
             del os.environ["JWT_SECRET"]
 
@@ -167,7 +179,7 @@ class TestTOMLConfigParser:
     def toml_config_basic(self):
         """Create a basic TOML config file."""
         content = dedent("""
-            [jam.jwt]
+            [jam.jose.jwt]
             alg = "HS256"
             secret_key = "test_secret"
 
@@ -185,7 +197,7 @@ class TestTOMLConfigParser:
     def toml_config_with_env(self):
         """Create a TOML config file with environment variables."""
         content = dedent("""
-            [jam.jwt]
+            [jam.jose.jwt]
             alg = "${JWT_ALG}"
             secret_key = "${JWT_SECRET}"
 
@@ -204,7 +216,7 @@ class TestTOMLConfigParser:
     def toml_config_with_defaults(self):
         """Create a TOML config file with environment variables and defaults."""
         content = dedent("""
-            [jam.jwt]
+            [jam.jose.jwt]
             alg = "${JWT_ALG:-HS256}"
             secret_key = "${JWT_SECRET}"
 
@@ -227,7 +239,7 @@ class TestTOMLConfigParser:
     def toml_config_with_short_form(self):
         """Create a TOML config file with short form environment variables."""
         content = dedent("""
-            [jam.jwt]
+            [jam.jose.jwt]
             alg = "HS256"
             secret_key = "$JWT_SECRET"
         """).strip()
@@ -242,7 +254,7 @@ class TestTOMLConfigParser:
     def toml_config_with_list(self):
         """Create a TOML config file with list containing environment variables."""
         content = dedent("""
-            [jam.jwt]
+            [jam.jose.jwt]
             allowed_algorithms = ["HS256", "${EXTRA_ALG:-RS256}"]
             secret_key = "${JWT_SECRET}"
         """).strip()
@@ -256,8 +268,8 @@ class TestTOMLConfigParser:
     def test_toml_basic_parsing(self, toml_config_basic):
         """Test basic TOML parsing without environment variables."""
         config = _toml_parser(toml_config_basic)
-        assert config["jwt"]["alg"] == "HS256"
-        assert config["jwt"]["secret_key"] == "test_secret"
+        assert config["jose"]["jwt"]["alg"] == "HS256"
+        assert config["jose"]["jwt"]["secret_key"] == "test_secret"
         assert config["session"]["session_type"] == "json"
 
     def test_toml_env_substitution(self, toml_config_with_env):
@@ -269,9 +281,12 @@ class TestTOMLConfigParser:
 
         try:
             config = _toml_parser(toml_config_with_env)
-            assert config["jwt"]["alg"] == "HS512"
-            assert config["jwt"]["secret_key"] == "super_secret"
-            assert config["session"]["redis_uri"] == "redis://redis.example.com:6380/0"
+            assert config["jose"]["jwt"]["alg"] == "HS512"
+            assert config["jose"]["jwt"]["secret_key"] == "super_secret"
+            assert (
+                config["session"]["redis_uri"]
+                == "redis://redis.example.com:6380/0"
+            )
         finally:
             del os.environ["JWT_ALG"]
             del os.environ["JWT_SECRET"]
@@ -285,11 +300,17 @@ class TestTOMLConfigParser:
 
         try:
             config = _toml_parser(toml_config_with_defaults)
-            assert config["jwt"]["alg"] == "HS256"
-            assert config["jwt"]["secret_key"] == "my_secret"
+            assert config["jose"]["jwt"]["alg"] == "HS256"
+            assert config["jose"]["jwt"]["secret_key"] == "my_secret"
             assert config["session"]["redis_uri"] == "redis://localhost:6379/0"
-            assert config["oauth2"]["providers"]["google"]["client_id"] == "google_id_123"
-            assert config["oauth2"]["providers"]["google"]["client_secret"] == "default_secret"
+            assert (
+                config["oauth2"]["providers"]["google"]["client_id"]
+                == "google_id_123"
+            )
+            assert (
+                config["oauth2"]["providers"]["google"]["client_secret"]
+                == "default_secret"
+            )
         finally:
             del os.environ["JWT_SECRET"]
             del os.environ["GOOGLE_CLIENT_ID"]
@@ -308,7 +329,7 @@ class TestTOMLConfigParser:
 
         try:
             config = _toml_parser(toml_config_with_short_form)
-            assert config["jwt"]["secret_key"] == "short_secret"
+            assert config["jose"]["jwt"]["secret_key"] == "short_secret"
         finally:
             del os.environ["JWT_SECRET"]
 
@@ -319,8 +340,11 @@ class TestTOMLConfigParser:
 
         try:
             config = _toml_parser(toml_config_with_list)
-            assert config["jwt"]["allowed_algorithms"] == ["HS256", "ES256"]
-            assert config["jwt"]["secret_key"] == "list_secret"
+            assert config["jose"]["jwt"]["allowed_algorithms"] == [
+                "HS256",
+                "ES256",
+            ]
+            assert config["jose"]["jwt"]["secret_key"] == "list_secret"
         finally:
             del os.environ["JWT_SECRET"]
             del os.environ["EXTRA_ALG"]
@@ -331,7 +355,10 @@ class TestTOMLConfigParser:
 
         try:
             config = _toml_parser(toml_config_with_list)
-            assert config["jwt"]["allowed_algorithms"] == ["HS256", "RS256"]
+            assert config["jose"]["jwt"]["allowed_algorithms"] == [
+                "HS256",
+                "RS256",
+            ]
         finally:
             del os.environ["JWT_SECRET"]
 
@@ -349,9 +376,10 @@ class TestConfigMaker:
         """Create a YAML config file."""
         content = dedent("""
             jam:
-              jwt:
-                alg: ${JWT_ALG:-HS256}
-                secret_key: ${JWT_SECRET}
+              jose:
+                jwt:
+                  alg: ${JWT_ALG:-HS256}
+                  secret_key: ${JWT_SECRET}
         """).strip()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(content)
@@ -364,7 +392,7 @@ class TestConfigMaker:
     def toml_config_file(self):
         """Create a TOML config file."""
         content = dedent("""
-            [jam.jwt]
+            [jam.jose.jwt]
             alg = "${JWT_ALG:-HS256}"
             secret_key = "${JWT_SECRET}"
         """).strip()
@@ -377,20 +405,17 @@ class TestConfigMaker:
 
     def test_config_maker_with_dict(self):
         """Test config maker with dictionary input."""
-        import warnings
         config_dict = {
-            "jwt": {
-                "alg": "HS256",
-                "secret_key": "test_secret"
+            "jose": {
+                "jwt": {
+                    "alg": "HS256",
+                    "secret_key": "test_secret",
+                }
             }
         }
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("always")
-            result = _config_maker(config_dict)
-        assert result["jwt"]["alg"] == "HS256"
-        assert result["jwt"]["secret_key"] == "test_secret"
-        assert "jose" in result
+        result = _config_maker(config_dict)
         assert result["jose"]["jwt"]["alg"] == "HS256"
+        assert result["jose"]["jwt"]["secret_key"] == "test_secret"
         assert result is not config_dict
 
     def test_config_maker_with_yaml(self, yaml_config_file):
@@ -399,8 +424,8 @@ class TestConfigMaker:
 
         try:
             config = _config_maker(yaml_config_file)
-            assert config["jwt"]["alg"] == "HS256"
-            assert config["jwt"]["secret_key"] == "yaml_secret"
+            assert config["jose"]["jwt"]["alg"] == "HS256"
+            assert config["jose"]["jwt"]["secret_key"] == "yaml_secret"
         finally:
             del os.environ["JWT_SECRET"]
 
@@ -410,8 +435,8 @@ class TestConfigMaker:
 
         try:
             config = _config_maker(toml_config_file)
-            assert config["jwt"]["alg"] == "HS256"
-            assert config["jwt"]["secret_key"] == "toml_secret"
+            assert config["jose"]["jwt"]["alg"] == "HS256"
+            assert config["jose"]["jwt"]["secret_key"] == "toml_secret"
         finally:
             del os.environ["JWT_SECRET"]
 

@@ -1,0 +1,480 @@
+{
+  "versions": [
+    "4.0.0"
+  ],
+  "docs": {
+    "4.0.0": {
+      "nav": [
+        {
+          "id": "group:Getting Started",
+          "title": "Getting Started",
+          "children": [
+            {
+              "id": "gettingstarted--installation",
+              "title": "Installation",
+              "slug": "gettingstarted--installation"
+            },
+            {
+              "id": "gettingstarted--configuration",
+              "title": "Configuration",
+              "slug": "gettingstarted--configuration"
+            },
+            {
+              "id": "gettingstarted--quickstart",
+              "title": "Quickstart",
+              "slug": "gettingstarted--quickstart"
+            }
+          ]
+        },
+        {
+          "id": "group:Core concepts",
+          "title": "Core concepts",
+          "children": [
+            {
+              "id": "core--jam",
+              "title": "Jam instance",
+              "slug": "core--jam"
+            },
+            {
+              "id": "core--subject",
+              "title": "Subjects",
+              "slug": "core--subject"
+            },
+            {
+              "id": "core--authz",
+              "title": "Authorization",
+              "slug": "core--authz"
+            },
+            {
+              "id": "core--keychain",
+              "title": "KeyChain",
+              "slug": "core--keychain"
+            }
+          ]
+        },
+        {
+          "id": "group:Authentication",
+          "title": "Authentication",
+          "children": [
+            {
+              "id": "group:Authentication:JOSE",
+              "title": "JOSE",
+              "children": [
+                {
+                  "id": "authentication--jose--index",
+                  "title": "JOSE",
+                  "slug": "authentication--jose--index"
+                },
+                {
+                  "id": "authentication--jose--jwt",
+                  "title": "JWT",
+                  "slug": "authentication--jose--jwt"
+                },
+                {
+                  "id": "authentication--jose--jws",
+                  "title": "JWS",
+                  "slug": "authentication--jose--jws"
+                },
+                {
+                  "id": "authentication--jose--jwe",
+                  "title": "JWE",
+                  "slug": "authentication--jose--jwe"
+                },
+                {
+                  "id": "authentication--jose--jwk",
+                  "title": "JWK",
+                  "slug": "authentication--jose--jwk"
+                },
+                {
+                  "id": "authentication--jose--algorithms",
+                  "title": "Algorithms",
+                  "slug": "authentication--jose--algorithms"
+                },
+                {
+                  "id": "authentication--jose--lists",
+                  "title": "Lists",
+                  "slug": "authentication--jose--lists"
+                }
+              ]
+            },
+            {
+              "id": "authentication--paseto",
+              "title": "PASETO",
+              "slug": "authentication--paseto"
+            },
+            {
+              "id": "authentication--sessions",
+              "title": "Server side sessions",
+              "slug": "authentication--sessions"
+            },
+            {
+              "id": "authentication--saml",
+              "title": "SAML",
+              "slug": "authentication--saml"
+            },
+            {
+              "id": "authentication--otp",
+              "title": "OTP",
+              "slug": "authentication--otp"
+            }
+          ]
+        },
+        {
+          "id": "group:Identity",
+          "title": "Identity",
+          "children": [
+            {
+              "id": "identity--oauth2",
+              "title": "OAuth2",
+              "slug": "identity--oauth2"
+            }
+          ]
+        },
+        {
+          "id": "group:Framework integrations",
+          "title": "Framework integrations",
+          "children": [
+            {
+              "id": "integrations--fastapi",
+              "title": "FastAPI",
+              "slug": "integrations--fastapi"
+            },
+            {
+              "id": "integrations--starlette",
+              "title": "Starlette",
+              "slug": "integrations--starlette"
+            },
+            {
+              "id": "integrations--litestar",
+              "title": "Litestar",
+              "slug": "integrations--litestar"
+            },
+            {
+              "id": "integrations--flask",
+              "title": "Flask",
+              "slug": "integrations--flask"
+            }
+          ]
+        },
+        {
+          "id": "group:While development",
+          "title": "While development",
+          "children": [
+            {
+              "id": "dev--logging",
+              "title": "Logging",
+              "slug": "dev--logging"
+            },
+            {
+              "id": "dev--serializers",
+              "title": "JSON serialization",
+              "slug": "dev--serializers"
+            },
+            {
+              "id": "dev--cli",
+              "title": "CLI",
+              "slug": "dev--cli"
+            },
+            {
+              "id": "dev--testing",
+              "title": "Test client",
+              "slug": "dev--testing"
+            },
+            {
+              "id": "dev--utils",
+              "title": "Utils",
+              "slug": "dev--utils"
+            },
+            {
+              "id": "dev--key-generators",
+              "title": "Key generators",
+              "slug": "dev--key-generators"
+            },
+            {
+              "id": "dev--custom",
+              "title": "Custom modules",
+              "slug": "dev--custom"
+            }
+          ]
+        },
+        {
+          "id": "group:Reference",
+          "title": "Reference",
+          "children": [
+            {
+              "id": "api--index",
+              "title": "API reference",
+              "slug": "api--index"
+            },
+            {
+              "id": "url:https://github.com/mkrdnk/jam",
+              "title": "GitHub",
+              "url": "https://github.com/mkrdnk/jam"
+            },
+            {
+              "id": "url:https://pypi.org/project/jamlib",
+              "title": "PyPi",
+              "url": "https://pypi.org/project/jamlib"
+            },
+            {
+              "id": "url:https://github.com/mkrdnk/jam/blob/master/CHANGELOG.md",
+              "title": "Changelog",
+              "url": "https://github.com/mkrdnk/jam/blob/master/CHANGELOG.md"
+            }
+          ]
+        }
+      ],
+      "pages": [
+        {
+          "slug": "gettingstarted--installation",
+          "title": "Installation"
+        },
+        {
+          "slug": "gettingstarted--configuration",
+          "title": "Configuration"
+        },
+        {
+          "slug": "gettingstarted--quickstart",
+          "title": "Quickstart"
+        },
+        {
+          "slug": "core--jam",
+          "title": "Jam instance"
+        },
+        {
+          "slug": "core--subject",
+          "title": "Subjects"
+        },
+        {
+          "slug": "core--authz",
+          "title": "Authorization"
+        },
+        {
+          "slug": "core--keychain",
+          "title": "KeyChain"
+        },
+        {
+          "slug": "authentication--jose--index",
+          "title": "JOSE"
+        },
+        {
+          "slug": "authentication--jose--jwt",
+          "title": "JWT"
+        },
+        {
+          "slug": "authentication--jose--jws",
+          "title": "JWS"
+        },
+        {
+          "slug": "authentication--jose--jwe",
+          "title": "JWE"
+        },
+        {
+          "slug": "authentication--jose--jwk",
+          "title": "JWK"
+        },
+        {
+          "slug": "authentication--jose--algorithms",
+          "title": "Algorithms"
+        },
+        {
+          "slug": "authentication--jose--lists",
+          "title": "Lists"
+        },
+        {
+          "slug": "authentication--paseto",
+          "title": "PASETO"
+        },
+        {
+          "slug": "authentication--sessions",
+          "title": "Server side sessions"
+        },
+        {
+          "slug": "authentication--saml",
+          "title": "SAML"
+        },
+        {
+          "slug": "authentication--otp",
+          "title": "OTP"
+        },
+        {
+          "slug": "identity--oauth2",
+          "title": "OAuth2"
+        },
+        {
+          "slug": "integrations--fastapi",
+          "title": "FastAPI"
+        },
+        {
+          "slug": "integrations--starlette",
+          "title": "Starlette"
+        },
+        {
+          "slug": "integrations--litestar",
+          "title": "Litestar"
+        },
+        {
+          "slug": "integrations--flask",
+          "title": "Flask"
+        },
+        {
+          "slug": "dev--logging",
+          "title": "Logging"
+        },
+        {
+          "slug": "dev--serializers",
+          "title": "JSON serialization"
+        },
+        {
+          "slug": "dev--cli",
+          "title": "CLI"
+        },
+        {
+          "slug": "dev--testing",
+          "title": "Test client"
+        },
+        {
+          "slug": "dev--utils",
+          "title": "Utils"
+        },
+        {
+          "slug": "dev--key-generators",
+          "title": "Key generators"
+        },
+        {
+          "slug": "dev--custom",
+          "title": "Custom modules"
+        },
+        {
+          "slug": "api--index",
+          "title": "API reference"
+        }
+      ],
+      "apiModules": [
+        "jam",
+        "jam.__base__",
+        "jam.__base_encoder__",
+        "jam.__core__",
+        "jam.__defaults__",
+        "jam.__deprecated__",
+        "jam.aio",
+        "jam.aio.__base__",
+        "jam.aio.instance",
+        "jam.aio.lists",
+        "jam.aio.lists.__base__",
+        "jam.aio.lists.json",
+        "jam.aio.lists.memory",
+        "jam.aio.lists.redis",
+        "jam.aio.oauth2",
+        "jam.aio.oauth2.__base__",
+        "jam.aio.oauth2.builtin",
+        "jam.aio.oauth2.builtin.github",
+        "jam.aio.oauth2.builtin.gitlab",
+        "jam.aio.oauth2.builtin.google",
+        "jam.aio.oauth2.builtin.yandex",
+        "jam.aio.oauth2.client",
+        "jam.aio.sessions",
+        "jam.aio.sessions.__base__",
+        "jam.aio.sessions.json",
+        "jam.aio.sessions.redis",
+        "jam.authz",
+        "jam.cli",
+        "jam.cli.cli",
+        "jam.cli.commands",
+        "jam.cli.commands.keychain",
+        "jam.cli.commands.keys",
+        "jam.cli.commands.password",
+        "jam.encoders",
+        "jam.exceptions",
+        "jam.exceptions.base",
+        "jam.exceptions.jose",
+        "jam.exceptions.jwt",
+        "jam.exceptions.keychain",
+        "jam.exceptions.oauth2",
+        "jam.exceptions.paseto",
+        "jam.exceptions.plugins",
+        "jam.exceptions.saml",
+        "jam.exceptions.sessions",
+        "jam.ext",
+        "jam.ext._base",
+        "jam.ext.fastapi",
+        "jam.ext.flask",
+        "jam.ext.flask.auth",
+        "jam.ext.litestar",
+        "jam.ext.litestar.plugin",
+        "jam.ext.starlette",
+        "jam.ext.starlette.auth",
+        "jam.instance",
+        "jam.jose",
+        "jam.jose.__algorithms__",
+        "jam.jose.__base__",
+        "jam.jose.jwe",
+        "jam.jose.jwk",
+        "jam.jose.jws",
+        "jam.jose.jwt",
+        "jam.jose.utils",
+        "jam.keychain",
+        "jam.keychain.__base__",
+        "jam.keychain.file",
+        "jam.keychain.memory",
+        "jam.lists",
+        "jam.lists.__base__",
+        "jam.lists.json",
+        "jam.lists.memory",
+        "jam.lists.redis",
+        "jam.oauth2",
+        "jam.oauth2.__base__",
+        "jam.oauth2.builtin",
+        "jam.oauth2.builtin.github",
+        "jam.oauth2.builtin.gitlab",
+        "jam.oauth2.builtin.google",
+        "jam.oauth2.builtin.yandex",
+        "jam.oauth2.client",
+        "jam.otp",
+        "jam.otp.__base__",
+        "jam.otp.hotp",
+        "jam.otp.totp",
+        "jam.paseto",
+        "jam.paseto.__base__",
+        "jam.paseto.utils",
+        "jam.paseto.v1",
+        "jam.paseto.v2",
+        "jam.paseto.v3",
+        "jam.paseto.v4",
+        "jam.plugins",
+        "jam.plugins.__base__",
+        "jam.saml",
+        "jam.saml.__base__",
+        "jam.saml.binding",
+        "jam.saml.encryption",
+        "jam.saml.metadata",
+        "jam.saml.saml",
+        "jam.saml.signature",
+        "jam.saml.types",
+        "jam.saml.xml",
+        "jam.sessions",
+        "jam.sessions.__base__",
+        "jam.sessions._codec",
+        "jam.sessions.json",
+        "jam.sessions.redis",
+        "jam.subject",
+        "jam.utils",
+        "jam.utils.aes",
+        "jam.utils.await_maybe",
+        "jam.utils.basic_auth",
+        "jam.utils.config_maker",
+        "jam.utils.config_meta",
+        "jam.utils.config_validator",
+        "jam.utils.ed",
+        "jam.utils.otp_keys",
+        "jam.utils.redaction",
+        "jam.utils.rsa",
+        "jam.utils.salt_hash",
+        "jam.utils.symmetric",
+        "jam.utils.version_check",
+        "jam.utils.xchacha20poly1305",
+        "jam.utils.xor"
+      ]
+    }
+  }
+}

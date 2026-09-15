@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import TYPE_CHECKING, Any
 
@@ -21,15 +22,18 @@ from jam.jose.__algorithms__ import (
     create_key_algorithm,
 )
 from jam.jose.__base__ import BaseJWE
+from jam.utils.config_meta import ConfigMeta
 
 
 if TYPE_CHECKING:
     from jam.jose.jwk import JWK
 from jam.jose.utils import __base64url_decode__, __base64url_encode__
-from jam.logger import BaseLogger, logger
 
 
-class JWE(BaseJWE):
+logger = logging.getLogger(__name__)
+
+
+class JWE(BaseJWE, metaclass=ConfigMeta):
     """JWE (JSON Web Encryption) implementation - RFC 7516.
 
     Provides encryption and decryption of data using JWK keys.
@@ -43,6 +47,8 @@ class JWE(BaseJWE):
         ```
     """
 
+    _CONFIG_POINTER = "jam.jose.jwe"
+
     def __init__(
         self,
         alg: str,
@@ -50,7 +56,8 @@ class JWE(BaseJWE):
         key: KeyLike | JWK,
         password: bytes | None = None,
         serializer: BaseEncoder | type[BaseEncoder] = JsonEncoder,
-        logger: BaseLogger = logger,
+        config: str | dict[str, Any] | None = None,
+        pointer: str | None = None,
     ) -> None:
         """Initialize JWE.
 
@@ -60,7 +67,8 @@ class JWE(BaseJWE):
             key: Key for encryption/decryption. Can be KeyLike or JWK.
             password: Password for encrypted private keys.
             serializer: Encoder for serializing/deserializing JSON data.
-            logger: Logger instance.
+            config (str | dict[str, Any] | None): Configuration dict or file path.
+            pointer (str | None): Config pointer. Defaults to "jam.jose.jwe".
         """
         from jam.jose.jwk import JWK as JWKClass
 
@@ -71,7 +79,6 @@ class JWE(BaseJWE):
         self._key = key
         self._password = password
         self._serializer = serializer
-        self._logger = logger
 
         if self._alg not in SUPPORTED_KEY_ALGORITHMS:
             raise JamJWEEncryptionError(
@@ -118,10 +125,8 @@ class JWE(BaseJWE):
             if header:
                 merged_header.update(header)
 
-            enc_alg = create_enc_algorithm(self._enc, self._logger)
-            key_alg = create_key_algorithm(
-                self._alg, self._key, self._password, self._logger
-            )
+            enc_alg = create_enc_algorithm(self._enc)
+            key_alg = create_key_algorithm(self._alg, self._key, self._password)
 
             iv = os.urandom(enc_alg.get_iv_length())
             cek = os.urandom(enc_alg.get_key_length())
@@ -146,7 +151,7 @@ class JWE(BaseJWE):
                 f"{iv_b64}.{ciphertext_b64}.{tag_b64}"
             )
         except Exception as e:
-            self._logger.error(f"JWE encryption failed: {e}", exc_info=True)
+            logger.error("JWE encryption failed: %s", e, exc_info=True)
             raise JamJWEEncryptionError(
                 message=f"JWE encryption failed: {e}"
             ) from e
@@ -183,10 +188,8 @@ class JWE(BaseJWE):
             alg = protected.get("alg", self._alg)
             enc = protected.get("enc", self._enc)
 
-            enc_alg = create_enc_algorithm(enc, self._logger)
-            key_alg = create_key_algorithm(
-                alg, self._key, self._password, self._logger
-            )
+            enc_alg = create_enc_algorithm(enc)
+            key_alg = create_key_algorithm(alg, self._key, self._password)
 
             encrypted_key = __base64url_decode__(encrypted_key_b64)
             cek = key_alg.unwrap_key(encrypted_key, protected)
@@ -200,7 +203,7 @@ class JWE(BaseJWE):
 
             return plaintext
         except Exception as e:
-            self._logger.error(f"JWE decryption failed: {e}", exc_info=True)
+            logger.error("JWE decryption failed: %s", e, exc_info=True)
             raise JamJWEDecryptionError(
                 message=f"JWE decryption failed: {e}"
             ) from e

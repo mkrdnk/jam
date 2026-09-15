@@ -9,19 +9,16 @@ from typing import Any, Literal
 from .__base__ import BaseOTP
 from .hotp import HOTP
 from .totp import TOTP
-from jam.logger import BaseLogger, logger
 
 
 def create_instance(
     type: Literal["hotp", "totp"],
-    # logger: BaseLogger = logger,
     **kwargs: Any,
 ) -> type[BaseOTP]:
     """Create OTP class (not instance, since secret is provided per-call).
 
     Args:
         type (str): "hotp" | "totp"
-        logger (BaseLogger): Logger instance
         **kwargs: digits, digest, interval (for TOTP), custom_module
 
     Returns:
