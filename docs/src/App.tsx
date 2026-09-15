@@ -675,7 +675,7 @@ principal = jam.authenticate(token)
 jam.authorize(principal, "users.read")`
 
 const MODULES = [
-  { name: "JWT",          desc: "RS256 · ES256 · EdDSA · HS256", slug: "usage--jose--jwt" },
+  { name: "JOSE",          desc: "JWT · JWE · JWS · JWK", slug: "authentication--jose--index" },
   { name: "PASETO",       desc: "v1-4 · local · public",     slug: "authentication--paseto" },
   { name: "Sessions",     desc: "Redis · Database · Memory",     slug: "authentication--sessions" },
   { name: "SAML",         desc: "IdP · SP",                      slug: "authentication--saml" },
@@ -683,7 +683,7 @@ const MODULES = [
   // { name: "OIDC",         desc: "Authorization code · ID tokens", slug: "usage--oauth2" },
   { name: "Authorization", desc: "RBAC · Permissions · Policies", slug: "core--authz" },
   { name: "OTP / TOTP",   desc: "RFC 4226 · RFC 6238 · 2FA",     slug: "authentication--otp" },
-  { name: "KeyChain",     desc: "Rotation · FileStorage · Custom", slug: "usage--keychain" },
+  { name: "KeyChain",     desc: "Rotation · FileStorage · Custom", slug: "core--keychain" },
 ]
 
 const INTEGRATIONS = [
@@ -728,7 +728,7 @@ function HomePage({ onOpenMd }: { onOpenMd: (slug: string) => void }) {
               letterSpacing: "0.02em",
             }}>
               <span style={{ color: "#7ec8a4" }}>◆</span>
-              pip install 'jamlib[cli]'
+              pip install jamlib
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: "1.25rem" }}>
