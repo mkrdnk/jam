@@ -4782,7 +4782,7 @@ from jam.ext.fastapi import JamAuth
 
 
 jam = Jam("config.toml")
-auth = JamAuth(jam)
+auth = JamAuth(jam, via="jwt")
 app = FastAPI()
 
 
@@ -4833,6 +4833,7 @@ from jam.ext.fastapi import CredentialSource
 
 auth = JamAuth(
     jam,
+    via="jwt",
     sources=[
         CredentialSource.bearer(),
         CredentialSource.cookie("session"),
@@ -4880,7 +4881,7 @@ app = Starlette(
     middleware=[
         Middleware(
             AuthenticationMiddleware,
-            backend=JamAuthBackend(jam),
+            backend=JamAuthBackend(jam, via="jwt"),
         )
     ],
 )
@@ -4894,6 +4895,7 @@ from jam.ext.starlette import CredentialSource, JamAuthBackend
 
 backend = JamAuthBackend(
     jam,
+    via="jwt",
     sources=[
         CredentialSource.bearer(),
         CredentialSource.cookie("session"),
@@ -4949,7 +4951,7 @@ async def posts() -> list:
 
 app = Litestar(
     route_handlers=[me, posts],
-    plugins=[JamPlugin(jam)],
+    plugins=[JamPlugin(jam, via="jwt")],
 )
 \`\`\`
 
@@ -4965,6 +4967,7 @@ from jam.ext.litestar import CredentialSource, JamPlugin
 
 plugin = JamPlugin(
     jam,
+    via="jwt",
     sources=[
         CredentialSource.bearer(),
         CredentialSource.cookie("session"),
@@ -4999,7 +5002,7 @@ from jam.ext.flask import JamAuth, current_principal
 
 
 jam = Jam("config.toml")
-auth = JamAuth(jam=jam)
+auth = JamAuth(jam=jam, via="jwt")
 
 
 def create_app():
@@ -5032,6 +5035,7 @@ from jam.ext.flask import CredentialSource, JamAuth
 
 auth = JamAuth(
     jam=jam,
+    via="jwt",
     sources=[
         CredentialSource.bearer(),
         CredentialSource.cookie("session"),
