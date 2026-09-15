@@ -1010,7 +1010,8 @@ and SHA-256 fingerprints only; they never print key material.
 `} />
   ),
   "4.0.0/authentication--jose--index": () => (
-    <MarkdownRenderer content={`
+    <MarkdownRenderer content={`# JOSE
+
 ## Overview
 
 JOSE (JSON Object Signing and Encryption) is a set of standards for secure data transmission:
@@ -1059,10 +1060,7 @@ The \`jam.jose\` package exports the following:
 `} />
   ),
   "4.0.0/authentication--jose--jwt": () => (
-    <MarkdownRenderer content={`
-!!! tip
-    The \`jam.jwt\` module is [deprecated](/breaking_changes/deprecated), but the
-    documentation is still available at [/usage/jwt](/usage/jwt)
+    <MarkdownRenderer content={`# JWT
 
 ## Token modes
 
@@ -1354,7 +1352,8 @@ print(jti)
 `} />
   ),
   "4.0.0/authentication--jose--jws": () => (
-    <MarkdownRenderer content={`
+    <MarkdownRenderer content={`# JWS
+
 ## Use in instance
 
 ### Config
@@ -1647,7 +1646,8 @@ result = jws.verify(token)
 `} />
   ),
   "4.0.0/authentication--jose--jwe": () => (
-    <MarkdownRenderer content={`
+    <MarkdownRenderer content={`# JWE
+
 ## Instance (jam.Jam)
 
 ### Config
@@ -1906,7 +1906,8 @@ data = jwe_dec.decrypt(token)
 `} />
   ),
   "4.0.0/authentication--jose--jwk": () => (
-    <MarkdownRenderer content={`
+    <MarkdownRenderer content={`# JWK
+
 ## TypedDicts
 
 ### JWKCommon
@@ -2351,7 +2352,8 @@ def process_symmetric_key(key: JWKOct) -> None:
 `} />
   ),
   "4.0.0/authentication--jose--algorithms": () => (
-    <MarkdownRenderer content={`
+    <MarkdownRenderer content={`# Algorithms
+
 ## Overview
 
 JOSE supports multiple algorithms organized into three categories:
@@ -2659,10 +2661,12 @@ ES512 + ECDH-ES+A256KW + A256CBC-HS512  → P-521 ECDH
 | \`ES256\` | ✓ | Recommended for new implementations |
 | \`RSA-OAEP\` | ✓ | Recommended, uses SHA-256 |
 | \`A128GCM\` | ✓ | Authenticated encryption |
-| \`PBES2-*\` | ✓ | Secure with strong passwords |`} />
+| \`PBES2-*\` | ✓ | Secure with strong passwords |
+`} />
   ),
   "4.0.0/authentication--jose--lists": () => (
-    <MarkdownRenderer content={`
+    <MarkdownRenderer content={`# Lists
+
 ## Use in instance
 
 ### Config

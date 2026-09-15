@@ -1,6 +1,4 @@
----
-title: JWS
----
+# JWS
 
 ## Use in instance
 

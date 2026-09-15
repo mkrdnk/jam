@@ -1,6 +1,4 @@
----
-title: JOSE
----
+# JOSE
 
 ## Overview
 

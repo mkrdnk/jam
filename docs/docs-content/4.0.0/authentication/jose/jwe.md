@@ -1,6 +1,4 @@
----
-title: JWE
----
+# JWE
 
 ## Instance (jam.Jam)
 

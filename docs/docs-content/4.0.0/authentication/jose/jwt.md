@@ -1,10 +1,4 @@
----
-title: JWT
----
-
-!!! tip
-    The `jam.jwt` module is [deprecated](/breaking_changes/deprecated), but the
-    documentation is still available at [/usage/jwt](/usage/jwt)
+# JWT
 
 ## Token modes
 

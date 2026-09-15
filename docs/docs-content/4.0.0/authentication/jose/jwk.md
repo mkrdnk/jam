@@ -1,6 +1,4 @@
----
-title: JWK
----
+# JWK
 
 ## TypedDicts
 
