@@ -15,40 +15,35 @@
               "slug": "gettingstarted--installation"
             },
             {
-              "id": "gettingstarted--configuration",
-              "title": "Configuration",
-              "slug": "gettingstarted--configuration"
-            },
-            {
               "id": "gettingstarted--quickstart",
               "title": "Quickstart",
               "slug": "gettingstarted--quickstart"
+            },
+            {
+              "id": "gettingstarted--configuration",
+              "title": "Configuration",
+              "slug": "gettingstarted--configuration"
             }
           ]
         },
         {
-          "id": "group:Core concepts",
-          "title": "Core concepts",
+          "id": "group:Authorization",
+          "title": "Authorization",
           "children": [
             {
-              "id": "core--jam",
-              "title": "Jam instance",
-              "slug": "core--jam"
+              "id": "authz--subject",
+              "title": "Subject",
+              "slug": "authz--subject"
             },
             {
-              "id": "core--subject",
-              "title": "Subjects",
-              "slug": "core--subject"
+              "id": "authz--principal",
+              "title": "Principal",
+              "slug": "authz--principal"
             },
             {
-              "id": "core--authz",
-              "title": "Authorization",
-              "slug": "core--authz"
-            },
-            {
-              "id": "core--keychain",
-              "title": "KeyChain",
-              "slug": "core--keychain"
+              "id": "authz--context",
+              "title": "Contexts",
+              "slug": "authz--context"
             }
           ]
         },
@@ -61,72 +56,66 @@
               "title": "JOSE",
               "children": [
                 {
-                  "id": "authentication--jose--index",
+                  "id": "authx--jose--index",
                   "title": "JOSE",
-                  "slug": "authentication--jose--index"
+                  "slug": "authx--jose--index"
                 },
                 {
-                  "id": "authentication--jose--jwt",
+                  "id": "authx--jose--jwt",
                   "title": "JWT",
-                  "slug": "authentication--jose--jwt"
+                  "slug": "authx--jose--jwt"
                 },
                 {
-                  "id": "authentication--jose--jws",
+                  "id": "authx--jose--jws",
                   "title": "JWS",
-                  "slug": "authentication--jose--jws"
+                  "slug": "authx--jose--jws"
                 },
                 {
-                  "id": "authentication--jose--jwe",
+                  "id": "authx--jose--jwe",
                   "title": "JWE",
-                  "slug": "authentication--jose--jwe"
+                  "slug": "authx--jose--jwe"
                 },
                 {
-                  "id": "authentication--jose--jwk",
+                  "id": "authx--jose--jwk",
                   "title": "JWK",
-                  "slug": "authentication--jose--jwk"
+                  "slug": "authx--jose--jwk"
                 },
                 {
-                  "id": "authentication--jose--algorithms",
+                  "id": "authx--jose--algorithms",
                   "title": "Algorithms",
-                  "slug": "authentication--jose--algorithms"
+                  "slug": "authx--jose--algorithms"
                 },
                 {
-                  "id": "authentication--jose--lists",
+                  "id": "authx--jose--lists",
                   "title": "Lists",
-                  "slug": "authentication--jose--lists"
+                  "slug": "authx--jose--lists"
                 }
               ]
             },
             {
-              "id": "authentication--paseto",
+              "id": "authx--paseto",
               "title": "PASETO",
-              "slug": "authentication--paseto"
+              "slug": "authx--paseto"
             },
             {
-              "id": "authentication--sessions",
+              "id": "authx--sessions",
               "title": "Server side sessions",
-              "slug": "authentication--sessions"
+              "slug": "authx--sessions"
             },
             {
-              "id": "authentication--saml",
+              "id": "authx--saml",
               "title": "SAML",
-              "slug": "authentication--saml"
+              "slug": "authx--saml"
             },
             {
-              "id": "authentication--otp",
+              "id": "authx--otp",
               "title": "OTP",
-              "slug": "authentication--otp"
-            }
-          ]
-        },
-        {
-          "id": "group:Identity",
-          "title": "Identity",
-          "children": [
+              "slug": "authx--otp"
+            },
             {
-              "id": "identity--oauth2",
+              "id": "authx--oauth2",
               "title": "OAuth2",
-              "slug": "identity--oauth2"
+              "slug": "authx--oauth2"
             }
           ]
         },
@@ -157,8 +146,8 @@
           ]
         },
         {
-          "id": "group:While development",
-          "title": "While development",
+          "id": "group:Developer tools",
+          "title": "Developer tools",
           "children": [
             {
               "id": "dev--logging",
@@ -230,75 +219,71 @@
           "title": "Installation"
         },
         {
-          "slug": "gettingstarted--configuration",
-          "title": "Configuration"
-        },
-        {
           "slug": "gettingstarted--quickstart",
           "title": "Quickstart"
         },
         {
-          "slug": "core--jam",
-          "title": "Jam instance"
+          "slug": "gettingstarted--configuration",
+          "title": "Configuration"
         },
         {
-          "slug": "core--subject",
-          "title": "Subjects"
+          "slug": "authz--subject",
+          "title": "Subject"
         },
         {
-          "slug": "core--authz",
-          "title": "Authorization"
+          "slug": "authz--principal",
+          "title": "Principal"
         },
         {
-          "slug": "core--keychain",
-          "title": "KeyChain"
+          "slug": "authz--context",
+          "title": "Contexts"
         },
         {
-          "slug": "authentication--jose--index",
+          "slug": "authx--jose--index",
           "title": "JOSE"
         },
         {
-          "slug": "authentication--jose--jwt",
+          "slug": "authx--jose--jwt",
           "title": "JWT"
         },
         {
-          "slug": "authentication--jose--jws",
+          "slug": "authx--jose--jws",
           "title": "JWS"
         },
         {
-          "slug": "authentication--jose--jwe",
+          "slug": "authx--jose--jwe",
           "title": "JWE"
         },
         {
-          "slug": "authentication--jose--jwk",
+          "slug": "authx--jose--jwk",
           "title": "JWK"
         },
         {
-          "slug": "authentication--jose--algorithms",
+          "slug": "authx--jose--algorithms",
           "title": "Algorithms"
         },
         {
-          "slug": "authentication--jose--lists",
+          "slug": "authx--jose--lists",
           "title": "Lists"
         },
         {
-          "slug": "authentication--paseto",
+          "slug": "authx--paseto",
           "title": "PASETO"
         },
         {
-          "slug": "authentication--sessions",
+          "slug": "authx--sessions",
           "title": "Server side sessions"
         },
         {
-          "slug": "authentication--saml",
+          "slug": "authx--saml",
           "title": "SAML"
         },
         {
-          "slug": "authentication--otp",
+          "slug": "authx--otp",
           "title": "OTP"
         },
         {
-          "slug": "identity--oauth2",
+          "slug": "authx--oauth2",
           "title": "OAuth2"
         },
         {

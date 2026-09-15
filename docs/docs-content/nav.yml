@@ -3,50 +3,50 @@ nav:
     pages:
       - label: Installation
         file: gettingstarted/installation.md
-      - label: Configuration
-        file: gettingstarted/configuration.md
       - label: Quick start
         file: gettingstarted/quickstart.md
-  - block: Core concepts
+      - label: Configuration
+        file: gettingstarted/configuration.md
+      - label: Jam
+        file: gettingstarted/jam.md
+  - block: Authorization
     pages:
-      - label: Jam instance
-        file: core/jam.md
-      - label: Subjects
-        file: core/subject.md
-      - label: Authorization
-        file: core/authz.md
-      - label: KeyChain
-        file: core/keychain.md
+      - label: Subject
+        file: authz/subject.md
+      - label: Principal
+        file: authz/principal.md
+      - label: Contexts
+        file: authz/context.md
+      - label: Rules
+        file: authz/rules.md
   - block: Authentication
     pages:
       - label: JOSE
         pages:
           - label: Overview
-            file: authentication/jose/index.md
+            file: authx/jose/index.md
           - label: JWT
-            file: authentication/jose/jwt.md
+            file: authx/jose/jwt.md
           - label: JWS
-            file: authentication/jose/jws.md
+            file: authx/jose/jws.md
           - label: JWE
-            file: authentication/jose/jwe.md
+            file: authx/jose/jwe.md
           - label: JWK
-            file: authentication/jose/jwk.md
+            file: authx/jose/jwk.md
           - label: Algorithms
-            file: authentication/jose/algorithms.md
+            file: authx/jose/algorithms.md
           - label: Algorithm lists
-            file: authentication/jose/lists.md
+            file: authx/jose/lists.md
       - label: PASETO
-        file: authentication/paseto.md
+        file: authx/paseto.md
       - label: Sessions
-        file: authentication/sessions.md
+        file: authx/sessions.md
       - label: SAML
-        file: authentication/saml.md
+        file: authx/saml.md
       - label: OTP / TOTP
-        file: authentication/otp.md
-  - block: Identity
-    pages:
+        file: authx/otp.md
       - label: OAuth2
-        file: identity/oauth2.md
+        file: authx/oauth2.md
   - block: Framework integrations
     pages:
       - label: FastAPI
@@ -57,7 +57,7 @@ nav:
         file: integrations/litestar.md
       - label: Flask
         file: integrations/flask.md
-  - block: While development
+  - block: Developer tools
     pages:
       - label: Logging
         file: dev/logging.md
