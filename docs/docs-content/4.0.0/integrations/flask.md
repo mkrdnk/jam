@@ -17,7 +17,7 @@ from jam.ext.flask import JamAuth, current_principal
 
 
 jam = Jam("config.toml")
-auth = JamAuth(jam=jam)
+auth = JamAuth(jam=jam, via="jwt")
 
 
 def create_app():
@@ -50,6 +50,7 @@ from jam.ext.flask import CredentialSource, JamAuth
 
 auth = JamAuth(
     jam=jam,
+    via="jwt",
     sources=[
         CredentialSource.bearer(),
         CredentialSource.cookie("session"),

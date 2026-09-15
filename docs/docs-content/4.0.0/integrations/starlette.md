@@ -36,7 +36,7 @@ app = Starlette(
     middleware=[
         Middleware(
             AuthenticationMiddleware,
-            backend=JamAuthBackend(jam),
+            backend=JamAuthBackend(jam, via="jwt"),
         )
     ],
 )
@@ -50,6 +50,7 @@ from jam.ext.starlette import CredentialSource, JamAuthBackend
 
 backend = JamAuthBackend(
     jam,
+    via="jwt",
     sources=[
         CredentialSource.bearer(),
         CredentialSource.cookie("session"),

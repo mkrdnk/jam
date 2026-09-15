@@ -5962,7 +5962,8 @@ Mark funcs are deprecated.
 
 Source: \`src/jam/__init__.py\`
 
-JAM - Universal auth* library.
+Jam - A universal auth* framework that provides
+popular auth mechanisms strictly according to the specification.
 
 Source code: https://github.com/mkrdnk/jam
 Documentation: https://jam.makridenko.ru

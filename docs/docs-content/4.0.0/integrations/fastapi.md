@@ -20,7 +20,7 @@ from jam.ext.fastapi import JamAuth
 
 
 jam = Jam("config.toml")
-auth = JamAuth(jam)
+auth = JamAuth(jam, via="jwt")
 app = FastAPI()
 
 
@@ -71,6 +71,7 @@ from jam.ext.fastapi import CredentialSource
 
 auth = JamAuth(
     jam,
+    via="jwt",
     sources=[
         CredentialSource.bearer(),
         CredentialSource.cookie("session"),

@@ -33,7 +33,7 @@ async def posts() -> list:
 
 app = Litestar(
     route_handlers=[me, posts],
-    plugins=[JamPlugin(jam)],
+    plugins=[JamPlugin(jam, via="jwt")],
 )
 ```
 
@@ -49,6 +49,7 @@ from jam.ext.litestar import CredentialSource, JamPlugin
 
 plugin = JamPlugin(
     jam,
+    via="jwt",
     sources=[
         CredentialSource.bearer(),
         CredentialSource.cookie("session"),
