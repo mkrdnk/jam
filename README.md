@@ -1,6 +1,6 @@
 # Jam
 
-![logo](https://github.com/mkrdnk/jam/blob/master/docs/assets/h_logo_n_title.png?raw=true)
+![logo](https://github.com/mkrdnk/jam/blob/master/docs/public/assets/h_logo_n_title.png?raw=true)
 
 ![Python Version](https://img.shields.io/badge/Python-3.10+-blue?logo=python&logoColor=white)
 [![PyPI - Version](https://img.shields.io/pypi/v/jamlib)](https://pypi.org/project/jamlib/)
@@ -9,7 +9,7 @@
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/mkrdnk/jam)
 [![GitHub License](https://img.shields.io/github/license/mkrdnk/jam)](https://github.com/mkrdnk/jam/blob/master/LICENSE.md)
 
-**Jam (Jam Auth Module)** - A universal auth* framework that provides popular auth mechanisms strictly according to the specification.
+**Jam (Jam Auth Module)** - Jam (Jam Auth Module) - A universal auth* framework that provides popular auth mechanisms strictly according to the specification.
 
 * Documentation: [jam.makridenko.ru](https://jam.makridenko.ru)
 * Changelog: [CHANGELOG.md](https://github.com/mkrdnk/jam/blob/master/CHANGELOG.md)
