@@ -91,4 +91,4 @@ print(jam.authorize(principal, "post:delete"))  # -> False (not in token)
 * [Jam instance](/4.0.0/core/jam) - `issue` / `authenticate` / `authorize`
   in detail.
 * [PASETO](/4.0.0/authentication/paseto), [JOSE](/4.0.0/authentication/jose/index), [sessions](/4.0.0/authentication/sessions),
-  [OTP](/4.0.0/authentication/otp), [OAuth2](/4.0.0/authentication/oauth2), [SAML](/4.0.0/authentication/saml).
+  [OTP](/4.0.0/authentication/otp), [OAuth2](/4.0.0/identity/oauth2), [SAML](/4.0.0/authentication/saml).

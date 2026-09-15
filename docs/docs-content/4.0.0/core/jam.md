@@ -42,7 +42,7 @@ After initialization the configured modules are available as attributes:
 | `jam.paseto` | `PASETOv1`–`PASETOv4` | `[jam.paseto]` |
 | `jam.otp` | `HOTP` / `TOTP` class | `[jam.otp]` |
 | `jam.oauth2` | `dict[str, OAuth2Client]` | `[jam.oauth2]` |
-| `jam.config` | `dict[str, Any] | None` | - |
+| `jam.config` | `dict[str, Any] / None` | - |
 | `jam.subject` | `type[BaseSubject]` | `subject=` argument |
 | `jam.keychains` | `dict[str, BaseKeyChain]` | `[jam.keychains]` |
 

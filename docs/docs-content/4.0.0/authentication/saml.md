@@ -8,7 +8,7 @@ The module implements both roles:
 * **Identity Provider (IdP)** - issues SAML assertions.
 
 !!! warning
-    The SAML module is not implemented in `jam.Jam` / `jam.aio.Jam`. The reason is listed here: [makridenko.ru](https://makridenko.ru/posts/2026/05/25/some-think-about-jam)
+    The SAML module is not implemented in `jam.Jam` / `jam.aio.Jam`. This will be implemented at a later date.
 
 Supported features:
 
