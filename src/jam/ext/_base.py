@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from jam import Jam
+from jam.__core__ import JamAuthType
 from jam.aio import AsyncJam
 from jam.authz import Principal
 from jam.exceptions import JamConfigurationError, JamError
@@ -104,7 +105,7 @@ class Authenticator:
         jam: Jam,
         *,
         sources: Sequence[CredentialSource] = DEFAULT_SOURCES,
-        via: str | None = None,
+        via: JamAuthType,
     ) -> None:
         if not sources:
             raise ValueError("At least one credential source is required.")
@@ -169,7 +170,7 @@ class AsyncAuthenticator:
         jam: AsyncJam | Jam,
         *,
         sources: Sequence[CredentialSource] = DEFAULT_SOURCES,
-        via: str | None = None,
+        via: JamAuthType,
     ) -> None:
         """Initialize an async adapter.
 

@@ -10,6 +10,7 @@ from flask import Flask, Response, abort, current_app, g, request
 from werkzeug.local import LocalProxy
 
 from jam import Jam
+from jam.__core__ import JamAuthType
 from jam.authz import Principal
 from jam.ext._base import DEFAULT_SOURCES, Authenticator, CredentialSource
 
@@ -37,7 +38,7 @@ class JamAuth:
         *,
         jam: Jam | None = None,
         sources: Sequence[CredentialSource] = DEFAULT_SOURCES,
-        via: str | None = None,
+        via: JamAuthType,
     ) -> None:
         """Initialize now or defer registration for an app factory."""
         self.jam = jam

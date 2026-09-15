@@ -20,6 +20,7 @@ from litestar.middleware import (
 from litestar.plugins import InitPlugin
 
 from jam import Jam
+from jam.__core__ import JamAuthType
 from jam.aio import AsyncJam
 from jam.authz import Principal
 from jam.ext._base import (
@@ -38,7 +39,7 @@ class JamAuthenticationMiddleware(AbstractAuthenticationMiddleware):
         *,
         jam: AsyncJam | Jam,
         sources: Sequence[CredentialSource] = DEFAULT_SOURCES,
-        via: str | None = None,
+        via: JamAuthType,
         reject_invalid: bool = True,
         **kwargs: Any,
     ) -> None:

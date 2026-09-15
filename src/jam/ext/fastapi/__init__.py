@@ -8,6 +8,7 @@ from typing import Annotated, Any
 from fastapi import Depends, HTTPException, Request, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jam import Jam
+from jam.__core__ import JamAuthType
 from jam.aio import AsyncJam
 from jam.authz import Principal
 from jam.ext._base import (
@@ -32,7 +33,7 @@ class JamAuth:
         jam: AsyncJam | Jam,
         *,
         sources: Sequence[CredentialSource] = DEFAULT_SOURCES,
-        via: str | None = None,
+        via: JamAuthType
     ) -> None:
         self.jam = jam
         self.authenticator = AsyncAuthenticator(

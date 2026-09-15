@@ -14,6 +14,7 @@ from starlette.authentication import (
 from starlette.requests import HTTPConnection
 
 from jam import Jam
+from jam.__core__ import JamAuthType
 from jam.aio import AsyncJam
 from jam.authz import Principal
 from jam.ext._base import (
@@ -63,7 +64,7 @@ class JamAuthBackend(AuthenticationBackend):
         jam: AsyncJam | Jam,
         *,
         sources: Sequence[CredentialSource] = DEFAULT_SOURCES,
-        via: str | None = None,
+        via: JamAuthType,
         reject_invalid: bool = True,
     ) -> None:
         """Initialize the backend with one shared Jam instance."""
