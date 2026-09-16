@@ -60,7 +60,14 @@ principal.token_type
 
 The `subject` attribute contains the Subject associated with the credential.
 
-If the credential was issued for a `BaseSubject`, the same Subject type is available through the Principal:
+To restore a typed subject, pass its dataclass type when creating `Jam`:
+
+```python
+jam = Jam(config="config.toml", subject=User)
+```
+
+When the credential is authenticated by that instance, Jam builds a `User`
+from the credential payload:
 
 ```python
 principal.subject.id
@@ -68,7 +75,8 @@ principal.subject.name
 principal.subject.role
 ```
 
-When a dictionary was used as a Subject, it remains a dictionary:
+Without a configured dataclass subject type, the decoded subject is a
+dictionary:
 
 ```python
 principal.subject["id"]

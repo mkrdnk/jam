@@ -3,23 +3,29 @@
 ## Config file
 
 The configuration only works for `jam.Jam`/`jam.aio.Jam`.
-Standalone modules such as `jam.jwt.JWT`, `jam.paseto.PASETOv4`, etc. are configured simply by the class's `__init__`. For each model, see the corresponding documentation.
+Standalone modules such as `jam.jose.JWT` and `jam.paseto.PASETOv4` are
+configured through their own `__init__` methods. See the documentation for the
+module you use.
 
 ### Instance
 
-The `*.Jam` class itself has several parameters:
+The `Jam` class accepts several parameters:
+
 ```python
 from jam import Jam
+from jam.encoders import JsonEncoder
 
 jam = Jam(
-    config="path/to/config/file.toml.yaml.json", # or python-dict
+    config="path/to/config.toml",  # a path, a Python dict, or None
     pointer="jam",
-    serializer=JsonEncoder
+    serializer=JsonEncoder,
 )
 ```
 
-#### config: str | dict[str, Any]
-This is the path to your config as a `string` or dict with the configuration:
+#### config: str | dict[str, Any] | None
+
+This is a configuration file path, a dictionary, or `None`. With `None`, Jam
+uses an empty configuration unless a subclass defines a class-level `config`.
 
 ##### Python dict
 ```python
@@ -144,7 +150,8 @@ secret_key = "$PASETO_SECRET_KEY"
 
 #### serializer: type[BaseEncoder] = JsonEncoder
 
-JSON object serializer. By default, JsonEncoder is used, which utilizes sdtlib.json. 
+JSON object serializer. By default, Jam uses `JsonEncoder`, which uses the
+Python standard library `json` module.
 
 It can also be passed in the config file as a string:
 ```toml
@@ -156,7 +163,7 @@ alg = "HS256"
 secret_key = "$JWT_SECRET_KEY"
 ```
 
-For more details, see the [documentation on serialization](/usage/serializers.md).
+For more details, see the [documentation on serialization](/4.0.0/dev/serializers).
 
 ### Config sections
 
@@ -180,8 +187,8 @@ available as attributes on the instance, e.g. `jam.jwt`, `jam.paseto`.
 
 ### Environment variables
 
-Jam will automatically search for environment variables
-if a value begins with `$` in config files. For python dict, use `os.getenv`.
+TOML, YAML, and JSON configuration files support `$VAR`, `${VAR}`, and
+`${VAR:-default}` substitutions. For a Python dict, use `os.getenv`.
 
 Example:
 
@@ -193,6 +200,28 @@ secret_key = "$JWT_SECRET"
 
 !!! note
     Some modules read certain environment variables by default, as described in detail in each module.
+
+### Configuration format dependencies
+
+TOML is built into Python 3.11 and later. On Python 3.10, install TOML
+support:
+
+```bash
+pip install "jamlib[toml]"
+```
+
+YAML configuration requires:
+
+```bash
+pip install "jamlib[yaml]"
+```
+
+### Config pointer
+
+The `pointer` argument selects a nested TOML or YAML section. The default is
+`"jam"`, so the TOML and YAML examples above put Jam settings below a `jam`
+key. JSON configuration is read from its root object; its `pointer` argument
+is currently not applied.
 
 #### `JAM_CONFIG_CACHING`
 

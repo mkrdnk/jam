@@ -64,10 +64,28 @@ print(type(principal.subject))
 # <class 'dict'>
 ```
 
-When a dictionary is passed as a Subject, Jam does not convert it into a `BaseSubject` instance. The dictionary is preserved as-is and becomes the `subject` of the resulting `Principal`.
+When no typed subject class is configured, Jam preserves a dictionary as-is and
+it becomes the `subject` of the resulting `Principal`.
+
+If the Jam instance is configured with a dataclass subject type, Jam builds
+that type after authentication instead:
+
+```python
+jam = Jam(config="config.toml", subject=User)
+
+token = jam.issue(subject={"id": 1, "name": "Bob"}, via="jwt")
+principal = jam.authenticate(token, via="jwt")
+
+print(type(principal.subject))
+# <class '__main__.User'>
+```
+
+Only fields declared by `User` are used to build the typed subject.
 
 !!! tip
-    Use `BaseSubject` when you want a typed Subject model. Passing a dictionary can be useful for simple or dynamic identities.
+    Use `BaseSubject` when you want a typed Subject model. Passing a dictionary
+    without configuring a subject type can be useful for simple or dynamic
+    identities.
 
 ## Subject and Principal
 

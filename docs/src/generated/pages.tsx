@@ -6,12 +6,28 @@ import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 export const mdPages: Record<string, ComponentType> = {
   "4.0.0/gettingstarted--installation": () => (
     <MarkdownRenderer content={`
-Stable release from [pypi](https://pypi.org/project/jamlib/):
+Jam requires Python 3.10 or later.
+
+Install the released package from [PyPI](https://pypi.org/project/jamlib/):
+
 \`\`\`bash
 pip install jamlib
 \`\`\`
 
-Stable version(but not released) from github:
+Install optional dependencies only for the modules you use:
+
+\`\`\`bash
+pip install "jamlib[yaml]"      # YAML configuration
+pip install "jamlib[redis]"     # Redis sessions and lists
+pip install "jamlib[oauth2]"    # OAuth2 clients
+pip install "jamlib[fastapi]"   # FastAPI integration
+\`\`\`
+
+The available extras are \`cli\`, \`redis\`, \`json\`, \`oauth2\`, \`yaml\`, \`toml\`,
+\`litestar\`, \`starlette\`, \`fastapi\`, and \`flask\`.
+
+To install the latest development version from GitHub:
+
 \`\`\`bash
 pip install git+https://github.com/mkrdnk/jam.git@master
 \`\`\`
@@ -120,23 +136,29 @@ print(jam.authorize(principal, "post:delete"))  # -> False (not in token)
 ## Config file
 
 The configuration only works for \`jam.Jam\`/\`jam.aio.Jam\`.
-Standalone modules such as \`jam.jwt.JWT\`, \`jam.paseto.PASETOv4\`, etc. are configured simply by the class's \`__init__\`. For each model, see the corresponding documentation.
+Standalone modules such as \`jam.jose.JWT\` and \`jam.paseto.PASETOv4\` are
+configured through their own \`__init__\` methods. See the documentation for the
+module you use.
 
 ### Instance
 
-The \`*.Jam\` class itself has several parameters:
+The \`Jam\` class accepts several parameters:
+
 \`\`\`python
 from jam import Jam
+from jam.encoders import JsonEncoder
 
 jam = Jam(
-    config="path/to/config/file.toml.yaml.json", # or python-dict
+    config="path/to/config.toml",  # a path, a Python dict, or None
     pointer="jam",
-    serializer=JsonEncoder
+    serializer=JsonEncoder,
 )
 \`\`\`
 
-#### config: str | dict[str, Any]
-This is the path to your config as a \`string\` or dict with the configuration:
+#### config: str | dict[str, Any] | None
+
+This is a configuration file path, a dictionary, or \`None\`. With \`None\`, Jam
+uses an empty configuration unless a subclass defines a class-level \`config\`.
 
 ##### Python dict
 \`\`\`python
@@ -261,7 +283,8 @@ secret_key = "\$PASETO_SECRET_KEY"
 
 #### serializer: type[BaseEncoder] = JsonEncoder
 
-JSON object serializer. By default, JsonEncoder is used, which utilizes sdtlib.json. 
+JSON object serializer. By default, Jam uses \`JsonEncoder\`, which uses the
+Python standard library \`json\` module.
 
 It can also be passed in the config file as a string:
 \`\`\`toml
@@ -273,7 +296,7 @@ alg = "HS256"
 secret_key = "\$JWT_SECRET_KEY"
 \`\`\`
 
-For more details, see the [documentation on serialization](/usage/serializers.md).
+For more details, see the [documentation on serialization](/4.0.0/dev/serializers).
 
 ### Config sections
 
@@ -297,8 +320,8 @@ available as attributes on the instance, e.g. \`jam.jwt\`, \`jam.paseto\`.
 
 ### Environment variables
 
-Jam will automatically search for environment variables
-if a value begins with \`\$\` in config files. For python dict, use \`os.getenv\`.
+TOML, YAML, and JSON configuration files support \`\$VAR\`, \`\${VAR}\`, and
+\`\${VAR:-default}\` substitutions. For a Python dict, use \`os.getenv\`.
 
 Example:
 
@@ -310,6 +333,28 @@ secret_key = "\$JWT_SECRET"
 
 !!! note
     Some modules read certain environment variables by default, as described in detail in each module.
+
+### Configuration format dependencies
+
+TOML is built into Python 3.11 and later. On Python 3.10, install TOML
+support:
+
+\`\`\`bash
+pip install "jamlib[toml]"
+\`\`\`
+
+YAML configuration requires:
+
+\`\`\`bash
+pip install "jamlib[yaml]"
+\`\`\`
+
+### Config pointer
+
+The \`pointer\` argument selects a nested TOML or YAML section. The default is
+\`"jam"\`, so the TOML and YAML examples above put Jam settings below a \`jam\`
+key. JSON configuration is read from its root object; its \`pointer\` argument
+is currently not applied.
 
 #### \`JAM_CONFIG_CACHING\`
 
@@ -394,10 +439,28 @@ print(type(principal.subject))
 # <class 'dict'>
 \`\`\`
 
-When a dictionary is passed as a Subject, Jam does not convert it into a \`BaseSubject\` instance. The dictionary is preserved as-is and becomes the \`subject\` of the resulting \`Principal\`.
+When no typed subject class is configured, Jam preserves a dictionary as-is and
+it becomes the \`subject\` of the resulting \`Principal\`.
+
+If the Jam instance is configured with a dataclass subject type, Jam builds
+that type after authentication instead:
+
+\`\`\`python
+jam = Jam(config="config.toml", subject=User)
+
+token = jam.issue(subject={"id": 1, "name": "Bob"}, via="jwt")
+principal = jam.authenticate(token, via="jwt")
+
+print(type(principal.subject))
+# <class '__main__.User'>
+\`\`\`
+
+Only fields declared by \`User\` are used to build the typed subject.
 
 !!! tip
-    Use \`BaseSubject\` when you want a typed Subject model. Passing a dictionary can be useful for simple or dynamic identities.
+    Use \`BaseSubject\` when you want a typed Subject model. Passing a dictionary
+    without configuring a subject type can be useful for simple or dynamic
+    identities.
 
 ## Subject and Principal
 
@@ -469,7 +532,14 @@ principal.token_type
 
 The \`subject\` attribute contains the Subject associated with the credential.
 
-If the credential was issued for a \`BaseSubject\`, the same Subject type is available through the Principal:
+To restore a typed subject, pass its dataclass type when creating \`Jam\`:
+
+\`\`\`python
+jam = Jam(config="config.toml", subject=User)
+\`\`\`
+
+When the credential is authenticated by that instance, Jam builds a \`User\`
+from the credential payload:
 
 \`\`\`python
 principal.subject.id
@@ -477,7 +547,8 @@ principal.subject.name
 principal.subject.role
 \`\`\`
 
-When a dictionary was used as a Subject, it remains a dictionary:
+Without a configured dataclass subject type, the decoded subject is a
+dictionary:
 
 \`\`\`python
 principal.subject["id"]
@@ -697,6 +768,298 @@ The Principal describes the authenticated identity.
 The Context describes the circumstances in which authorization is evaluated.
 
 Together they provide the data required by authorization rules.
+`} />
+  ),
+  "4.0.0/authz--rules": () => (
+    <MarkdownRenderer content={`# Rules
+
+\`Jam.authorize()\` evaluates a permission against the authenticated
+\`Principal\`, an optional \`AuthorizationContext\`, and the policy configured for
+the Jam instance.
+
+\`\`\`python
+allowed = jam.authorize(principal, "post:edit", context)
+\`\`\`
+
+Authorization is deny-by-default: a permission is denied when no matching
+grant or allow rule permits it.
+
+## Configure a policy
+
+Pass rules under \`authz.rules\` when constructing \`Jam\`:
+
+\`\`\`python
+from jam import Jam
+
+jam = Jam(
+    config={
+        "authz": {
+            "rules": {
+                "post:read": ["*"],
+                "post:edit": ["role=editor", "role=admin"],
+            }
+        }
+    }
+)
+\`\`\`
+
+The compact form maps each permission pattern to a list of predicates. The
+predicates use **OR** semantics: any matching predicate allows the permission.
+
+* \`"*"\` matches every subject.
+* \`"role=editor"\` compares a subject field with a value.
+* \`"active"\` requires a truthy subject field.
+
+Compact predicates only read subject data. They cannot access private names or
+call methods.
+
+## Structured rules
+
+Use structured rules when a decision depends on the token or request context:
+
+\`\`\`python
+from jam import Policy
+
+policy = Policy(
+    [
+        {
+            "effect": "allow",
+            "permissions": ["post:edit"],
+            "when": {
+                "field": "subject.role",
+                "operator": "eq",
+                "value": "editor",
+            },
+        },
+        {
+            "effect": "deny",
+            "permissions": ["post:edit"],
+            "when": {
+                "field": "context.resource.locked",
+                "operator": "eq",
+                "value": True,
+            },
+        },
+    ]
+)
+\`\`\`
+
+A structured rule has:
+
+| Field | Description |
+| --- | --- |
+| \`effect\` | \`"allow"\` (default) or \`"deny"\` |
+| \`permissions\` | One or more permissions or wildcard patterns |
+| \`when\` | Optional condition; omitted means the rule always matches |
+
+Matching deny rules always take precedence over matching allow rules.
+
+## Permissions from credentials
+
+Pass \`permissions\` to \`Jam.issue()\` to grant permissions to one credential:
+
+\`\`\`python
+token = jam.issue(
+    subject=user,
+    via="jwt",
+    permissions=["post:read", "post:edit"],
+)
+\`\`\`
+
+\`Principal.permissions\` reads the \`permissions\` claim, or the \`scope\` claim
+when \`permissions\` is absent. A string \`scope\` is split on whitespace.
+
+Credential grants support:
+
+* an exact permission, such as \`post:edit\`;
+* a namespace wildcard, such as \`post:*\`;
+* the global wildcard \`*\`.
+
+When a credential explicitly declares \`permissions\` or \`scope\`, it cannot gain
+a permission absent from those grants, even if an allow rule matches. A
+credential with no declared grants can be authorized by a matching policy rule.
+
+## Conditions
+
+Structured conditions read fields from one of three roots:
+
+| Root | Values |
+| --- | --- |
+| \`subject\` | Fields of the authenticated subject |
+| \`token\` | Credential claims |
+| \`context\` | \`time\`/\`now\`, \`resource\`, \`request\`, and \`attributes\` |
+
+The \`field\` value must start with one of these roots. Paths use dot notation,
+for example \`subject.role\` or \`context.request.ip\`. Every path component must
+be a public Python identifier: private names, missing fields, and methods
+cannot be read by a rule.
+
+\`\`\`python
+{
+    "field": "subject.role",
+    "operator": "eq",
+    "value": "editor",
+}
+\`\`\`
+
+## Comparing fields with \`@\`
+
+Most conditions compare a field with a literal \`value\`. Prefix \`value\` with
+\`@\` to resolve it as a second field path instead. This is useful when the
+expected value is only known for the current request, resource, or subject.
+
+\`\`\`python
+{
+    "field": "context.resource.author_id",
+    "operator": "eq",
+    "value": "@subject.id",
+}
+\`\`\`
+
+Here \`@subject.id\` means “read the \`id\` of the authenticated subject,” not the
+literal string \`"@subject.id"\`. The reference may use any root:
+
+\`\`\`python
+{
+    "field": "token.tenant",
+    "operator": "eq",
+    "value": "@context.attributes.tenant",
+}
+\`\`\`
+
+An \`@\` reference must be a valid public path with a root. If the referenced
+value does not exist, policy evaluation raises a configuration error rather
+than silently granting access.
+
+## Combine conditions
+
+Use exactly one logical key per condition:
+
+| Key | Value | Result |
+| --- | --- | --- |
+| \`all\` | A list of conditions | Every condition must match |
+| \`any\` | A list of conditions | At least one condition must match |
+| \`not\` | One condition | Inverts the nested condition |
+
+For example, an administrator may edit a post unless the request comes from a
+blocked network:
+
+\`\`\`python
+{
+    "all": [
+        {
+            "field": "subject.role",
+            "operator": "eq",
+            "value": "admin",
+        },
+        {
+            "not": {
+                "field": "context.request.ip",
+                "operator": "ip_in_network",
+                "value": "198.51.100.0/24",
+            }
+        },
+    ]
+}
+\`\`\`
+
+## Comparison operators
+
+The default operator is \`eq\`. An unavailable field evaluates to \`False\` for
+all operators except \`exists\`. Type mismatches, invalid IP addresses, and
+incomparable values also evaluate to \`False\`. An invalid regular expression is
+a configuration error when the policy is created.
+
+### Presence and equality
+
+| Operator | Meaning | Example |
+| --- | --- | --- |
+| \`exists\` | Field is present when \`value\` is \`True\`; absent when \`value\` is \`False\` | \`{"field": "token.email", "operator": "exists", "value": True}\` |
+| \`truthy\` | Python truthiness of the field; \`value\` is ignored | \`{"field": "subject.active", "operator": "truthy"}\` |
+| \`eq\` | Field equals \`value\` | \`{"field": "subject.role", "operator": "eq", "value": "admin"}\` |
+| \`ne\` | Field differs from \`value\` | \`{"field": "subject.status", "operator": "ne", "value": "blocked"}\` |
+
+### Membership and strings
+
+| Operator | Meaning | Example |
+| --- | --- | --- |
+| \`in\` | Field is an item in \`value\` | \`{"field": "subject.role", "operator": "in", "value": ["editor", "admin"]}\` |
+| \`not_in\` | Field is not an item in \`value\` | \`{"field": "subject.role", "operator": "not_in", "value": ["blocked"]}\` |
+| \`contains\` | Field contains \`value\` | \`{"field": "token.groups", "operator": "contains", "value": "operators"}\` |
+| \`contains_any\` | Field contains at least one item from \`value\` | \`{"field": "token.groups", "operator": "contains_any", "value": ["operators", "admins"]}\` |
+| \`contains_all\` | Field contains every item from \`value\` | \`{"field": "token.groups", "operator": "contains_all", "value": ["operators", "admins"]}\` |
+| \`starts_with\` | String field starts with \`value\` | \`{"field": "subject.email", "operator": "starts_with", "value": "admin@"}\` |
+| \`ends_with\` | String field ends with \`value\` | \`{"field": "subject.email", "operator": "ends_with", "value": "@example.com"}\` |
+| \`matches\` | String field fully matches the regular expression in \`value\` | \`{"field": "subject.role", "operator": "matches", "value": "[aA]dmin"}\` |
+
+\`matches\` uses a full match, not a substring search. For example, \`admin\` does
+not match \`superadmin\`; use \`.*admin.*\` when a substring match is intended.
+
+### IP addresses and networks
+
+Use \`ip_in_network\` to restrict an action to an IPv4 or IPv6 network. The
+field must resolve to an address accepted by Python's \`ipaddress\` module, and
+the value must be a CIDR network.
+
+\`\`\`python
+{
+    "field": "context.request.ip",
+    "operator": "ip_in_network",
+    "value": "192.0.2.0/24",
+}
+\`\`\`
+
+This condition is \`True\` for \`192.0.2.42\` and \`False\` for \`198.51.100.42\`.
+Malformed addresses and networks deny the condition rather than raising during
+evaluation.
+
+To deny a network, use a deny rule or wrap the condition in \`not\`:
+
+\`\`\`python
+{
+    "not": {
+        "field": "context.request.ip",
+        "operator": "ip_in_network",
+        "value": "198.51.100.0/24",
+    }
+}
+\`\`\`
+
+### Ranges and ordering
+
+| Operator | Meaning |
+| --- | --- |
+| \`between\` | Field is between the two values in \`value\`, inclusive |
+| \`gt\`, \`gte\` | Field is greater than, or greater than or equal to, \`value\` |
+| \`lt\`, \`lte\` | Field is less than, or less than or equal to, \`value\` |
+
+\`between\` requires exactly two values:
+
+\`\`\`python
+{
+    "field": "context.attributes.risk_score",
+    "operator": "between",
+    "value": [0, 50],
+}
+\`\`\`
+
+For a \`datetime\` field, two string values in \`between\` are interpreted as
+ISO-8601 times. The start is inclusive and the end is exclusive; a range may
+cross midnight:
+
+\`\`\`python
+{
+    "field": "context.now",
+    "operator": "between",
+    "value": ["09:00:00", "18:00:00"],
+    "timezone": "Europe/Berlin",
+}
+\`\`\`
+
+\`timezone\` must be a valid IANA timezone name. It is used only when the field
+being compared is a \`datetime\`.
+
+See [Contexts](./context) for constructing an \`AuthorizationContext\`.
 `} />
   ),
   "4.0.0/authx--jose--index": () => (
@@ -10462,7 +10825,7 @@ Source: \`src/jam/paseto/utils.py\`
 function def base64url_decode(v
 \`\`\`
 
-Base64 URL-safe decoding with padding.
+Decode an unpadded, canonical Base64url value.
 
 ## \`base64url_encode\`
 
@@ -10529,7 +10892,7 @@ Source: \`src/jam/paseto/v3.py\`
 ## \`PASETOv3\`
 
 \`\`\`python
-class class PASETOv3(LegacyAEADMixin, KeyLoadMixin, BasePASETO)
+class class PASETOv3(KeyLoadMixin, BasePASETO)
 \`\`\`
 
 PASETO v3 factory.
@@ -10541,7 +10904,7 @@ Source: \`src/jam/paseto/v4.py\`
 ## \`PASETOv4\`
 
 \`\`\`python
-class class PASETOv4(XChaChaMixin, KeyLoadMixin, BasePASETO)
+class class PASETOv4(KeyLoadMixin, BasePASETO)
 \`\`\`
 
 PASETO v4 factory.
@@ -12880,6 +13243,14 @@ function def xchacha20poly1305_decrypt(key
 \`\`\`
 
 Decrypt counterpart.
+
+## \`xchacha20_xor\`
+
+\`\`\`python
+function def xchacha20_xor(key
+\`\`\`
+
+Apply the XChaCha20 stream cipher to data.
 
 ## jam.utils.xor
 

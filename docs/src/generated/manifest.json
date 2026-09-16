@@ -44,6 +44,11 @@
               "id": "authz--context",
               "title": "Contexts",
               "slug": "authz--context"
+            },
+            {
+              "id": "authz--rules",
+              "title": "Rules",
+              "slug": "authz--rules"
             }
           ]
         },
@@ -237,6 +242,10 @@
         {
           "slug": "authz--context",
           "title": "Contexts"
+        },
+        {
+          "slug": "authz--rules",
+          "title": "Rules"
         },
         {
           "slug": "authx--jose--index",
