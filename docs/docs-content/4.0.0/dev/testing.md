@@ -109,7 +109,7 @@ awaitable:
 jam = TestAsyncJam(oauth2_providers=["github"])
 
 token = await jam.issue({"id": "user-1"}, via="jwt")
-principal = await jam.authenticate(token)
+principal = await jam.authenticate(token, via="jwt")
 session_id = await jam.session.create("auth", {"user_id": "user-1"})
 oauth_token = await jam.oauth2["github"].fetch_token("code")
 ```

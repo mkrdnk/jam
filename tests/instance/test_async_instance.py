@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 
+from typing import Any, cast
+
 import pytest
 from fakeredis import FakeAsyncRedis
 
 from jam.aio import AsyncJam, Jam
 from jam.authz import Principal
+from jam.exceptions import JamConfigurationError
 
 
 def test_legacy_name_is_alias():
@@ -31,6 +34,29 @@ async def test_jwt_issue_and_authenticate():
     assert isinstance(principal, Principal)
     assert principal.subject["id"] == "user123"
     assert principal.token_type == "jwt"
+
+
+@pytest.mark.asyncio
+async def test_issue_rejects_jwe():
+    jam = AsyncJam(
+        config={
+            "jose": {
+                "jwt": {
+                    "alg": "HS256",
+                    "secret_key": "SECRET",
+                }
+            }
+        }
+    )
+
+    with pytest.raises(
+        JamConfigurationError,
+        match="Unknown 'via' type: jwe",
+    ):
+        await jam.issue(
+            {"id": "user123"},
+            via=cast(Any, "jwe"),
+        )
 
 
 @pytest.mark.asyncio

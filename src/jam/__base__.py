@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 import logging
 from typing import Any
 
-from jam.__core__ import JamAuthType, _JamCore
+from jam.__core__ import JamAuthType, JamIssueType, _JamCore
 from jam.authz import (
     AuthorizationContext,
     Principal,
@@ -44,7 +44,7 @@ class BaseJam(_JamCore, ABC):
     def issue(
         self,
         subject: BaseSubject | dict[str, Any],
-        via: JamAuthType,
+        via: JamIssueType,
         exp: int | None = None,
         iss: str | None = None,
         aud: str | None = None,
@@ -57,7 +57,7 @@ class BaseJam(_JamCore, ABC):
 
         Args:
             subject (BaseSubject | dict[str, Any]): Subject instance.
-            via (JamAuthType): Token type: "jwt", "paseto" or "session".
+            via (JamIssueType): Token type: "jwt", "paseto" or "session".
             exp (int | None): Expiration in seconds.
             iss (str | None): Issuer.
             aud (str | None): Audience.
@@ -77,7 +77,8 @@ class BaseJam(_JamCore, ABC):
 
         Args:
             token (str): Token or session ID.
-            via (JamAuthType): Token type: "jwt", "paseto" or "session".
+            via (JamAuthType): Token type: "jwt", "jwe", "paseto" or
+                "session".
 
         Returns:
             Principal: Authenticated subject and credential claims.

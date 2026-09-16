@@ -11,7 +11,7 @@ import secrets
 
 from jam.exceptions import JamKeyChainError
 from jam.utils import (
-    generate_ecdsa_p384_keypair,
+    generate_ecdsa_keypair,
     generate_ed25519_keypair,
     generate_rsa_key_pair,
 )
@@ -48,6 +48,12 @@ class _StoredKey:
 class BaseKeyChain(ABC):
     """Manage keys used to issue and verify one kind of credential."""
 
+    _EC_CURVES = {
+        "ES256": "P-256",
+        "ES384": "P-384",
+        "ES512": "P-521",
+    }
+
     def __init__(self, algorithm: str, purpose: str | None = None) -> None:
         """Initialize a chain for a signing algorithm or PASETO purpose."""
         self.algorithm = algorithm.upper()
@@ -78,7 +84,9 @@ class BaseKeyChain(ABC):
         keys = self._all()
         if not include_revoked:
             keys = [key for key in keys if key.info.status != KeyStatus.REVOKED]
-        return sorted((key.info for key in keys), key=lambda info: info.created_at)
+        return sorted(
+            (key.info for key in keys), key=lambda info: info.created_at
+        )
 
     def get(self, key_id: str) -> KeyInfo:
         """Return non-secret metadata for one key."""
@@ -87,7 +95,9 @@ class BaseKeyChain(ABC):
     def current(self) -> KeyInfo | None:
         """Return the current issuing key, if one is configured."""
         current = [
-            key.info for key in self._all() if key.info.status == KeyStatus.CURRENT
+            key.info
+            for key in self._all()
+            if key.info.status == KeyStatus.CURRENT
         ]
         if len(current) > 1:
             raise JamKeyChainError(
@@ -209,7 +219,8 @@ class BaseKeyChain(ABC):
         key = self._load(key_id)
         if key is None:
             raise JamKeyChainError(
-                f"Key '{key_id}' does not exist.", error_code="keychain.key_not_found"
+                f"Key '{key_id}' does not exist.",
+                error_code="keychain.key_not_found",
             )
         return key
 
@@ -219,7 +230,14 @@ class BaseKeyChain(ABC):
         if self.algorithm.startswith("RS"):
             return generate_rsa_key_pair()["private"].encode()
         if self.algorithm.startswith("ES"):
-            return generate_ecdsa_p384_keypair()["private"].encode()
+            try:
+                curve = self._EC_CURVES[self.algorithm]
+            except KeyError as exc:
+                raise JamKeyChainError(
+                    f"Cannot generate material for algorithm '{self.algorithm}'.",
+                    error_code="keychain.unsupported_algorithm",
+                ) from exc
+            return generate_ecdsa_keypair(curve)["private"].encode()
         if self.algorithm in ("EDDSA", "ED25519"):
             return generate_ed25519_keypair()["private"].encode()
         raise JamKeyChainError(
@@ -233,7 +251,12 @@ class BaseKeyChain(ABC):
 
     @staticmethod
     def _validate_id(key_id: str) -> None:
-        if not key_id or "/" in key_id or "\\" in key_id or key_id in (".", ".."):
+        if (
+            not key_id
+            or "/" in key_id
+            or "\\" in key_id
+            or key_id in (".", "..")
+        ):
             raise JamKeyChainError(
                 "Key ID must be a non-empty file-name-safe string.",
                 error_code="keychain.invalid_key_id",
@@ -241,4 +264,6 @@ class BaseKeyChain(ABC):
 
     @staticmethod
     def _new_id() -> str:
-        return datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S-") + secrets.token_hex(4)
+        return datetime.now(timezone.utc).strftime(
+            "%Y%m%d%H%M%S-"
+        ) + secrets.token_hex(4)

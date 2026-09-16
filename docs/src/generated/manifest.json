@@ -23,6 +23,11 @@
               "id": "gettingstarted--configuration",
               "title": "Configuration",
               "slug": "gettingstarted--configuration"
+            },
+            {
+              "id": "gettingstarted--jam",
+              "title": "Jam instance",
+              "slug": "gettingstarted--jam"
             }
           ]
         },
@@ -230,6 +235,10 @@
         {
           "slug": "gettingstarted--configuration",
           "title": "Configuration"
+        },
+        {
+          "slug": "gettingstarted--jam",
+          "title": "Jam instance"
         },
         {
           "slug": "authz--subject",

@@ -554,10 +554,11 @@ wheels = [
 
 [[package]]
 name = "jamlib"
-version = "4.0.0rc4"
+version = "4.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
+    { name = "packaging" },
 ]
 
 [package.optional-dependencies]
@@ -617,6 +618,7 @@ requires-dist = [
     { name = "flask", marker = "extra == 'flask'", specifier = ">=3.1.2" },
     { name = "httpx", marker = "extra == 'oauth2'", specifier = ">=0.28.1" },
     { name = "litestar", marker = "extra == 'litestar'", specifier = ">=2.21.1" },
+    { name = "packaging", specifier = ">=24.0" },
     { name = "pyyaml", marker = "extra == 'yaml'", specifier = ">=6.0.3" },
     { name = "redis", marker = "extra == 'redis'", specifier = ">=7.3.0" },
     { name = "starlette", marker = "extra == 'starlette'", specifier = ">=0.52.1" },

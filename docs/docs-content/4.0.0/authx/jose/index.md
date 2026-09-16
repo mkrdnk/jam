@@ -39,9 +39,9 @@ The `jam.jose` package exports the following:
 
 ## Navigation
 
-- [JWT](jwt.md) - high-level token operations
-- [JWS](jws.md) - data signing and verification
-- [JWE](jwe.md) - data encryption and decryption
-- [JWK](jwk.md) - cryptographic keys management
-- [Lists](lists.md) - token black and white lists
-- [Algorithms](algorithms.md) - supported algorithms reference
+- [JWT](/4.0.0/authx/jose/jwt) - high-level token operations
+- [JWS](/4.0.0/authx/jose/jws) - data signing and verification
+- [JWE](/4.0.0/authx/jose/jwe) - data encryption and decryption
+- [JWK](/4.0.0/authx/jose/jwk) - cryptographic keys management
+- [Lists](/4.0.0/authx/jose/lists) - token black and white lists
+- [Algorithms](/4.0.0/authx/jose/algorithms) - supported algorithms reference

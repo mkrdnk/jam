@@ -7,8 +7,8 @@ pip install "jamlib[starlette]"
 ```
 
 `JamAuthBackend` is a standard Starlette authentication backend. It uses the
-same configured `Jam` instance for JWT, JWE, PASETO, and sessions; credential
-type detection is handled by `Jam.authenticate()`.
+same configured `Jam` instance for JWT, JWE, PASETO, and sessions. The
+credential type is selected explicitly with the required `via` argument.
 
 ```python
 from starlette.applications import Starlette

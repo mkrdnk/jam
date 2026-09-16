@@ -54,7 +54,7 @@ json_path = "sessions.json"
 You can also implement your session module using the `BaseSession`.
 interface and passing it to the config, for example, to store sessions in a database.
 
-See: [Customization](/usage/custom)
+See: [Customization](/4.0.0/dev/custom)
 
 
 ### Usage

@@ -3,7 +3,7 @@
 """Filesystem-backed KeyChain implementation."""
 
 import base64
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime
 import json
@@ -46,7 +46,7 @@ class FileStorage(BaseKeyChain):
         self._check_mode(self.path, 0o700)
 
     @contextmanager
-    def _locked(self) -> Iterator[None]:
+    def _locked(self) -> Generator[None, None, None]:
         import fcntl
 
         lock = self.path / self.__LOCK
@@ -78,12 +78,20 @@ class FileStorage(BaseKeyChain):
                     algorithm=data["algorithm"],
                     fingerprint=data["fingerprint"],
                 )
-            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            except (
+                KeyError,
+                TypeError,
+                ValueError,
+                json.JSONDecodeError,
+            ) as exc:
                 raise JamKeyChainError(
                     f"Key file '{path.name}' is corrupt.",
                     error_code="keychain.corrupt_key",
                 ) from exc
-            if info.id != key_id or self._fingerprint(material) != info.fingerprint:
+            if (
+                info.id != key_id
+                or self._fingerprint(material) != info.fingerprint
+            ):
                 raise JamKeyChainError(
                     f"Key file '{path.name}' failed integrity validation.",
                     error_code="keychain.corrupt_key",
@@ -170,7 +178,9 @@ class FileStorage(BaseKeyChain):
             "fingerprint": key.info.fingerprint,
             "material": base64.b64encode(key.material).decode("ascii"),
         }
-        fd, temporary = tempfile.mkstemp(dir=self.path, prefix=".key-", text=True)
+        fd, temporary = tempfile.mkstemp(
+            dir=self.path, prefix=".key-", text=True
+        )
         try:
             os.fchmod(fd, 0o600)
             with os.fdopen(fd, "w") as file:
@@ -185,7 +195,9 @@ class FileStorage(BaseKeyChain):
 
     def _write_current(self, key_id: str) -> None:
         """Atomically update the non-secret pointer to the issuing key."""
-        fd, temporary = tempfile.mkstemp(dir=self.path, prefix=".current-", text=True)
+        fd, temporary = tempfile.mkstemp(
+            dir=self.path, prefix=".current-", text=True
+        )
         try:
             os.fchmod(fd, 0o600)
             with os.fdopen(fd, "w") as file:
@@ -209,7 +221,8 @@ class FileStorage(BaseKeyChain):
     def _check_mode(path: Path, expected: int) -> None:
         if stat.S_IMODE(path.stat().st_mode) != expected:
             raise JamKeyChainError(
-                f"Unsafe permissions on '{path}'.", error_code="keychain.permissions"
+                f"Unsafe permissions on '{path}'.",
+                error_code="keychain.permissions",
             )
 
     def _check_regular_file(self, path: Path) -> None:

@@ -28,7 +28,7 @@ class MyUser(BaseSubject):
 jam = Jam(config="config.toml", subject=MyUser)
 ```
 
-See [Subjects](/usage/subject).
+See [Subjects](/4.0.0/authz/subject).
 
 ## Custom authorization policies
 
@@ -67,7 +67,7 @@ if jam.authorize(user, "post:create"):
     ...
 ```
 
-See [Authorization](/usage/authz).
+See [Authorization](/4.0.0/authz/rules).
 
 ## Custom OTP class
 
@@ -122,13 +122,19 @@ Framework integrations use the public `Jam.authenticate()` and
 `Jam` once and pass the same instance to any integration:
 
 ```python
+from typing import Literal
+
 from jam import Jam
 from jam.authz import Principal
 from jam.ext.starlette import JamAuthBackend
 
 
 class MyJam(Jam):
-    def authenticate(self, token: str, via: str | None = None) -> Principal:
+    def authenticate(
+        self,
+        token: str,
+        via: Literal["jwt", "jwe", "paseto", "session"],
+    ) -> Principal:
         if token.startswith("custom."):
             return Principal(
                 subject={"id": token.removeprefix("custom.")},
@@ -138,7 +144,7 @@ class MyJam(Jam):
         return super().authenticate(token, via=via)
 
 
-backend = JamAuthBackend(MyJam("config.toml"))
+backend = JamAuthBackend(MyJam("config.toml"), via="jwt")
 ```
 
 Unlike the old integration-specific `MODULE` class attributes, this is

@@ -107,7 +107,9 @@ class PASETOv3(KeyLoadMixin, BasePASETO):
             .decryptor()
             .update(ciphertext)
         )
-        return serializer.loads(plaintext), self._decode_footer(footer, serializer)
+        return serializer.loads(plaintext), self._decode_footer(
+            footer, serializer
+        )
 
     def _set_key(self, secret_key: str | bytes) -> None:
         """Process the key.

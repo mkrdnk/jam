@@ -91,4 +91,4 @@ Only fields declared by `User` are used to build the typed subject.
 
 A Subject represents an identity that **can be authenticated**.
 
-After successful authentication, Jam represents the authenticated identity as a [`Principal`](./principal).
+After successful authentication, Jam represents the authenticated identity as a [`Principal`](/4.0.0/authz/principal).

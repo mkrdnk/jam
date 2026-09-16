@@ -3,7 +3,7 @@
 from typing import Any
 
 from jam.__base__ import BaseJam
-from jam.__core__ import JamAuthType
+from jam.__core__ import JamAuthType, JamIssueType
 from jam.authz import AuthorizationContext, Principal
 from jam.exceptions import (
     JamConfigurationError,
@@ -40,7 +40,7 @@ class Jam(BaseJam):
     def issue(
         self,
         subject: BaseSubject | dict[str, Any],
-        via: JamAuthType,
+        via: JamIssueType,
         exp: int | None = None,
         iss: str | None = None,
         aud: str | None = None,
@@ -53,7 +53,7 @@ class Jam(BaseJam):
 
         Args:
             subject (BaseSubject): Subject instance or dict with an "id".
-            via (JamAuthType): Token type: "jwt", "paseto" or "session".
+            via (JamIssueType): Token type: "jwt", "paseto" or "session".
             exp (int | None): Expiration in seconds.
             iss (str | None): Issuer.
             aud (str | None): Audience.
@@ -115,7 +115,8 @@ class Jam(BaseJam):
 
         Args:
             token (str): Token or session ID.
-            via (str | None): Token type: "jwt", "paseto" or "session".
+            via (JamAuthType): Token type: "jwt", "jwe", "paseto" or
+                "session".
 
         Returns:
             Principal: Authenticated subject and credential claims.

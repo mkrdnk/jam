@@ -35,14 +35,17 @@ from jam.jose.utils import (
 from jam.subject import BaseSubject
 
 
-AuthorizationResult = bool | Callable[
-    [
-        Principal[Any] | BaseSubject | Mapping[str, Any],
-        str,
-        AuthorizationContext | None,
-    ],
-    bool,
-]
+AuthorizationResult = (
+    bool
+    | Callable[
+        [
+            Principal[Any] | BaseSubject | Mapping[str, Any],
+            str,
+            AuthorizationContext | None,
+        ],
+        bool,
+    ]
+)
 
 
 def _json_b64(value: Any) -> str:
@@ -99,14 +102,9 @@ class FakeJWS:
             payload = data.encode()
         else:
             payload = data
-        return (
-            f"{_json_b64(header)}.{base64url_encode(payload)}."
-            "test-signature"
-        )
+        return f"{_json_b64(header)}.{base64url_encode(payload)}.test-signature"
 
-    def verify(
-        self, token: str, validate: bool = True
-    ) -> dict[str, Any]:
+    def verify(self, token: str, validate: bool = True) -> dict[str, Any]:
         """Deserialize compact JWS without checking its signature."""
         try:
             header, payload, _signature = token.split(".")
@@ -205,7 +203,9 @@ class FakeJWT:
             "nbf": now + nbf if nbf is not None else None,
         }
         claims.update(payload or {})
-        claims = {key: value for key, value in claims.items() if value is not None}
+        claims = {
+            key: value for key, value in claims.items() if value is not None
+        }
         protected = {"alg": "none", "typ": "JWT", **(header or {})}
         return self.jws.sign(protected, claims)
 

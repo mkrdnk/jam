@@ -7,7 +7,7 @@ import tempfile
 from jam.jose import JWT, JWS, JWE
 from jam.exceptions import JamJWTUnsupportedAlgorithm
 from jam.exceptions.jose import JamJWSVerificationError
-from jam.utils import generate_rsa_key_pair, generate_ecdsa_p384_keypair
+from jam.utils import generate_ecdsa_keypair, generate_rsa_key_pair
 
 
 def decode_payload(jwt, token):
@@ -143,7 +143,7 @@ class TestJWTRSAVariants:
 class TestJWTECDSA:
     @pytest.fixture
     def ecdsa_key_pair(self):
-        return generate_ecdsa_p384_keypair()
+        return generate_ecdsa_keypair("P-256")
 
     @pytest.fixture
     def jwt(self, ecdsa_key_pair):
@@ -164,17 +164,15 @@ class TestJWTECDSA:
 
 
 class TestJWTECDSAVariants:
-    @pytest.fixture
-    def ecdsa_key_pair(self):
-        return generate_ecdsa_p384_keypair()
-
-    def test_es384(self, ecdsa_key_pair):
+    def test_es384(self):
+        ecdsa_key_pair = generate_ecdsa_keypair("P-384")
         jwt = JWT(alg="ES384", secret_key=ecdsa_key_pair["private"])
         token = jwt.encode(payload={"data": "test"})
         decoded = decode_payload(jwt, token)
         assert decoded["data"] == "test"
 
-    def test_es512(self, ecdsa_key_pair):
+    def test_es512(self):
+        ecdsa_key_pair = generate_ecdsa_keypair("P-521")
         jwt = JWT(alg="ES512", secret_key=ecdsa_key_pair["private"])
         token = jwt.encode(payload={"data": "test"})
         decoded = decode_payload(jwt, token)
@@ -443,10 +441,6 @@ class TestJWTSignThenEncryptHybrid:
     @pytest.fixture
     def rsa_key_pair(self):
         return generate_rsa_key_pair()
-
-    @pytest.fixture
-    def ec_key_pair(self):
-        return generate_ecdsa_p384_keypair()
 
     def test_with_prebuilt_jws_jwe(self, rsa_key_pair):
         jws = JWS(alg="RS256", key=rsa_key_pair["private"])

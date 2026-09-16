@@ -79,7 +79,7 @@ class JamPlugin(InitPlugin):
         jam: AsyncJam | Jam,
         *,
         sources: Sequence[CredentialSource] = DEFAULT_SOURCES,
-        via: str | None = None,
+        via: JamAuthType,
         middleware: bool = True,
         reject_invalid: bool = True,
         exclude: str | list[str] | None = None,

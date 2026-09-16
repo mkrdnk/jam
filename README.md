@@ -61,7 +61,7 @@ Jam is a library that provides the most popular AUTH* mechanisms right out of th
 Jam combines permissions granted to one credential with server-side policy rules. This makes it possible to issue two tokens for the same user with different permissions and to restrict those permissions using the current time, resource or request.
 
 ```python
-principal = jam.authenticate(token)
+principal = jam.authenticate(token, via="jwt")
 
 if jam.authorize(principal, "user:delete"):
     ...

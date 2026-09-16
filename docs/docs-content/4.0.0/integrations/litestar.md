@@ -59,6 +59,6 @@ plugin = JamPlugin(
 )
 ```
 
-Use `JamPlugin(jam, middleware=False)` when only dependency injection is
+Use `JamPlugin(jam, via="jwt", middleware=False)` when only dependency injection is
 needed. Unlike the previous adapters, middleware configuration is not stored
 on class attributes, so multiple apps remain isolated.

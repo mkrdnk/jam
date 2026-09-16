@@ -10,7 +10,7 @@ from datetime import datetime, time, timezone
 import ipaddress
 import operator
 import re
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from jam.exceptions import JamConfigurationError
@@ -325,6 +325,7 @@ class _RuleCompiler:
             permissions = [permissions]
         if not isinstance(permissions, Sequence) or not permissions:
             _invalid("Rule permissions must be a non-empty list.")
+        permissions = cast(Sequence[str], permissions)
         _validate_permissions(permissions)
 
         condition = rule.get("when")
@@ -401,16 +402,18 @@ class _RuleCompiler:
     def _compile_comparison(
         condition: Mapping[str, Any],
     ) -> CompiledCondition:
-        path = condition.get("field")
-        if not isinstance(path, str) or not _valid_path(
-            path, require_root=True
+        raw_path = condition.get("field")
+        if not isinstance(raw_path, str) or not _valid_path(
+            raw_path, require_root=True
         ):
-            _invalid(f"Invalid authorization field: {path}")
+            _invalid(f"Invalid authorization field: {raw_path}")
+        path = cast(str, raw_path)
 
         operator_name = condition.get("operator", "eq")
-        condition_operator = _OPERATORS.get(operator_name)
-        if condition_operator is None:
+        raw_operator = _OPERATORS.get(operator_name)
+        if raw_operator is None:
             _invalid(f"Unknown authorization operator: {operator_name}")
+        condition_operator = cast(_ConditionOperator, raw_operator)
 
         raw_value = condition.get("value")
         ref_path = None
@@ -507,7 +510,7 @@ def _subject_data(subject: Subject) -> object:
     if isinstance(subject, Mapping):
         return subject
     if is_dataclass(subject):
-        return asdict(subject)
+        return asdict(cast(Any, subject))
     return subject
 
 

@@ -11,5 +11,5 @@ title: Deprecated methods
   `jam.Jam.oauth2_*`, `jam.Jam.paseto_*`, `jam.Jam.jws_*`, `jam.Jam.jwe_*` (sync facade):
   removed in 4.0.0. Use `jam.issue` / `jam.authenticate` or the module
   attributes (`jam.jwt`, `jam.session`, ...). The same methods remain available
-  as awaitables on `jam.aio.Jam`. See [3.0.0 -> 4.0.0](jam300_to_400.md).
+  as awaitables on `jam.aio.Jam`. See [3.3.0 -> 4.0.0](/4.0.0/changes/jam330-to-400).
 - `jam.sessions.create_instance` param `sessions_type`: deprecated alias for `session_type`.

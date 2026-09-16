@@ -84,9 +84,13 @@ class PASETOv4(KeyLoadMixin, BasePASETO):
             digest_size=32,
         ).digest()
         if not hmac.compare_digest(tag, expected):
-            raise JamPASETOKeyVerificationError(message="Invalid authentication tag.")
+            raise JamPASETOKeyVerificationError(
+                message="Invalid authentication tag."
+            )
         plaintext = xchacha20_xor(encryption, stream_nonce, ciphertext)
-        return serializer.loads(plaintext), self._decode_footer(footer, serializer)
+        return serializer.loads(plaintext), self._decode_footer(
+            footer, serializer
+        )
 
     def _set_key(
         self,

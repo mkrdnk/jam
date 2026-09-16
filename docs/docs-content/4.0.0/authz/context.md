@@ -2,7 +2,7 @@
 
 An **Authorization Context** contains dynamic values available while Jam evaluates authorization rules.
 
-While a [`Principal`](./principal.md) represents the authenticated identity, a Context represents the circumstances under which an authorization decision is made.
+While a [`Principal`](/4.0.0/authz/principal) represents the authenticated identity, a Context represents the circumstances under which an authorization decision is made.
 
 ```text
 Principal

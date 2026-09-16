@@ -126,10 +126,10 @@ print(jam.authorize(principal, "post:delete"))  # -> False (not in token)
 ## Next steps
 
 * [Configuration](/4.0.0/gettingstarted/configuration) - all config formats and options.
-* [Jam instance](/4.0.0/core/jam) - \`issue\` / \`authenticate\` / \`authorize\`
+* [Jam instance](/4.0.0/gettingstarted/jam) - \`issue\` / \`authenticate\` / \`authorize\`
   in detail.
-* [PASETO](/4.0.0/authentication/paseto), [JOSE](/4.0.0/authentication/jose/index), [sessions](/4.0.0/authentication/sessions),
-  [OTP](/4.0.0/authentication/otp), [OAuth2](/4.0.0/identity/oauth2), [SAML](/4.0.0/authentication/saml).
+* [PASETO](/4.0.0/authx/paseto), [JOSE](/4.0.0/authx/jose/index), [sessions](/4.0.0/authx/sessions),
+  [OTP](/4.0.0/authx/otp), [OAuth2](/4.0.0/authx/oauth2), [SAML](/4.0.0/authx/saml).
 `} />
   ),
   "4.0.0/gettingstarted--configuration": () => (
@@ -374,6 +374,209 @@ The cache is keyed by config path and pointer. To invalidate it manually,
 call \`jam.utils.config_maker.__config_cache_clear__()\`.
 `} />
   ),
+  "4.0.0/gettingstarted--jam": () => (
+    <MarkdownRenderer content={`# Jam instance
+
+\`Jam\` is the main facade of the library. It loads modules from the
+[configuration](/4.0.0/gettingstarted/configuration) and exposes three
+high-level operations: \`issue\`, \`authenticate\` and \`authorize\`.
+
+Module-level classes (e.g. \`jam.jose.JWT\`, \`jam.paseto.PASETOv4\`) remain
+fully usable standalone. \`Jam\` is a convenience layer on top of them.
+
+## Creating an instance
+
+Class: \`jam.Jam\`
+
+Args:
+
+* \`config\`: \`str | dict[str, Any] | None = None\` - Configuration dict or
+  config file path (TOML/YAML/JSON). See
+  [Configuration](/4.0.0/gettingstarted/configuration).
+* \`pointer\`: \`str = "jam"\` - Config pointer.
+* \`serializer\`: \`BaseEncoder | type[BaseEncoder] = JsonEncoder\` - JSON
+  serializer used by token modules.
+* \`subject\`: \`type[BaseSubject] | None = None\` - Subject class override.
+  Used by \`authenticate\` to build typed subjects.
+* \`plugins\`: \`list[type[BasePlugin]] | None = None\` - List of plugins.
+
+\`\`\`python
+from jam import Jam
+
+jam = Jam(config="config.toml")
+\`\`\`
+
+## Attributes
+
+After initialization the configured modules are available as attributes:
+
+| Attribute | Type | Configured by |
+|-----------|------|---------------|
+| \`jam.jwt\` | \`jam.jose.JWT\` | \`[jam.jose.jwt]\` |
+| \`jam.jws\` | \`jam.jose.JWS\` | \`[jam.jose.jws]\` |
+| \`jam.jwe\` | \`jam.jose.JWE\` | \`[jam.jose.jwe]\` |
+| \`jam.jose\` | \`dict[str, Any]\` | \`[jam.jose]\` |
+| \`jam.session\` | \`RedisSessions\` / \`JSONSessions\` | \`[jam.session]\` |
+| \`jam.paseto\` | \`PASETOv1\`–\`PASETOv4\` | \`[jam.paseto]\` |
+| \`jam.otp\` | \`HOTP\` / \`TOTP\` class | \`[jam.otp]\` |
+| \`jam.oauth2\` | \`dict[str, OAuth2Client]\` | \`[jam.oauth2]\` |
+| \`jam.config\` | \`dict[str, Any] / None\` | - |
+| \`jam.subject\` | \`type[BaseSubject]\` | \`subject=\` argument |
+| \`jam.keychains\` | \`dict[str, BaseKeyChain]\` | \`[jam.keychains]\` |
+
+Unconfigured modules remain \`None\`. You can always access the underlying
+module directly, e.g. \`jam.jwt.encode(payload={...})\`.
+
+## issue
+
+Method: \`jam.issue\`
+
+Issues a token or a session for a subject.
+
+Args:
+
+* \`subject\`: \`BaseSubject | dict[str, Any]\` - Subject instance or a dict
+  with an \`"id"\` key. Serialized into the payload; the \`id\` becomes \`sub\`.
+* \`via\`: \`JamIssueType\` - Required credential type: \`"jwt"\`, \`"paseto"\`, or
+  \`"session"\`.
+* \`exp\`: \`int | None = None\` - Expiration in seconds.
+* \`iss\`: \`str | None = None\` - Issuer.
+* \`aud\`: \`str | None = None\` - Audience.
+* \`nbf\`: \`int | None = None\` - Not-before in seconds.
+* \`jti\`: \`str | None = None\` - Token ID.
+* \`permissions\`: \`list[str] | None = None\` - Permissions granted to this
+  specific token or session.
+* \`**claims\` - Extra payload claims.
+
+Returns:
+
+\`str\` - Issued token or session ID.
+
+\`\`\`python
+from dataclasses import dataclass
+
+from jam import BaseSubject, Jam
+
+
+@dataclass
+class User(BaseSubject):
+    id: str
+    role: str = "user"
+
+
+jam = Jam(config="config.toml")
+
+jwt_token = jam.issue(
+    User(id="1", role="admin"),
+    via="jwt",
+    exp=3600,
+    permissions=["profile:read", "user:delete"],
+)
+paseto_token = jam.issue({"id": "1", "role": "admin"}, via="paseto")
+session_id = jam.issue(User(id="1"), via="session")
+\`\`\`
+
+## authenticate
+
+Method: \`jam.authenticate\`
+
+Verifies a token or session and returns a \`Principal\`. The principal preserves
+the reconstructed subject and all verified credential claims.
+
+Args:
+
+* \`token\`: \`str\` - Token or session ID.
+* \`via\`: \`JamAuthType\` - Required credential type: \`"jwt"\`, \`"jwe"\`,
+  \`"paseto"\`, or \`"session"\`.
+
+Returns:
+
+\`Principal\` with \`subject\`, \`claims\`, \`permissions\`, optional JWT \`jti\` and
+\`token_type\`.
+
+Raises:
+
+* \`JamConfigurationError\` - No matching module is configured.
+* \`JamSessionNotFound\` - Session does not exist.
+
+\`\`\`python
+@dataclass
+class User(BaseSubject):
+    id: str
+    role: str = "user"
+
+
+jam = Jam(config="config.toml", subject=User)
+
+principal = jam.authenticate(jwt_token, via="jwt")
+print(principal.subject.id)   # -> "1"
+print(principal.subject.role) # -> "admin"
+print(principal.permissions)  # -> frozenset({"profile:read", "user:delete"})
+\`\`\`
+
+## authorize
+
+Method: \`jam.authorize\`
+
+Checks whether a principal is allowed to perform a permission. Credential
+grants are combined with the configured \`[jam.authz]\` policy. Deny rules take
+precedence and unmatched permissions are denied.
+
+Args:
+
+* \`principal\`: \`Principal | BaseSubject | Mapping\` - Authentication result or
+  standalone subject.
+* \`permission\`: \`str\` - Permission name, e.g. \`"post:edit"\`.
+* \`context\`: \`AuthorizationContext | None = None\` - Current time, resource,
+  request and application attributes used by dynamic conditions.
+
+Returns:
+
+\`bool\` - True if allowed, False otherwise.
+
+\`\`\`python
+jam = Jam(config="config.toml")
+
+principal = jam.authenticate(token, via="jwt")
+if jam.authorize(principal, "post:edit"):
+    ...
+\`\`\`
+
+See [Authorization](/4.0.0/authz/rules) for the policy syntax.
+
+## Async
+
+The async facade is independent from the synchronous \`Jam\` contract. Its
+high-level credential operations are always awaitable because a credential
+may use an I/O-backed session store or token list:
+
+\`\`\`python
+from jam.aio import AsyncJam
+
+jam = AsyncJam(config="config.toml")
+token = await jam.issue({"id": "user@example.com"}, via="jwt", exp=3600)
+principal = await jam.authenticate(token, via="jwt")
+\`\`\`
+
+Pure module operations remain synchronous in both facades:
+
+\`\`\`python
+token = jam.jwt.encode(payload={"sub": "user@example.com"})
+allowed = jam.authorize(principal, "post:edit")
+\`\`\`
+
+Session stores, token lists, and OAuth2 network operations use native async
+implementations. Prefer \`async with AsyncJam(...)\` when the configuration
+creates Redis or HTTP clients:
+
+\`\`\`python
+async with AsyncJam(config="config.toml") as jam:
+    principal = await jam.authenticate(token, via="jwt")
+\`\`\`
+
+\`jam.aio.Jam\` remains an alias for \`AsyncJam\` for import compatibility.
+`} />
+  ),
   "4.0.0/authz--subject": () => (
     <MarkdownRenderer content={`# Subject
 
@@ -468,7 +671,7 @@ Only fields declared by \`User\` are used to build the typed subject.
 
 A Subject represents an identity that **can be authenticated**.
 
-After successful authentication, Jam represents the authenticated identity as a [\`Principal\`](./principal).
+After successful authentication, Jam represents the authenticated identity as a [\`Principal\`](/4.0.0/authz/principal).
 `} />
   ),
   "4.0.0/authz--principal": () => (
@@ -623,7 +826,7 @@ If the credential does not contain a valid string \`jti\` claim, the property re
 
 An **Authorization Context** contains dynamic values available while Jam evaluates authorization rules.
 
-While a [\`Principal\`](./principal.md) represents the authenticated identity, a Context represents the circumstances under which an authorization decision is made.
+While a [\`Principal\`](/4.0.0/authz/principal) represents the authenticated identity, a Context represents the circumstances under which an authorization decision is made.
 
 \`\`\`text
 Principal
@@ -1169,12 +1372,12 @@ The \`jam.jose\` package exports the following:
 
 ## Navigation
 
-- [JWT](jwt.md) - high-level token operations
-- [JWS](jws.md) - data signing and verification
-- [JWE](jwe.md) - data encryption and decryption
-- [JWK](jwk.md) - cryptographic keys management
-- [Lists](lists.md) - token black and white lists
-- [Algorithms](algorithms.md) - supported algorithms reference
+- [JWT](/4.0.0/authx/jose/jwt) - high-level token operations
+- [JWS](/4.0.0/authx/jose/jws) - data signing and verification
+- [JWE](/4.0.0/authx/jose/jwe) - data encryption and decryption
+- [JWK](/4.0.0/authx/jose/jwk) - cryptographic keys management
+- [Lists](/4.0.0/authx/jose/lists) - token black and white lists
+- [Algorithms](/4.0.0/authx/jose/algorithms) - supported algorithms reference
 `} />
   ),
   "4.0.0/authx--jose--jwt": () => (
@@ -1252,7 +1455,7 @@ Args:
 * \`enc\`: \`str | None\` - Content encryption algorithm. Configures JWE mode (see [Token modes](#token-modes)).
 * \`secret_key\`: \`str\` - Key for signing/encryption. Default reads from \`JAM_JWT_SECRET_KEY\` environment variable.
 * \`password\`: \`str | None\` - Password for encrypted private keys.
-* \`list\`: \`dict[str, Any] | None\` - Token list config. See: [Lists](lists.md).
+* \`list\`: \`dict[str, Any] | None\` - Token list config. See: [Lists](/4.0.0/authx/jose/lists).
 
 ### Usage
 
@@ -3252,7 +3455,7 @@ json_path = "sessions.json"
 You can also implement your session module using the \`BaseSession\`.
 interface and passing it to the config, for example, to store sessions in a database.
 
-See: [Customization](/usage/custom)
+See: [Customization](/4.0.0/dev/custom)
 
 
 ### Usage
@@ -4974,8 +5177,8 @@ pip install "jamlib[starlette]"
 \`\`\`
 
 \`JamAuthBackend\` is a standard Starlette authentication backend. It uses the
-same configured \`Jam\` instance for JWT, JWE, PASETO, and sessions; credential
-type detection is handled by \`Jam.authenticate()\`.
+same configured \`Jam\` instance for JWT, JWE, PASETO, and sessions. The
+credential type is selected explicitly with the required \`via\` argument.
 
 \`\`\`python
 from starlette.applications import Starlette
@@ -5099,7 +5302,7 @@ plugin = JamPlugin(
 )
 \`\`\`
 
-Use \`JamPlugin(jam, middleware=False)\` when only dependency injection is
+Use \`JamPlugin(jam, via="jwt", middleware=False)\` when only dependency injection is
 needed. Unlike the previous adapters, middleware configuration is not stored
 on class attributes, so multiple apps remain isolated.
 `} />
@@ -5484,7 +5687,7 @@ awaitable:
 jam = TestAsyncJam(oauth2_providers=["github"])
 
 token = await jam.issue({"id": "user-1"}, via="jwt")
-principal = await jam.authenticate(token)
+principal = await jam.authenticate(token, via="jwt")
 session_id = await jam.session.create("auth", {"user_id": "user-1"})
 oauth_token = await jam.oauth2["github"].fetch_token("code")
 \`\`\`
@@ -5788,7 +5991,7 @@ class MyUser(BaseSubject):
 jam = Jam(config="config.toml", subject=MyUser)
 \`\`\`
 
-See [Subjects](/usage/subject).
+See [Subjects](/4.0.0/authz/subject).
 
 ## Custom authorization policies
 
@@ -5827,7 +6030,7 @@ if jam.authorize(user, "post:create"):
     ...
 \`\`\`
 
-See [Authorization](/usage/authz).
+See [Authorization](/4.0.0/authz/rules).
 
 ## Custom OTP class
 
@@ -5882,13 +6085,19 @@ Framework integrations use the public \`Jam.authenticate()\` and
 \`Jam\` once and pass the same instance to any integration:
 
 \`\`\`python
+from typing import Literal
+
 from jam import Jam
 from jam.authz import Principal
 from jam.ext.starlette import JamAuthBackend
 
 
 class MyJam(Jam):
-    def authenticate(self, token: str, via: str | None = None) -> Principal:
+    def authenticate(
+        self,
+        token: str,
+        via: Literal["jwt", "jwe", "paseto", "session"],
+    ) -> Principal:
         if token.startswith("custom."):
             return Principal(
                 subject={"id": token.removeprefix("custom.")},
@@ -5898,7 +6107,7 @@ class MyJam(Jam):
         return super().authenticate(token, via=via)
 
 
-backend = JamAuthBackend(MyJam("config.toml"))
+backend = JamAuthBackend(MyJam("config.toml"), via="jwt")
 \`\`\`
 
 Unlike the old integration-specific \`MODULE\` class attributes, this is
@@ -5978,7 +6187,7 @@ Issue a token or session for a subject.
 
 Args:
     subject (BaseSubject | dict[str, Any]): Subject instance.
-    via (JamAuthType): Token type: "jwt", "paseto" or "session".
+    via (JamIssueType): Token type: "jwt", "paseto" or "session".
     exp (int | None): Expiration in seconds.
     iss (str | None): Issuer.
     aud (str | None): Audience.
@@ -6001,7 +6210,8 @@ Authenticate a token or session and return a subject.
 
 Args:
     token (str): Token or session ID.
-    via (JamAuthType): Token type: "jwt", "paseto" or "session".
+    via (JamAuthType): Token type: "jwt", "jwe", "paseto" or
+        "session".
 
 Returns:
     Principal: Authenticated subject and credential claims.
@@ -8193,7 +8403,7 @@ Issue a token or session for a subject.
 
 Args:
     subject (BaseSubject): Subject instance or dict with an "id".
-    via (JamAuthType): Token type: "jwt", "paseto" or "session".
+    via (JamIssueType): Token type: "jwt", "paseto" or "session".
     exp (int | None): Expiration in seconds.
     iss (str | None): Issuer.
     aud (str | None): Audience.
@@ -8218,7 +8428,8 @@ Authenticate a token or session and return a subject.
 
 Args:
     token (str): Token or session ID.
-    via (str | None): Token type: "jwt", "paseto" or "session".
+    via (JamAuthType): Token type: "jwt", "jwe", "paseto" or
+        "session".
 
 Returns:
     Principal: Authenticated subject and credential claims.
@@ -10847,6 +11058,7 @@ Args:
     payload (dict[str, Any]): Payload for token.
     footer (dict[str, Any] | str | bytes | None): Token footer.
     serializer (type[BaseEncoder] | BaseEncoder): JSON serializer.
+    implicit_assertion (bytes | str): Additional authenticated data.
 
 Returns:
     str: Encoded token.
@@ -10865,6 +11077,7 @@ Decode a PASETO token.
 Args:
     token (str): Token.
     serializer (type[BaseEncoder] | BaseEncoder): JSON serializer.
+    implicit_assertion (bytes | str): Additional authenticated data.
 
 Returns:
     tuple[dict[str, Any], Any]: Payload and footer.
@@ -13053,6 +13266,23 @@ Generate Ed25519 key.
 
 Returns:
     dict[str, str]: {'private': KEY, 'public': KEY}
+
+## \`generate_ecdsa_keypair\`
+
+\`\`\`python
+function def generate_ecdsa_keypair(curve
+\`\`\`
+
+Generate an ECDSA key pair for a named NIST curve.
+
+Args:
+    curve (str): Curve name (P-256, P-384, or P-521).
+
+Returns:
+    dict[str, str]: {'private': KEY, 'public': KEY}
+
+Raises:
+    ValueError: If the curve is unsupported.
 
 ## \`generate_ecdsa_p384_keypair\`
 

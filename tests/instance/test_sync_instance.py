@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 
 from dataclasses import dataclass
+from typing import Any, cast
 
 import pytest
 from fakeredis import FakeRedis
 
 from jam import Jam
+from jam.exceptions import JamConfigurationError
 from jam.subject import BaseSubject
 
 
@@ -49,7 +51,7 @@ def test_jwt_instance(jam_jwt_instance):
     assert decoded.claims["sub"] == "user123"
 
 
-def test_jwe_autodetect():
+def test_jwe_authentication():
     jam = Jam(
         config={
             "jose": {
@@ -67,6 +69,17 @@ def test_jwe_autodetect():
     assert token.count(".") == 4
     decoded = jam.authenticate(token, via="jwe")
     assert decoded.subject == user
+
+
+def test_issue_rejects_jwe(jam_jwt_instance):
+    with pytest.raises(
+        JamConfigurationError,
+        match="Unknown 'via' type: jwe",
+    ):
+        jam_jwt_instance.issue(
+            {"id": "user123"},
+            via=cast(Any, "jwe"),
+        )
 
 
 def test_session_instance(jam_session_instance):

@@ -21,6 +21,7 @@ from jam.utils.config_maker import __config_maker__, __module_loader__
 
 logger = logging.getLogger(__name__)
 
+JamIssueType = Literal["jwt", "paseto", "session"]
 JamAuthType = Literal["jwt", "jwe", "paseto", "session"]
 
 

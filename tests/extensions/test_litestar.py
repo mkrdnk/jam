@@ -31,7 +31,9 @@ def test_plugin_adds_jam_dependency_and_instance_scoped_middleware():
 
 
 def test_plugin_can_only_install_dependency():
-    config = JamPlugin(MagicMock(), middleware=False).on_app_init(AppConfig())
+    config = JamPlugin(
+        MagicMock(), via="jwt", middleware=False
+    ).on_app_init(AppConfig())
 
     assert "jam" in config.dependencies
     assert config.middleware == []
@@ -45,7 +47,7 @@ def test_plugin_authenticates_real_litestar_request():
     def index(request: Request) -> dict:
         return {"id": request.user.subject["id"]}
 
-    app = Litestar([index], plugins=[JamPlugin(jam)])
+    app = Litestar([index], plugins=[JamPlugin(jam, via="jwt")])
     with TestClient(app) as client:
         response = client.get(
             "/",

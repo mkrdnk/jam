@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import pytest
-from jam.jose import JWS
-from jam.jose.jwk import JWK
+
 from jam.exceptions import JamJWSVerificationError, JamJWTUnsupportedAlgorithm
-from jam.utils import generate_rsa_key_pair, generate_ecdsa_p384_keypair
+from jam.exceptions.jose import JamJWSSigningError
+from jam.jose import JWS
+from jam.utils import generate_ecdsa_keypair, generate_rsa_key_pair
 
 
 class TestJWSHMAC:
@@ -100,34 +101,37 @@ class TestJWSRSA:
 
 
 class TestJWSECDSA:
-    @pytest.fixture
-    def ecdsa_key_pair(self):
-        return generate_ecdsa_p384_keypair()
-
-    def test_es256_sign_and_verify(self, ecdsa_key_pair):
-        jws = JWS(alg="ES256", key=ecdsa_key_pair["private"])
+    @pytest.mark.parametrize(
+        ("alg", "curve"),
+        [("ES256", "P-256"), ("ES384", "P-384"), ("ES512", "P-521")],
+    )
+    def test_sign_and_verify(self, alg, curve):
+        key_pair = generate_ecdsa_keypair(curve)
+        jws = JWS(alg=alg, key=key_pair["private"])
         token = jws.sign({"typ": "JWT"}, "test data")
         result = jws.verify(token)
         assert result["payload"] == b"test data"
 
-    def test_es256_verify_with_public_key(self, ecdsa_key_pair):
-        jws_sign = JWS(alg="ES256", key=ecdsa_key_pair["private"])
-        jws_verify = JWS(alg="ES256", key=ecdsa_key_pair["public"])
+    def test_verify_with_public_key(self):
+        key_pair = generate_ecdsa_keypair("P-256")
+        jws_sign = JWS(alg="ES256", key=key_pair["private"])
+        jws_verify = JWS(alg="ES256", key=key_pair["public"])
         token = jws_sign.sign({"typ": "JWT"}, "test data")
         result = jws_verify.verify(token)
         assert result["payload"] == b"test data"
 
-    def test_es384_sign_and_verify(self, ecdsa_key_pair):
-        jws = JWS(alg="ES384", key=ecdsa_key_pair["private"])
-        token = jws.sign({"typ": "JWT"}, "test data")
-        result = jws.verify(token)
-        assert result["payload"] == b"test data"
+    def test_rejects_curve_that_does_not_match_algorithm(self):
+        key_pair = generate_ecdsa_keypair("P-384")
+        with pytest.raises(JamJWSSigningError, match="ES256 requires secp256r1"):
+            JWS(alg="ES256", key=key_pair["private"]).sign({}, "test data")
 
-    def test_es512_sign_and_verify(self, ecdsa_key_pair):
-        jws = JWS(alg="ES512", key=ecdsa_key_pair["private"])
-        token = jws.sign({"typ": "JWT"}, "test data")
-        result = jws.verify(token)
-        assert result["payload"] == b"test data"
+    def test_verification_rejects_curve_that_does_not_match_algorithm(self):
+        p256 = generate_ecdsa_keypair("P-256")
+        token = JWS(alg="ES256", key=p256["private"]).sign({}, "test data")
+        p384 = generate_ecdsa_keypair("P-384")
+
+        with pytest.raises(JamJWSVerificationError, match="requires secp256r1"):
+            JWS(alg="ES256", key=p384["public"]).verify(token)
 
 
 class TestJWSValidation:

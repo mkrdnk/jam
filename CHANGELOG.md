@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 -->
 
-## 4.0.0 - [unreleased]
+## [4.0.0] - 2026-09-16
 
 ### Added
 - `ConfigMeta` metaclass (`jam.utils.config_meta`) — classes accept `config` /
@@ -42,11 +42,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`redis`/`json`), OAuth2 providers and authz are built directly from
   `[jam]` config sections
 - New `Jam` facade API:
-  - `issue(subject, via=None, exp/iss/aud/nbf/jti, permissions, **claims)` —
-    issues a JWT, PASETO or session with per-credential permission grants
-    (auto-detects when `via=None`)
-  - `authenticate(token, via=None)` — verifies a token/session and returns a
-    `Principal`
+  - `issue(subject, via, exp/iss/aud/nbf/jti, permissions, **claims)` —
+    issues a JWT, PASETO or session with per-credential permission grants;
+    `via` is one of `"jwt"`, `"paseto"` or `"session"`
+  - `authenticate(token, via)` — verifies a JWT, JWE, PASETO or session and
+    returns a `Principal`; `via` is required
   - `authorize(principal, permission, context=None)` — checks credential
     grants and the `[jam.authz]` policy
   - `subject` / `config` as class attributes overridable via `__init__`
@@ -71,8 +71,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `authz.Policy` field resolution supports arbitrary objects (pydantic models,
   ORM instances, plain classes) via public attributes, not just mappings and
   dataclasses; methods, callables and private attributes are never evaluated.
-  Structured rules fail closed when a referenced `field` or `@`-value is
-  missing (`exists` still reports absence explicitly)
+  Missing `field` values do not match; missing `@` references raise a
+  configuration error (`exists` reports absence explicitly)
 - Key rotation manager `jam.keychain`.
 
 ### Changed
@@ -131,11 +131,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `JamJWTValidationError`, `JamJWKMissingParameterError`
 
 ### Fixed
+- KeyChain now generates the JOSE-mandated P-256, P-384 and P-521 curves for
+  ES256, ES384 and ES512, and rejects keys whose curve does not match `alg`
 - PASETO v1: dead length check on the local key no longer shadows key loading
 - JWT `_detect_key_type` tries PEM/DER public key loaders before falling back
   to symmetric, so JWE with a public key is handled correctly
-- `Jam.authenticate` / token auto-detection now routes JWE tokens (4 segments)
-  to `jwt.decrypt` instead of failing as a session
+- `Jam.authenticate(via="jwe")` routes JWE tokens to `jwt.decrypt`
 - JWS/JWE/JWT `encode` / `decode` raise `JamConfigurationError` with
   `error_code` when the module is not configured instead of a bare assert
 
@@ -285,10 +286,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-- [4.0.0] https://github.com/lyaguxafrog/jam/compare/v3.3.0...v4.0.0
-- [3.3.0] https://github.com/lyaguxafrog/jam/compare/v3.2.0...v3.3.0
-- [3.2.0] https://github.com/lyaguxafrog/jam/compare/v3.1.2...v3.2.0
-- [3.1.2] https://github.com/lyaguxafrog/jam/compare/v3.1.1...v3.1.2
-- [3.1.1] https://github.com/lyaguxafrog/jam/compare/v3.1.0...v3.1.1
-- [3.1.0] https://github.com/lyaguxafrog/jam/compare/v3.0.0...v3.1.0
-- [3.0.0] https://github.com/lyaguxafrog/jam/compare/v2.5.6...v3.0.0
+[4.0.0]: https://github.com/mkrdnk/jam/compare/v3.3.0...v4.0.0
+[3.3.0]: https://github.com/mkrdnk/jam/compare/v3.2.0...v3.3.0
+[3.2.0]: https://github.com/mkrdnk/jam/compare/v3.1.2...v3.2.0
+[3.1.2]: https://github.com/mkrdnk/jam/compare/v3.1.1...v3.1.2
+[3.1.1]: https://github.com/mkrdnk/jam/compare/v3.1.0...v3.1.1
+[3.1.0]: https://github.com/mkrdnk/jam/compare/v3.0.0...v3.1.0
+[3.0.0]: https://github.com/mkrdnk/jam/compare/v2.5.6...v3.0.0

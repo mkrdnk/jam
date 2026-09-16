@@ -45,7 +45,7 @@ jam = Jam(config="config.toml", subject=User)
 user = User(id=1, email="user@example.com")
 
 token = jam.issue(subject=user, via="jwt")
-principal = jam.authenticate(token)
+principal = jam.authenticate(token, via="jwt")
 user = principal.subject
 
 allowed: bool = jam.authorize(
@@ -54,7 +54,7 @@ allowed: bool = jam.authorize(
 )
 ```
 
-See the [Quickstart](/usage/quickstart) for a step-by-step walkthrough.
+See the [Quickstart](/4.0.0/gettingstarted/quickstart) for a step-by-step walkthrough.
 
 ## Asynchronous support
 !!! note
@@ -70,7 +70,7 @@ token = await jam.issue(
     via="jwt",
     iss="Jam",
 )
-principal = await jam.authenticate(token)
+principal = await jam.authenticate(token, via="jwt")
 ```
 
 
@@ -78,21 +78,21 @@ principal = await jam.authenticate(token)
 Jam is a library that provides the most popular AUTH* mechanisms right out of the box.
 
 * [JOSE](usage/jose/)
-* [PASETO](usage/paseto.md)
-* [Server side sessions](usage/sessions.md)
-* [OTP](usage/otp.md)
-* [OAuth2](usage/oauth2.md)
-* [SAML](usage/saml.md)
+* [PASETO](/4.0.0/authx/paseto)
+* [Server side sessions](/4.0.0/authx/sessions)
+* [OTP](/4.0.0/authx/otp)
+* [OAuth2](/4.0.0/authx/oauth2)
+* [SAML](/4.0.0/authx/saml)
 
 
 ### Framework integrations
 
 Jam provides ready-to-use integrations for the most popular frameworks:
 
-* [FastAPI](framework_integrations/fastapi.md)
-* [Starlette](framework_integrations/starlette.md)
-* [Litestar](framework_integrations/litestar.md)
-* [Flask](framework_integrations/flask.md)
+* [FastAPI](/4.0.0/integrations/fastapi)
+* [Starlette](/4.0.0/integrations/starlette)
+* [Litestar](/4.0.0/integrations/litestar)
+* [Flask](/4.0.0/integrations/flask)
 
 Each integration offers built-in middleware or plugin support for JWT and session-based authentication.
 

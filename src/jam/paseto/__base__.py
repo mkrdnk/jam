@@ -67,6 +67,7 @@ class LegacyAEADMixin:
             header (str): Version header (e.g. "v1.local.").
             payload (bytes): Serialized payload.
             footer (bytes): Serialized footer.
+            implicit_assertion (bytes): Additional authenticated data.
 
         Returns:
             bytes: Encoded token.
@@ -107,6 +108,7 @@ class LegacyAEADMixin:
         Args:
             token (str): PASETO token.
             serializer (type[BaseEncoder] | BaseEncoder): JSON serializer.
+            implicit_assertion (bytes): Additional authenticated data.
 
         Returns:
             tuple[Any, Any]: Payload and footer.
@@ -171,6 +173,7 @@ class XChaChaMixin:
 
     _secret: Any
     _decode_footer: Any
+    _parse_token: Any
 
     def _encode_local(
         self,
@@ -185,6 +188,7 @@ class XChaChaMixin:
             header (str): Version header (e.g. "v2.local.").
             payload (bytes): Serialized payload.
             footer (bytes): Serialized footer.
+            implicit_assertion (bytes): Additional authenticated data.
 
         Returns:
             bytes: Encoded token.
@@ -218,6 +222,7 @@ class XChaChaMixin:
         Args:
             token (str): PASETO token.
             serializer (type[BaseEncoder] | BaseEncoder): JSON serializer.
+            implicit_assertion (bytes): Additional authenticated data.
 
         Returns:
             tuple[Any, Any]: Payload and footer.
@@ -557,6 +562,7 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
             payload (dict[str, Any]): Payload for token.
             footer (dict[str, Any] | str | bytes | None): Token footer.
             serializer (type[BaseEncoder] | BaseEncoder): JSON serializer.
+            implicit_assertion (bytes | str): Additional authenticated data.
 
         Returns:
             str: Encoded token.
@@ -571,6 +577,7 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
             else implicit_assertion
         )
         payload_bytes = serializer.dumps(payload)
+        material: Any = None
         if self._keychain is not None:
             key_id, material = self._keychain._material_for_issue()
             footer = {"_jam": {"kid": key_id}, "footer": footer}
@@ -578,6 +585,7 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
 
         if self._keychain is not None:
             old_secret, old_public = self._secret, self._public_key
+            assert material is not None
             self._set_key(material)
         try:
             if self._purpose == "local":
@@ -608,6 +616,7 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
         Args:
             token (str): Token.
             serializer (type[BaseEncoder] | BaseEncoder): JSON serializer.
+            implicit_assertion (bytes | str): Additional authenticated data.
 
         Returns:
             tuple[dict[str, Any], Any]: Payload and footer.

@@ -320,6 +320,17 @@ class ESAlgorithm(BaseAlgorithm):
         "ES512": (ec.SECP521R1(), hashes.SHA512()),
     }
 
+    def _validate_curve(self, key: Any) -> None:
+        expected_curve, _ = self._CURVE_MAP[self.alg]
+        if not isinstance(
+            key, ec.EllipticCurvePrivateKey | ec.EllipticCurvePublicKey
+        ):
+            raise ValueError("An EC key is required")
+        if key.curve.name != expected_curve.name:
+            raise ValueError(
+                f"{self.alg} requires {expected_curve.name}, got {key.curve.name}"
+            )
+
     def _get_private_key(self) -> Any:
         """Get private key for signing.
 
@@ -348,6 +359,7 @@ class ESAlgorithm(BaseAlgorithm):
         logger.debug("Signing with %s", self.alg)
         try:
             private_key = self._get_private_key()
+            self._validate_curve(private_key)
             _, hash_alg = self._CURVE_MAP[self.alg]
             der = private_key.sign(data, ec.ECDSA(hash_alg))
             r, s = decode_dss_signature(der)
@@ -375,8 +387,9 @@ class ESAlgorithm(BaseAlgorithm):
         logger.debug("Verifying %s signature", self.alg)
         try:
             pub_key = self._load_public_key_auto(key)
-            _, hash_alg = self._CURVE_MAP[self.alg]
-            n = (pub_key.curve.key_size + 7) // 8
+            self._validate_curve(pub_key)
+            curve, hash_alg = self._CURVE_MAP[self.alg]
+            n = (curve.key_size + 7) // 8
             if len(sig) != 2 * n:
                 raise JamJWSVerificationError(
                     message=f"Invalid signature length: expected {2 * n}, got {len(sig)}"

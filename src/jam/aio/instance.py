@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from jam.__core__ import JamAuthType
+from jam.__core__ import JamAuthType, JamIssueType
 from jam.aio.__base__ import BaseAsyncJam
 from jam.authz import AuthorizationContext, Principal
 from jam.exceptions import (
@@ -34,7 +34,7 @@ class AsyncJam(BaseAsyncJam):
     async def issue(
         self,
         subject: BaseSubject | dict[str, Any],
-        via: JamAuthType,
+        via: JamIssueType,
         exp: int | None = None,
         iss: str | None = None,
         aud: str | None = None,

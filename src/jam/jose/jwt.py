@@ -478,6 +478,7 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
                 alg=self._alg or "", key=material, password=self._password
             ).sign(header=_base_header, data=_payload)
         else:
+            assert self.jws is not None
             token = self.jws.sign(header=_base_header, data=_payload)
 
         if self.list and self.list.__list_type__ == "white":
@@ -549,6 +550,7 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
                 alg=self._alg or "", key=material, password=self._password
             ).verify(token, True)
         else:
+            assert self.jws is not None
             data = self.jws.verify(token, True)
         header = data["header"]
         if header.get("typ") != "JWT":

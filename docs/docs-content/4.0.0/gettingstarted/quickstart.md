@@ -88,7 +88,7 @@ print(jam.authorize(principal, "post:delete"))  # -> False (not in token)
 ## Next steps
 
 * [Configuration](/4.0.0/gettingstarted/configuration) - all config formats and options.
-* [Jam instance](/4.0.0/core/jam) - `issue` / `authenticate` / `authorize`
+* [Jam instance](/4.0.0/gettingstarted/jam) - `issue` / `authenticate` / `authorize`
   in detail.
-* [PASETO](/4.0.0/authentication/paseto), [JOSE](/4.0.0/authentication/jose/index), [sessions](/4.0.0/authentication/sessions),
-  [OTP](/4.0.0/authentication/otp), [OAuth2](/4.0.0/identity/oauth2), [SAML](/4.0.0/authentication/saml).
+* [PASETO](/4.0.0/authx/paseto), [JOSE](/4.0.0/authx/jose/index), [sessions](/4.0.0/authx/sessions),
+  [OTP](/4.0.0/authx/otp), [OAuth2](/4.0.0/authx/oauth2), [SAML](/4.0.0/authx/saml).
