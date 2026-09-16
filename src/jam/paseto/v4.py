@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 # type: ignore
 
+import hashlib
+import hmac
+import secrets
 from typing import Any
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
@@ -16,15 +19,74 @@ from jam.exceptions import (
     JamPASETOInvalidTokenFormat,
     JamPASETOKeyVerificationError,
 )
-from jam.paseto.__base__ import BasePASETO, KeyLoadMixin, XChaChaMixin
+from jam.paseto.__base__ import BasePASETO, KeyLoadMixin
 from jam.paseto.utils import __pae__, base64url_decode, base64url_encode
 from jam.utils.config_maker import __key_loader__
+from jam.utils.xchacha20poly1305 import xchacha20_xor
 
 
-class PASETOv4(XChaChaMixin, KeyLoadMixin, BasePASETO):
+class PASETOv4(KeyLoadMixin, BasePASETO):
     """PASETO v4 factory."""
 
     _VERSION = "v4"
+
+    def _local_keys(self, nonce: bytes) -> tuple[bytes, bytes, bytes]:
+        """Derive v4.local encryption, nonce and authentication keys."""
+        encryption = hashlib.blake2b(
+            b"paseto-encryption-key" + nonce,
+            key=self._secret,
+            digest_size=56,
+        ).digest()
+        authentication = hashlib.blake2b(
+            b"paseto-auth-key-for-aead" + nonce,
+            key=self._secret,
+            digest_size=32,
+        ).digest()
+        return encryption[:32], encryption[32:], authentication
+
+    def _encode_local(
+        self,
+        header: str,
+        payload: bytes,
+        footer: bytes,
+        implicit_assertion: bytes,
+    ) -> bytes:
+        """Encode a standards-compliant v4.local token."""
+        header_b = header.encode("ascii")
+        nonce = secrets.token_bytes(32)
+        encryption, stream_nonce, authentication = self._local_keys(nonce)
+        ciphertext = xchacha20_xor(encryption, stream_nonce, payload)
+        tag = hashlib.blake2b(
+            __pae__([header_b, nonce, ciphertext, footer, implicit_assertion]),
+            key=authentication,
+            digest_size=32,
+        ).digest()
+        token = header_b + base64url_encode(nonce + ciphertext + tag)
+        return token + (b"." + base64url_encode(footer) if footer else b"")
+
+    def _decode_local(
+        self,
+        token: str,
+        serializer: type[BaseEncoder] | BaseEncoder,
+        implicit_assertion: bytes,
+    ) -> tuple[Any, Any]:
+        """Decode a standards-compliant v4.local token."""
+        header, body_part, footer_part = self._parse_token(token, "local")
+        body = base64url_decode(body_part)
+        if len(body) < 64:
+            raise JamPASETOInvalidTokenFormat(message="Invalid token body.")
+        nonce, ciphertext, tag = body[:32], body[32:-32], body[-32:]
+        footer = base64url_decode(footer_part) if footer_part else b""
+        encryption, stream_nonce, authentication = self._local_keys(nonce)
+        expected = hashlib.blake2b(
+            __pae__([header, nonce, ciphertext, footer, implicit_assertion]),
+            key=authentication,
+            digest_size=32,
+        ).digest()
+        if not hmac.compare_digest(tag, expected):
+            raise JamPASETOKeyVerificationError(message="Invalid authentication tag.")
+        plaintext = xchacha20_xor(encryption, stream_nonce, ciphertext)
+        return serializer.loads(plaintext), self._decode_footer(footer, serializer)
 
     def _set_key(
         self,
@@ -86,7 +148,11 @@ class PASETOv4(XChaChaMixin, KeyLoadMixin, BasePASETO):
             )
 
     def _encode_public(
-        self, header: str, payload: bytes, footer: bytes
+        self,
+        header: str,
+        payload: bytes,
+        footer: bytes,
+        implicit_assertion: bytes,
     ) -> bytes:
         """Encode a 'public' token."""
         if not isinstance(self._secret, Ed25519PrivateKey):
@@ -94,7 +160,7 @@ class PASETOv4(XChaChaMixin, KeyLoadMixin, BasePASETO):
                 message="Private Ed25519 key required for v4.public signing"
             )
         header_b = header.encode("ascii")
-        pre_auth = __pae__([header_b, payload, footer or b""])
+        pre_auth = __pae__([header_b, payload, footer, implicit_assertion])
         signature = self._secret.sign(pre_auth)  # raw 64 bytes
 
         token = header_b + base64url_encode(payload + signature)
@@ -106,26 +172,22 @@ class PASETOv4(XChaChaMixin, KeyLoadMixin, BasePASETO):
         self,
         token: str,
         serializer: type[BaseEncoder] | BaseEncoder = JsonEncoder,
+        implicit_assertion: bytes = b"",
     ) -> tuple[Any, Any]:
         """Decode a 'public' token."""
-        parts = token.encode("utf-8").split(b".")
-        if len(parts) < 3:
-            raise JamPASETOInvalidTokenFormat(message="Invalid token format.")
-        header = b".".join(parts[:2]) + b"."
-        if header != b"v4.public.":
-            raise JamPASETOInvalidTokenFormat(message="Invalid header.")
-
-        body = base64url_decode(parts[2])
+        header, body_part, footer_part = self._parse_token(token, "public")
+        body = base64url_decode(body_part)
         if len(body) < 64:
             raise JamPASETOInvalidTokenFormat(
                 message="Invalid token body (too short for Ed25519 signature)"
             )
         payload = body[:-64]
         signature = body[-64:]
-        footer_part = parts[3] if len(parts) > 3 else b""
         footer_decoded = base64url_decode(footer_part) if footer_part else b""
 
-        pre_auth = __pae__([header, payload, footer_decoded])
+        pre_auth = __pae__(
+            [header, payload, footer_decoded, implicit_assertion]
+        )
 
         if not self._public_key:
             raise JamPASETOInvalidED25519Key(

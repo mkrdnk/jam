@@ -4,10 +4,11 @@ import base64
 from datetime import datetime
 import hashlib
 import hmac
+import struct
 from typing import Any
 from uuid import uuid4
 
-from jam.exceptions import JamPASETOInvalidSymmetricKey
+from jam.exceptions import JamPASETOInvalidTokenFormat
 
 
 def __gen_hash__(key: bytes, msg: bytes, hash_size: int = 0) -> bytes:
@@ -21,38 +22,42 @@ def __gen_hash__(key: bytes, msg: bytes, hash_size: int = 0) -> bytes:
 
 def __pae__(pieces: list[bytes]) -> bytes:
     """Pre-Authentication Encoding (PAE) as per PASETO spec."""
-
-    def le64(n: int) -> bytes:
-        s = bytearray(8)
-        for i in range(8):
-            if i == 7:
-                n = n & 127
-            s[i] = n & 255
-            n = n >> 8
-        return bytes(s)
-
-    output = le64(len(pieces))
+    output = struct.pack("<Q", len(pieces))
     for piece in pieces:
-        output += le64(len(piece))
+        output += struct.pack("<Q", len(piece))
         output += piece
     return output
 
 
 def base64url_decode(v: str | bytes) -> bytes:
-    """Base64 URL-safe decoding with padding."""
+    """Decode an unpadded, canonical Base64url value."""
     try:
-        if isinstance(v, bytes):
-            bv = v
-        else:
-            bv = v.encode("ascii")
+        bv = v if isinstance(v, bytes) else v.encode("ascii")
+        if not bv or b"=" in bv:
+            raise ValueError("padding is not allowed")
+        if any(
+            not (
+                ord("A") <= character <= ord("Z")
+                or ord("a") <= character <= ord("z")
+                or ord("0") <= character <= ord("9")
+                or character in (ord("-"), ord("_"))
+            )
+            for character in bv
+        ):
+            raise ValueError("invalid Base64url character")
         rem = len(bv) % 4
-        if rem > 0:
-            bv += b"=" * (4 - rem)
-        return base64.urlsafe_b64decode(bv)
-    except Exception as e:
-        raise JamPASETOInvalidSymmetricKey(
-            message=f"Failed to decode base64url: {e}"
+        if rem == 1:
+            raise ValueError("invalid Base64url length")
+        decoded = base64.b64decode(
+            bv + b"=" * ((4 - rem) % 4), altchars=b"-_", validate=True
         )
+        if base64url_encode(decoded) != bv:
+            raise ValueError("non-canonical Base64url value")
+        return decoded
+    except (TypeError, UnicodeEncodeError, ValueError) as exc:
+        raise JamPASETOInvalidTokenFormat(
+            message=f"Invalid Base64url value: {exc}"
+        ) from exc
 
 
 def base64url_encode(data: bytes | str) -> bytes:

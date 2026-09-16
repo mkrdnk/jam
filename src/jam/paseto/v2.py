@@ -85,7 +85,11 @@ class PASETOv2(XChaChaMixin, KeyLoadMixin, BasePASETO):
             )
 
     def _encode_public(
-        self, header: str, payload: bytes, footer: bytes
+        self,
+        header: str,
+        payload: bytes,
+        footer: bytes,
+        implicit_assertion: bytes,
     ) -> bytes:
         """Encode a 'public' token."""
         bheader = header.encode("ascii")
@@ -109,21 +113,12 @@ class PASETOv2(XChaChaMixin, KeyLoadMixin, BasePASETO):
         self,
         token: str,
         serializer: type[BaseEncoder] | BaseEncoder = JsonEncoder,
+        implicit_assertion: bytes = b"",
     ) -> tuple[Any, Any]:
         """Decode a 'public' token."""
-        parts = token.encode().split(b".")
-        if len(parts) < 3:
-            raise JamPASETOInvalidTokenFormat
-
-        header = b".".join(parts[:2]) + b"."
-        if header != b"v2.public.":
-            raise JamPASETOInvalidTokenFormat(
-                message="Invalid header",
-                error_code="paseto.validation.invalid_header",
-            )
-
-        body = base64url_decode(parts[2])
-        footer = base64url_decode(parts[3]) if len(parts) > 3 else b""
+        header, body_part, footer_part = self._parse_token(token, "public")
+        body = base64url_decode(body_part)
+        footer = base64url_decode(footer_part) if footer_part else b""
 
         if len(body) < 64:
             raise JamPASETOInvalidTokenFormat(

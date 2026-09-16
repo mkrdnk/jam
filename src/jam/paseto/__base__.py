@@ -59,6 +59,7 @@ class LegacyAEADMixin:
         header: str,
         payload: bytes,
         footer: bytes,
+        implicit_assertion: bytes,
     ) -> bytes:
         """Encode a 'local' token.
 
@@ -96,7 +97,10 @@ class LegacyAEADMixin:
         return token
 
     def _decode_local(
-        self, token: str, serializer: type[BaseEncoder] | BaseEncoder
+        self,
+        token: str,
+        serializer: type[BaseEncoder] | BaseEncoder,
+        implicit_assertion: bytes,
     ) -> tuple[Any, Any]:
         """Decode a 'local' token.
 
@@ -173,6 +177,7 @@ class XChaChaMixin:
         header: str,
         payload: bytes,
         footer: bytes,
+        implicit_assertion: bytes,
     ) -> bytes:
         """Encode a 'local' token.
 
@@ -186,8 +191,12 @@ class XChaChaMixin:
         """
         bheader = header.encode("ascii")
         bfooter = footer or b""
-        nonce = secrets.token_bytes(24)
-        aad = __pae__([bheader, bfooter])
+        nonce = hashlib.blake2b(
+            payload,
+            key=secrets.token_bytes(24),
+            digest_size=24,
+        ).digest()
+        aad = __pae__([bheader, nonce, bfooter])
 
         ciphertext = xchacha20poly1305_encrypt(
             self._secret, nonce, payload, aad
@@ -199,7 +208,10 @@ class XChaChaMixin:
         return token
 
     def _decode_local(
-        self, token: str, serializer: type[BaseEncoder] | BaseEncoder
+        self,
+        token: str,
+        serializer: type[BaseEncoder] | BaseEncoder,
+        implicit_assertion: bytes,
     ) -> tuple[Any, Any]:
         """Decode a 'local' token.
 
@@ -214,24 +226,15 @@ class XChaChaMixin:
             JamPASETOInvalidTokenFormat: If the token format is invalid.
             JamPASETOKeyVerificationError: If the token cannot be decrypted.
         """
-        parts = token.encode().split(b".")
-        if len(parts) < 3:
-            raise JamPASETOInvalidTokenFormat
-        header = b".".join(parts[:2]) + b"."
-        if header != f"{self._VERSION}.local.".encode("ascii"):
-            raise JamPASETOInvalidTokenFormat(
-                message="Invalid PASETO header",
-                error_code="paseto.validation.invalid_header",
-            )
-
-        body = base64url_decode(parts[2])
+        header, body_part, footer_part = self._parse_token(token, "local")
+        body = base64url_decode(body_part)
         if len(body) < 24 + 16:
             raise JamPASETOInvalidTokenFormat(message="Invalid token body")
-        footer = base64url_decode(parts[3]) if len(parts) > 3 else b""
+        footer = base64url_decode(footer_part) if footer_part else b""
 
         nonce = body[:24]
         ciphertext = body[24:]
-        aad = __pae__([header, footer])
+        aad = __pae__([header, nonce, footer])
 
         try:
             plaintext = xchacha20poly1305_decrypt(
@@ -356,28 +359,42 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
 
     @abstractmethod
     def _encode_local(
-        self, header: str, payload: bytes, footer: bytes
+        self,
+        header: str,
+        payload: bytes,
+        footer: bytes,
+        implicit_assertion: bytes,
     ) -> bytes:
         """Encode a 'local' token."""
         raise NotImplementedError
 
     @abstractmethod
     def _encode_public(
-        self, header: str, payload: bytes, footer: bytes
+        self,
+        header: str,
+        payload: bytes,
+        footer: bytes,
+        implicit_assertion: bytes,
     ) -> bytes:
         """Encode a 'public' token."""
         raise NotImplementedError
 
     @abstractmethod
     def _decode_local(
-        self, token: str, serializer: type[BaseEncoder] | BaseEncoder
+        self,
+        token: str,
+        serializer: type[BaseEncoder] | BaseEncoder,
+        implicit_assertion: bytes,
     ) -> tuple[Any, Any]:
         """Decode a 'local' token."""
         raise NotImplementedError
 
     @abstractmethod
     def _decode_public(
-        self, token: str, serializer: type[BaseEncoder] | BaseEncoder
+        self,
+        token: str,
+        serializer: type[BaseEncoder] | BaseEncoder,
+        implicit_assertion: bytes,
     ) -> tuple[Any, Any]:
         """Decode a 'public' token."""
         raise NotImplementedError
@@ -439,6 +456,27 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
     def purpose(self) -> Literal["local", "public"] | None:
         """Return PASETO purpose."""
         return self._purpose
+
+    def _parse_token(
+        self, token: str, purpose: Literal["local", "public"]
+    ) -> tuple[bytes, bytes, bytes]:
+        """Parse a canonical PASETO token into header, body and footer."""
+        parts = token.encode("ascii").split(b".")
+        if len(parts) not in (3, 4) or not parts[2]:
+            raise JamPASETOInvalidTokenFormat(
+                message="Invalid PASETO token format."
+            )
+        header = f"{self._VERSION}.{purpose}.".encode("ascii")
+        if b".".join(parts[:2]) + b"." != header:
+            raise JamPASETOInvalidTokenFormat(
+                message="Invalid PASETO header.",
+                error_code="paseto.validation.invalid_header",
+            )
+        if len(parts) == 4 and not parts[3]:
+            raise JamPASETOInvalidTokenFormat(
+                message="PASETO footer must not be empty."
+            )
+        return header, parts[2], parts[3] if len(parts) == 4 else b""
 
     @staticmethod
     def _encrypt(key: bytes, nonce: bytes, data: bytes) -> bytes:
@@ -511,6 +549,7 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
         payload: dict[str, Any],
         footer: dict[str, Any] | str | bytes | None = None,
         serializer: type[BaseEncoder] | BaseEncoder = JsonEncoder,
+        implicit_assertion: bytes | str = b"",
     ) -> str:
         """Encode a PASETO token.
 
@@ -526,6 +565,11 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
             JamPASETOInvalidPurpose: If the purpose is not "local" or "public".
         """
         header = f"{self._VERSION}.{self._purpose}."
+        assertion = (
+            implicit_assertion.encode("utf-8")
+            if isinstance(implicit_assertion, str)
+            else implicit_assertion
+        )
         payload_bytes = serializer.dumps(payload)
         if self._keychain is not None:
             key_id, material = self._keychain._material_for_issue()
@@ -538,11 +582,11 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
         try:
             if self._purpose == "local":
                 token = self._encode_local(
-                    header, payload_bytes, footer_bytes
+                    header, payload_bytes, footer_bytes, assertion
                 ).decode("utf-8")
             elif self._purpose == "public":
                 token = self._encode_public(
-                    header, payload_bytes, footer_bytes
+                    header, payload_bytes, footer_bytes, assertion
                 ).decode("utf-8")
             else:
                 raise JamPASETOInvalidPurpose
@@ -557,6 +601,7 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
         self,
         token: str,
         serializer: type[BaseEncoder] | BaseEncoder = JsonEncoder,
+        implicit_assertion: bytes | str = b"",
     ) -> tuple[dict[str, Any], Any]:
         """Decode a PASETO token.
 
@@ -570,6 +615,11 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
         Raises:
             JamPASETOInvalidPurpose: If the purpose is not "local" or "public".
         """
+        assertion = (
+            implicit_assertion.encode("utf-8")
+            if isinstance(implicit_assertion, str)
+            else implicit_assertion
+        )
         self._list_check(token)
         if self._keychain is not None:
             try:
@@ -586,9 +636,13 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
             self._set_key(self._keychain._material_for_verify(key_id))
         try:
             if token.startswith(f"{self._VERSION}.local."):
-                payload, footer = self._decode_local(token, serializer)
+                payload, footer = self._decode_local(
+                    token, serializer, assertion
+                )
             elif token.startswith(f"{self._VERSION}.public."):
-                payload, footer = self._decode_public(token, serializer)
+                payload, footer = self._decode_public(
+                    token, serializer, assertion
+                )
             else:
                 raise JamPASETOInvalidPurpose
         finally:

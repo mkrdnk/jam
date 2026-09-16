@@ -92,7 +92,11 @@ class PASETOv1(LegacyAEADMixin, KeyLoadMixin, BasePASETO):
             )
 
     def _encode_public(
-        self, header: str, payload: bytes, footer: bytes
+        self,
+        header: str,
+        payload: bytes,
+        footer: bytes,
+        implicit_assertion: bytes,
     ) -> bytes:
         """Encode a 'public' token."""
         header_b = header.encode("ascii")
@@ -121,21 +125,10 @@ class PASETOv1(LegacyAEADMixin, KeyLoadMixin, BasePASETO):
         self,
         token: str,
         serializer: type[BaseEncoder] | BaseEncoder = JsonEncoder,
+        implicit_assertion: bytes = b"",
     ) -> tuple[Any, Any]:
         """Decode a 'public' token."""
-        parts = token.encode("utf-8").split(b".")
-        if len(parts) < 3:
-            raise JamPASETOInvalidTokenFormat
-
-        header = b".".join(parts[:2]) + b"."
-        if header != b"v1.public.":
-            raise JamPASETOInvalidTokenFormat(
-                message="Invalid PASETO header",
-                error_code="paseto.validation.invalid_header",
-            )
-
-        payload_part = parts[2]
-        footer_part = parts[3] if len(parts) > 3 else b""
+        header, payload_part, footer_part = self._parse_token(token, "public")
 
         decoded = base64url_decode(payload_part)
         if len(decoded) < 256:

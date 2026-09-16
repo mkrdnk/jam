@@ -2,6 +2,7 @@
 
 import struct
 
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 
 
@@ -59,3 +60,13 @@ def xchacha20poly1305_decrypt(
     subkey = _hchacha20(key, nonce[:16])
     chacha_nonce = b"\x00\x00\x00\x00" + nonce[16:24]
     return ChaCha20Poly1305(subkey).decrypt(chacha_nonce, ciphertext, aad)
+
+
+def xchacha20_xor(key: bytes, nonce: bytes, data: bytes) -> bytes:
+    """Apply the XChaCha20 stream cipher to data."""
+    if len(key) != 32 or len(nonce) != 24:
+        raise ValueError("XChaCha20 requires a 32-byte key and 24-byte nonce")
+    subkey = _hchacha20(key, nonce[:16])
+    chacha_nonce = b"\x00" * 8 + nonce[16:]
+    cipher = Cipher(algorithms.ChaCha20(subkey, chacha_nonce), mode=None)
+    return cipher.encryptor().update(data)
