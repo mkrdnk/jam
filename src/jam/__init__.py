@@ -25,7 +25,7 @@ logging.getLogger("jam").addHandler(logging.NullHandler())
 logging.getLogger("jam").addFilter(SensitiveDataFilter())
 
 
-__version__ = "4.0.0rc3"
+__version__ = "4.0.0rc4"
 __all__ = [
     "Jam",
     "BaseJam",
