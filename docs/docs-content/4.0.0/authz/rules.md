@@ -11,6 +11,69 @@ allowed = jam.authorize(principal, "post:edit", context)
 Authorization is deny-by-default: a permission is denied when no matching
 grant or allow rule permits it.
 
+## `Policy`
+
+`Policy` is Jam's built-in implementation of `BasePolicy`. `Jam` creates it
+from `authz.rules` unless the configuration selects a custom policy class.
+
+```python
+from jam import Policy
+
+policy = Policy(
+    {
+        "report:read": ["role=analyst"],
+        "report:export": ["role=admin"],
+    }
+)
+
+policy.check(
+    {"id": "42", "role": "analyst"},
+    "report:read",
+)
+# True
+```
+
+### Constructor
+
+```python
+Policy(rules=None, **kwargs)
+```
+
+`rules` accepts either a compact permission mapping or a sequence of structured
+rules. `kwargs` is accepted for configuration compatibility and is ignored by
+the built-in policy.
+
+### `check()`
+
+```python
+policy.check(principal, permission, context=None)
+```
+
+| Argument | Accepted values | Description |
+| --- | --- | --- |
+| `principal` | `Principal`, `BaseSubject`, or `dict` | The authenticated identity. A subject or dictionary is wrapped in a Principal without credential claims. |
+| `permission` | Non-empty string | The requested permission, for example `report:read`. |
+| `context` | `AuthorizationContext` or `None` | Dynamic request data. When omitted, Jam creates an empty context with the current UTC time. |
+
+`check()` returns `True` when access is allowed and `False` when it is denied.
+An empty or non-string permission is a configuration error.
+
+### Decision order
+
+For every `check()` call, `Policy` evaluates access in this order:
+
+1. Find rules whose permission pattern matches the requested permission.
+2. If a credential declares `permissions` or `scope` but does not grant the
+   requested permission, deny immediately.
+3. Evaluate all matching deny rules. Any matching deny rule denies access.
+4. Evaluate matching allow rules. Access is allowed if at least one condition
+   matches.
+5. If no allow rule matches, allow only when the credential itself grants the
+   permission; otherwise deny.
+
+This order means that a server-side policy can restrict a token but cannot add
+an undeclared permission to a token that explicitly lists its grants.
+
 ## Configure a policy
 
 Pass rules under `authz.rules` when constructing `Jam`:
