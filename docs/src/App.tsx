@@ -1174,6 +1174,25 @@ export default function App() {
   else if (isDocRoute) mode = "doc"
   else mode = "notfound"
 
+  useEffect(() => {
+    const page = mdSlug
+      ? findPageBySlug(
+          MD_MANIFEST.docs[effectiveVersion]?.nav || [],
+          mdSlug,
+        )
+      : undefined
+    const title = page
+      ? `${page.title} | Jam Documentation`
+      : mode === "api"
+        ? "API Reference | Jam Documentation"
+        : mode === "search"
+          ? "Search | Jam Documentation"
+          : mode === "notfound"
+            ? "Page not found | Jam Documentation"
+            : "Jam Documentation"
+    document.title = title
+  }, [effectiveVersion, mdSlug, mode])
+
   const openMd = useCallback((slug: string, version?: string) => {
     const v = version ?? effectiveVersion
     if (slug === "api--index") {

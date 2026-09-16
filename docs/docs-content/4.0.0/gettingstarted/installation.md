@@ -1,6 +1,5 @@
----
-title: Installation
----
+# Installation
+
 
 Jam requires Python 3.10 or later.
 
@@ -15,7 +14,7 @@ Install optional dependencies only for the modules you use:
 ```bash
 pip install "jamlib[yaml]"      # YAML configuration
 pip install "jamlib[redis]"     # Redis sessions and lists
-pip install "jamlib[oauth2]"    # OAuth2 clients
+pip install "jamlib[oauth2]"    # async OAuth2 clients
 pip install "jamlib[fastapi]"   # FastAPI integration
 ```
 

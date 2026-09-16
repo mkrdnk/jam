@@ -5,7 +5,9 @@ import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 
 export const mdPages: Record<string, ComponentType> = {
   "4.0.0/gettingstarted--installation": () => (
-    <MarkdownRenderer content={`
+    <MarkdownRenderer content={`# Installation
+
+
 Jam requires Python 3.10 or later.
 
 Install the released package from [PyPI](https://pypi.org/project/jamlib/):
@@ -19,7 +21,7 @@ Install optional dependencies only for the modules you use:
 \`\`\`bash
 pip install "jamlib[yaml]"      # YAML configuration
 pip install "jamlib[redis]"     # Redis sessions and lists
-pip install "jamlib[oauth2]"    # OAuth2 clients
+pip install "jamlib[oauth2]"    # async OAuth2 clients
 pip install "jamlib[fastapi]"   # FastAPI integration
 \`\`\`
 
@@ -305,14 +307,14 @@ policy). The full list:
 
 | Section | Module | Docs |
 |---------|--------|------|
-| \`jose.jwt\` | \`jam.jose.JWT\` | [JWT](/4.0.0/authentication/jose/jwt) |
-| \`jose.jws\` | \`jam.jose.JWS\` | [JWS](/4.0.0/authentication/jose/jws) |
-| \`jose.jwe\` | \`jam.jose.JWE\` | [JWE](/4.0.0/authentication/jose/jwe) |
-| \`paseto\` | \`jam.paseto.PASETOv1\`–\`v4\` | [PASETO](/4.0.0/authentication/paseto) |
-| \`session\` | \`RedisSessions\` / \`JSONSessions\` | [Sessions](/4.0.0/authentication/sessions) |
-| \`otp\` | \`HOTP\` / \`TOTP\` | [OTP](/4.0.0/authentication/otp) |
-| \`oauth2\` | \`dict[str, OAuth2Client]\` | [OAuth2](/4.0.0/identity/oauth2) |
-| \`authz\` | \`jam.Policy\` (or custom) | [Authorization](/4.0.0/core/authz) |
+| \`jose.jwt\` | \`jam.jose.JWT\` | [JWT](/4.0.0/authx/jose/jwt) |
+| \`jose.jws\` | \`jam.jose.JWS\` | [JWS](/4.0.0/authx/jose/jws) |
+| \`jose.jwe\` | \`jam.jose.JWE\` | [JWE](/4.0.0/authx/jose/jwe) |
+| \`paseto\` | \`jam.paseto.PASETOv1\`–\`v4\` | [PASETO](/4.0.0/authx/paseto) |
+| \`session\` | \`RedisSessions\` / \`JSONSessions\` | [Sessions](/4.0.0/authx/sessions) |
+| \`otp\` | \`HOTP\` / \`TOTP\` | [OTP](/4.0.0/authx/otp) |
+| \`oauth2\` | \`dict[str, OAuth2Client]\` | [OAuth2](/4.0.0/authx/oauth2) |
+| \`authz\` | \`jam.Policy\` (or custom) | [Authorization](/4.0.0/authz/subject) |
 | \`serializer\` | \`BaseEncoder\` | [Serialization](/4.0.0/dev/serializers) |
 
 Each section is optional — configure only what you use. Modules are then

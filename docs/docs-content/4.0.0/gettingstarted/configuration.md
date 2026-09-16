@@ -172,14 +172,14 @@ policy). The full list:
 
 | Section | Module | Docs |
 |---------|--------|------|
-| `jose.jwt` | `jam.jose.JWT` | [JWT](/4.0.0/authentication/jose/jwt) |
-| `jose.jws` | `jam.jose.JWS` | [JWS](/4.0.0/authentication/jose/jws) |
-| `jose.jwe` | `jam.jose.JWE` | [JWE](/4.0.0/authentication/jose/jwe) |
-| `paseto` | `jam.paseto.PASETOv1`–`v4` | [PASETO](/4.0.0/authentication/paseto) |
-| `session` | `RedisSessions` / `JSONSessions` | [Sessions](/4.0.0/authentication/sessions) |
-| `otp` | `HOTP` / `TOTP` | [OTP](/4.0.0/authentication/otp) |
-| `oauth2` | `dict[str, OAuth2Client]` | [OAuth2](/4.0.0/identity/oauth2) |
-| `authz` | `jam.Policy` (or custom) | [Authorization](/4.0.0/core/authz) |
+| `jose.jwt` | `jam.jose.JWT` | [JWT](/4.0.0/authx/jose/jwt) |
+| `jose.jws` | `jam.jose.JWS` | [JWS](/4.0.0/authx/jose/jws) |
+| `jose.jwe` | `jam.jose.JWE` | [JWE](/4.0.0/authx/jose/jwe) |
+| `paseto` | `jam.paseto.PASETOv1`–`v4` | [PASETO](/4.0.0/authx/paseto) |
+| `session` | `RedisSessions` / `JSONSessions` | [Sessions](/4.0.0/authx/sessions) |
+| `otp` | `HOTP` / `TOTP` | [OTP](/4.0.0/authx/otp) |
+| `oauth2` | `dict[str, OAuth2Client]` | [OAuth2](/4.0.0/authx/oauth2) |
+| `authz` | `jam.Policy` (or custom) | [Authorization](/4.0.0/authz/subject) |
 | `serializer` | `BaseEncoder` | [Serialization](/4.0.0/dev/serializers) |
 
 Each section is optional — configure only what you use. Modules are then
