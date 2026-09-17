@@ -1,6 +1,6 @@
 [project]
 name = "jamlib"
-version = "4.1.0a2"
+version = "4.1.0a3"
 description = "Simple and universal library for authorization."
 authors = [
     {name = "Makridenko Adrian",email = "adrianmakridenko@duck.com"},
@@ -81,6 +81,10 @@ drf=[
     "django>=5.2",
     "djangorestframework>=3.18.1",
 ]
+dmr=[
+    "django>=5.2; python_version >= '3.11'",
+    "django-modern-rest>=0.15.0; python_version >= '3.11'",
+]
 
 [build-system]
 requires = ["setuptools>=82.0.1", "wheel"]
@@ -104,6 +108,7 @@ dev = [
 tests = [
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
+    "pytest-django>=4.12.0",
     "coverage>=7.13.4"
 ]
 

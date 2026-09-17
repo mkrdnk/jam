@@ -5,7 +5,8 @@ resolution-markers = [
     "python_full_version >= '3.14'",
     "python_full_version == '3.13.*'",
     "python_full_version == '3.12.*'",
-    "python_full_version < '3.12'",
+    "python_full_version == '3.11.*'",
+    "python_full_version < '3.11'",
 ]
 
 [[package]]
@@ -393,7 +394,8 @@ name = "django"
 version = "5.2.17"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version < '3.12'",
+    "python_full_version == '3.11.*'",
+    "python_full_version < '3.11'",
 ]
 dependencies = [
     { name = "asgiref", marker = "python_full_version < '3.12'" },
@@ -425,6 +427,44 @@ wheels = [
 ]
 
 [[package]]
+name = "django-modern-rest"
+version = "0.15.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django", version = "5.2.17", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "django", version = "6.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "typing-extensions", marker = "python_full_version >= '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7d/e4/f682a2d4770776c16ac7ffa34aae523e7e770138020e96f131ce9f678345/django_modern_rest-0.15.0.tar.gz", hash = "sha256:b2d536aca39cbe7a201712c4a2eb2a47b0d5e1b77bcfb8f0158a950cdccc88f8", size = 2853541, upload-time = "2026-09-11T18:13:12.369Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5e/39/bd0eaa71677f6c234d876e338982493fff25a0cfcc6c7bf05e9e1e4700a0/django_modern_rest-0.15.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:a099fc112d4ec085e2fc328b4ffeeec1c92994ff06413f5b4ed324c7fad7269b", size = 3055829, upload-time = "2026-09-11T18:13:21.595Z" },
+    { url = "https://files.pythonhosted.org/packages/1a/f9/5c9b3fa4e24a85ddda7a11e3058f9b6826284d8d4da48b1553cd8e8e42d3/django_modern_rest-0.15.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:4176e8d90547fe71e70611cbdff1611be480fb2c40018bf66d19e2ae9ff74071", size = 3068240, upload-time = "2026-09-11T18:13:23.206Z" },
+    { url = "https://files.pythonhosted.org/packages/93/0f/a7655618e05662264cc1ad3a3d77621178256ccca13f3d3ed2b19cd91fd5/django_modern_rest-0.15.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1de8d8bd1026e3c8b58f2c2cb8e32c5ec17ce7eeb64bb3b70a26ebbd6eab3d52", size = 3069661, upload-time = "2026-09-11T18:13:24.78Z" },
+    { url = "https://files.pythonhosted.org/packages/f6/1f/0a583f718f95f9bb7b9e90c6774cd6736a92d0cd75928f7941a7a84ec6f9/django_modern_rest-0.15.0-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:a1f9c757fa63400a157eacfdf0979e8268cb18c48881e3dc03ba53e78ef0b5a1", size = 3070591, upload-time = "2026-09-11T18:13:26.721Z" },
+    { url = "https://files.pythonhosted.org/packages/e1/71/7b6e1da2a61f123028d0e49c4c02ea462584cd7c9a2ddf2ad7e27cc3b498/django_modern_rest-0.15.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:a82abffc74910236f3cc557422afee39ef044fd3fa7cd5d9c51490802d437d62", size = 3072574, upload-time = "2026-09-11T18:13:28.734Z" },
+    { url = "https://files.pythonhosted.org/packages/fc/cd/839a586626333bd513912866d54e60044451c6e79fe2c001008a14bba4e9/django_modern_rest-0.15.0-cp311-cp311-win_amd64.whl", hash = "sha256:08ac506e47f9169430dc686a8fcb45b9704654eacf881047319315d0974f6ee3", size = 3025660, upload-time = "2026-09-11T18:13:30.424Z" },
+    { url = "https://files.pythonhosted.org/packages/d3/41/29c3546a0080a83e4593d5f0e2d5c4efaf35f6d5a623a92ba498a596f985/django_modern_rest-0.15.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:f9d45b9c4398471149f8c3563c0cf9a486faa194551964d32e6103c356e5c7b5", size = 3056965, upload-time = "2026-09-11T18:13:32.193Z" },
+    { url = "https://files.pythonhosted.org/packages/43/d8/144dd134bc4c74c4db27dbcd0286d9060b38d512aaabb07b442da14cd9c3/django_modern_rest-0.15.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:d31484f99ff391f1d94a7bfdc3db98afec9d3ce6ded3fa682deca26db3abea4a", size = 3069135, upload-time = "2026-09-11T18:13:33.8Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/23/92ed261cc719c9b2bd972231c3a10ced0cccbca215e67ce54edbacee1e5d/django_modern_rest-0.15.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:498ad94e2f8e92520139470e21847982528f4282be04d8672a43660a541d1086", size = 3071119, upload-time = "2026-09-11T18:13:37.333Z" },
+    { url = "https://files.pythonhosted.org/packages/46/9a/44b15398610167dceeafb17deb8d90b7510c0eb777be01da222979c50574/django_modern_rest-0.15.0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:1f3bf24a7d60b50dedcce6600d57d446d2178a70e8029e431b2ee94c533f1af3", size = 3071315, upload-time = "2026-09-11T18:13:39.305Z" },
+    { url = "https://files.pythonhosted.org/packages/84/e0/8396487cfe07cbee6d4d2b4b67321a5d551bd0541177f4df6c3c00937f35/django_modern_rest-0.15.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:708d9cef370e6a2e93dbacfd2abeacdf2bbd78b0b37c16626f9d0ac928f1140b", size = 3073985, upload-time = "2026-09-11T18:13:40.974Z" },
+    { url = "https://files.pythonhosted.org/packages/45/86/1b692f5bb92c424a4bac39edbae5720d25844db40f49cf82ade370000a99/django_modern_rest-0.15.0-cp312-cp312-win_amd64.whl", hash = "sha256:ee42d6ed7ba7cb60596151fe2b03a2b8a69652a13837e96617da23b3832a2223", size = 3025965, upload-time = "2026-09-11T18:13:42.696Z" },
+    { url = "https://files.pythonhosted.org/packages/a9/24/77ec73e905f1b3819f15699785577bfb0aa9ce0e3b3b6576d0ff60a742dd/django_modern_rest-0.15.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:b43f2bf0d269403971766978c19bcb656a2eef799538dc0eb8371c721d04bd61", size = 3056472, upload-time = "2026-09-11T18:13:44.261Z" },
+    { url = "https://files.pythonhosted.org/packages/f0/24/6fcb5fcad06b56e9e6834709d3aa8fa355f82b414e7237f6f27134bd3621/django_modern_rest-0.15.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:10eba0181422b58b2aa79dce5de5202d4706084e5d74567573f9b4d4f0e9dab0", size = 3068395, upload-time = "2026-09-11T18:13:46.033Z" },
+    { url = "https://files.pythonhosted.org/packages/16/fa/74cd15deb9b46fc179fde0e0b30d23636507e8c941d86c928bc7d694cc70/django_modern_rest-0.15.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:959dd1d18b1a6d1c0d7bfb7d2ffa235bb41ef8e5d0814c086a5132920eb1b07f", size = 3070329, upload-time = "2026-09-11T18:13:47.787Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/dc/f24db7f9a0cf405068450e0e90914746988eee6fe3779ee16cce3d470203/django_modern_rest-0.15.0-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:16ed957925fcf88acbfbf8dac7b41f443bdf27e9ee9400a68c2bdf40472be74c", size = 3070617, upload-time = "2026-09-11T18:13:49.292Z" },
+    { url = "https://files.pythonhosted.org/packages/e3/c8/f219a19dcab2f585cf3c88e76727751bc570b916bb69d65fa1a4b1f82997/django_modern_rest-0.15.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:011b0fd150460e248f76221afc5745c783429abef5535ebbda4d8ab578d22f78", size = 3073236, upload-time = "2026-09-11T18:13:50.839Z" },
+    { url = "https://files.pythonhosted.org/packages/1f/e4/0c67ec588965c73eecf92c1d0e165b3313e560792f1e829e269758863106/django_modern_rest-0.15.0-cp313-cp313-win_amd64.whl", hash = "sha256:07543247fe0342f341c6338ea8e5f801686f1b368d605171320d8262d24e71a4", size = 3025415, upload-time = "2026-09-11T18:13:52.765Z" },
+    { url = "https://files.pythonhosted.org/packages/bd/3f/609dcc6d9bb36a2f4dbbcf7d7af3b0af63d1c91129746c2a72cef291def1/django_modern_rest-0.15.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:38d762fb26e483500f12cc76d331011eea0c24e3cbc3067c3d179dba89c134c6", size = 3056421, upload-time = "2026-09-11T18:13:54.27Z" },
+    { url = "https://files.pythonhosted.org/packages/61/25/f6c2ab075723cdc4dfa8d84c2491ce2c1bc6fe5c1b490bccde7eabbd4a8f/django_modern_rest-0.15.0-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:f4652c00cd872e9b7db9c48e943847245e388783a6286a748fc471c39a4f9fd5", size = 3068446, upload-time = "2026-09-11T18:13:55.815Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/f8/1d2554538286db83a69f01733104ec6264106786f84bc24eff95f83d76b9/django_modern_rest-0.15.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:2710b112b8c6ffb65fa8d663377ce0d0cb03774e76a983d875d9cc0475bd9977", size = 3070109, upload-time = "2026-09-11T18:13:57.419Z" },
+    { url = "https://files.pythonhosted.org/packages/45/00/5370395e0a7a0b184e38ed1b69137c76f37a01150067c0d154d5058ea788/django_modern_rest-0.15.0-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:991db3a2f559c7e90b4691d33ea221a929c4ed0e2190a9de875af4a938f3fdb3", size = 3070639, upload-time = "2026-09-11T18:13:58.93Z" },
+    { url = "https://files.pythonhosted.org/packages/39/b4/bfb2e73615ec758df659758eecc5a7cd1a68a8e7dbfca62d57aee8538793/django_modern_rest-0.15.0-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:98da3e3dbf1f14adb378bf861ed5f76ee9c37761accb516385f9830af93a72ed", size = 3072981, upload-time = "2026-09-11T18:14:00.471Z" },
+    { url = "https://files.pythonhosted.org/packages/28/bf/7dbced550fed87e83d8b4d698bb8e7b47b11515cf6f1efc644d0ad25970c/django_modern_rest-0.15.0-cp314-cp314-win_amd64.whl", hash = "sha256:db786def1f60539013f3141d4bf77df73816cfb5a9813c9ffdf97e4133d1fdaa", size = 3063205, upload-time = "2026-09-11T18:14:02.153Z" },
+    { url = "https://files.pythonhosted.org/packages/13/45/e07f88724481509e4efc80b448a14fe42152bc4d5d1c12f54e4ea018cef8/django_modern_rest-0.15.0-py3-none-any.whl", hash = "sha256:eeb43e6d5090e29809c80ae83f394882b110ec883b947f3a377f699fb7d9e4d3", size = 2981256, upload-time = "2026-09-11T18:13:10.665Z" },
+]
+
+[[package]]
 name = "djangorestframework"
 version = "3.18.1"
 source = { registry = "https://pypi.org/simple" }
@@ -442,7 +482,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.12'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -616,7 +656,7 @@ wheels = [
 
 [[package]]
 name = "jamlib"
-version = "4.1.0a2"
+version = "4.1.0a3"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
@@ -630,6 +670,11 @@ cli = [
 django = [
     { name = "django", version = "5.2.17", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "django", version = "6.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+dmr = [
+    { name = "django", version = "5.2.17", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "django", version = "6.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "django-modern-rest", marker = "python_full_version >= '3.11'" },
 ]
 drf = [
     { name = "django", version = "5.2.17", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
@@ -679,14 +724,17 @@ tests = [
     { name = "coverage" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "pytest-django" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "click", marker = "extra == 'cli'", specifier = ">=8.3.1" },
     { name = "cryptography", specifier = ">=50.0.0" },
+    { name = "django", marker = "python_full_version >= '3.11' and extra == 'dmr'", specifier = ">=5.2" },
     { name = "django", marker = "extra == 'django'", specifier = ">=5.2" },
     { name = "django", marker = "extra == 'drf'", specifier = ">=5.2" },
+    { name = "django-modern-rest", marker = "python_full_version >= '3.11' and extra == 'dmr'", specifier = ">=0.15.0" },
     { name = "djangorestframework", marker = "extra == 'drf'", specifier = ">=3.18.1" },
     { name = "fastapi", marker = "extra == 'fastapi'", specifier = ">=0.135.1" },
     { name = "flask", marker = "extra == 'flask'", specifier = ">=3.1.2" },
@@ -699,7 +747,7 @@ requires-dist = [
     { name = "tinydb", marker = "extra == 'json'", specifier = ">=4.8.2" },
     { name = "toml", marker = "extra == 'toml'", specifier = ">=0.10.2" },
 ]
-provides-extras = ["cli", "redis", "json", "oauth2", "yaml", "toml", "litestar", "starlette", "fastapi", "flask", "django", "drf"]
+provides-extras = ["cli", "redis", "json", "oauth2", "yaml", "toml", "litestar", "starlette", "fastapi", "flask", "django", "drf", "dmr"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -716,6 +764,7 @@ tests = [
     { name = "coverage", specifier = ">=7.13.4" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-asyncio", specifier = ">=1.3.0" },
+    { name = "pytest-django", specifier = ">=4.12.0" },
 ]
 
 [[package]]
@@ -1403,6 +1452,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/90/2c/8af215c0f776415f3590cac4f9086ccefd6fd463befeae41cd4d3f193e5a/pytest_asyncio-1.3.0.tar.gz", hash = "sha256:d7f52f36d231b80ee124cd216ffb19369aa168fc10095013c6b014a34d3ee9e5", size = 50087, upload-time = "2025-11-10T16:07:47.256Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e5/35/f8b19922b6a25bc0880171a2f1a003eaeb93657475193ab516fd87cac9da/pytest_asyncio-1.3.0-py3-none-any.whl", hash = "sha256:611e26147c7f77640e6d0a92a38ed17c3e9848063698d5c93d5aa7aa11cebff5", size = 15075, upload-time = "2025-11-10T16:07:45.537Z" },
+]
+
+[[package]]
+name = "pytest-django"
+version = "4.14.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/44/f6/3851312120c2bf2f19cafff931e75059aad1ba670703cd751e2fde9bc942/pytest_django-4.14.0.tar.gz", hash = "sha256:26787dd3f422cfbab8f55b80a776e2edea7a11092cb74e960bef1312515708ef", size = 94700, upload-time = "2026-08-10T14:13:08.319Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9c/03/850bffad2b581c440ca51c039d74504d5a422c94bda0bdb8a8ba5068d48b/pytest_django-4.14.0-py3-none-any.whl", hash = "sha256:c533b08d89cc675efcd5398eea270b34547e35f9a3608e2c9748dd88428ea187", size = 27067, upload-time = "2026-08-10T14:13:06.998Z" },
 ]
 
 [[package]]
