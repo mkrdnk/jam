@@ -22,7 +22,8 @@ keywords = [
     "Litestar",
     "FastAPI",
     "Starlette",
-    "Flask"
+    "Flask",
+    "Django",
 ]
 requires-python = ">=3.10"
 dependencies = [
@@ -49,6 +50,7 @@ classifiers = [
     "Typing :: Typed",
     "Framework :: Flask",
     "Framework :: FastAPI",
+    "Framework :: Django",
 ]
 
 [project.urls]
@@ -72,6 +74,7 @@ litestar=["litestar>=2.21.1"]
 starlette=["starlette>=0.52.1"]
 fastapi=["fastapi>=0.135.1"]
 flask=["flask>=3.1.2"]
+django=["django>=5.2"]
 
 [build-system]
 requires = ["setuptools>=82.0.1", "wheel"]
