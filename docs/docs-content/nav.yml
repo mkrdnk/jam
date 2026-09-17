@@ -57,6 +57,8 @@ nav:
         file: integrations/litestar.md
       - label: Flask
         file: integrations/flask.md
+      - label: Django
+        file: integrations/django.md
   - block: Developer tools
     pages:
       - label: Logging

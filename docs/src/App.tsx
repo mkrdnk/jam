@@ -694,6 +694,7 @@ const MODULES = [
 ]
 
 const INTEGRATIONS = [
+  { name: "Django", slug: "integrations--django" },
   { name: "FastAPI", slug: "integrations--fastapi" },
   { name: "Starlette", slug: "integrations--starlette" },
   { name: "Litestar", slug: "integrations--litestar" },
