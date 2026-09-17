@@ -167,6 +167,11 @@
                   "id": "integrations--django--drf",
                   "title": "Django REST Framework",
                   "slug": "integrations--django--drf"
+                },
+                {
+                  "id": "integrations--django--dmr",
+                  "title": "Django Modern REST",
+                  "slug": "integrations--django--dmr"
                 }
               ]
             }
@@ -346,6 +351,10 @@
           "title": "Django REST Framework"
         },
         {
+          "slug": "integrations--django--dmr",
+          "title": "Django Modern REST"
+        },
+        {
           "slug": "dev--logging",
           "title": "Logging"
         },
@@ -427,9 +436,13 @@
         "jam.ext._base",
         "jam.ext.django",
         "jam.ext.django._auth",
+        "jam.ext.django._authentication",
         "jam.ext.django.apps",
         "jam.ext.django.backends",
         "jam.ext.django.context",
+        "jam.ext.django.dmr",
+        "jam.ext.django.dmr.authentication",
+        "jam.ext.django.dmr.authorization",
         "jam.ext.django.drf",
         "jam.ext.django.drf.authentication",
         "jam.ext.django.drf.mixins",

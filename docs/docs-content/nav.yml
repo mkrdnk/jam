@@ -63,6 +63,8 @@ nav:
             file: integrations/django/django.md
           - label: DRF
             file: integrations/django/drf.md
+          - label: Django Modern REST
+            file: integrations/django/dmr.md
   - block: Developer tools
     pages:
       - label: Logging
