@@ -50,12 +50,12 @@ allowed: bool = jam.authorize(
 ## Why Jam?
 Jam is a library that provides the most popular AUTH* mechanisms right out of the box.
 
-* [JOSE](https://jam.makridenko.ru/4.0.0/authentication/jose/index)
-* [PASETO](https://jam.makridenko.ru/4.0.0/authentication/paseto)
-* [Server side sessions](https://jam.makridenko.ru/4.0.0/authentication/sessions/)
-* [OTP](https://jam.makridenko.ru/4.0.0/authentication/otp/)
-* [OAuth2](https://jam.makridenko.ru/4.0.0/identity/oauth2/)
-* [SAML](https://jam.makridenko.ru/4.0.0/authentication/saml/)
+* [JOSE](https://jam.makridenko.ru/4.1.0/authentication/jose/index)
+* [PASETO](https://jam.makridenko.ru/4.1.0/authentication/paseto)
+* [Server side sessions](https://jam.makridenko.ru/4.1.0/authentication/sessions/)
+* [OTP](https://jam.makridenko.ru/4.1.0/authentication/otp/)
+* [OAuth2](https://jam.makridenko.ru/4.1.0/identity/oauth2/)
+* [SAML](https://jam.makridenko.ru/4.1.0/authentication/saml/)
 
 ### Authorization
 Jam combines permissions granted to one credential with server-side policy rules. This makes it possible to issue two tokens for the same user with different permissions and to restrict those permissions using the current time, resource or request.
@@ -71,11 +71,11 @@ if jam.authorize(principal, "user:delete"):
 
 Jam provides ready-to-use integrations for the most popular frameworks:
 
-* [Django](https://jam.makridenko.ru/4.0.0/integrations/django)
-* [FastAPI](https://jam.makridenko.ru/4.0.0/integrations/fastapi)
-* [Starlette](https://jam.makridenko.ru/4.0.0/integrations/starlette)
-* [Litestar](https://jam.makridenko.ru/4.0.0/integrations/litestar)
-* [Flask](https://jam.makridenko.ru/4.0.0/integrations/flask)
+* [Django](https://jam.makridenko.ru/4.1.0/integrations/django)
+* [FastAPI](https://jam.makridenko.ru/4.1.0/integrations/fastapi)
+* [Starlette](https://jam.makridenko.ru/4.1.0/integrations/starlette)
+* [Litestar](https://jam.makridenko.ru/4.1.0/integrations/litestar)
+* [Flask](https://jam.makridenko.ru/4.1.0/integrations/flask)
 
 Each integration offers built-in middleware or plugin support for JWT and session-based authentication.
 
