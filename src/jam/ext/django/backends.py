@@ -21,7 +21,9 @@ class JamBackend(BaseBackend):
         obj: Any = None,
     ) -> bool:
         """Map Django's permission API to ``Jam.authorize``."""
-        principal = principal_context.get()
+        principal = getattr(user_obj, "_jam_principal", None)
+        if principal is None:
+            principal = principal_context.get()
         if principal is None or principal.subject != user_obj:
             principal = Principal(
                 subject=user_obj,

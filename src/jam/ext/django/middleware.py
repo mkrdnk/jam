@@ -8,16 +8,18 @@ from collections.abc import Awaitable, Callable
 import inspect
 from typing import Any
 
-from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpRequest, HttpResponse
 
 from jam.authz import AuthorizationContext, Principal
 from jam.exceptions import JamConfigurationError
-from jam.ext.django._auth import (
-    InvalidBearerCredential,
-    authenticate_bearer,
+from jam.ext.django._authentication import (
+    InvalidCredential,
+    authenticate_request,
+    authenticate_request_async,
+    configured_mechanisms,
+    install_principal,
 )
 from jam.ext.django.context import authorization_context, principal_context
 
@@ -73,33 +75,32 @@ class JamMiddleware:
 
     @staticmethod
     def _unauthorized() -> HttpResponse:
-        """Build the intentionally non-specific Bearer authentication failure."""
+        """Build an intentionally non-specific authentication failure."""
+        headers = (
+            {"WWW-Authenticate": "Bearer"}
+            if configured_mechanisms() & {"jwt", "jwe", "paseto"}
+            else None
+        )
         return HttpResponse(
-            "Invalid Bearer credential.",
+            "Invalid Jam credential.",
             status=401,
-            headers={"WWW-Authenticate": "Bearer"},
+            headers=headers,
         )
 
-    def _authenticate_bearer(
+    def _authenticate(
         self,
         request: HttpRequest,
     ) -> tuple[Principal[Any] | None, HttpResponse | None]:
-        """Authenticate a token and resolve its subject to Django's user model."""
+        """Authenticate Jam credentials and resolve their Django user."""
         try:
-            principal = authenticate_bearer(request)
+            principal = authenticate_request(request)
         except JamConfigurationError:
             raise
-        except InvalidBearerCredential:
+        except InvalidCredential:
             return None, self._unauthorized()
         if principal is None:
             return None, None
-        user = principal.subject
-        request.user = user
-
-        async def auser() -> Any:
-            return user
-
-        request.auser = auser
+        install_principal(request, principal)
         return principal, None
 
     @staticmethod
@@ -118,13 +119,13 @@ class JamMiddleware:
         self,
         request: HttpRequest,
     ) -> tuple[Any, Any, HttpResponse | None]:
-        """Set request-local state and optionally authenticate a Bearer token."""
-        principal, response = self._authenticate_bearer(request)
+        """Set request-local state and optionally authenticate Jam credentials."""
+        principal, response = self._authenticate(request)
         if response is not None:
             return None, None, response
         if principal is None:
             principal = Principal(
-                subject=request.user,
+                subject=getattr(request, "user"),
                 claims={},
                 token_type="django",
             )
@@ -144,15 +145,23 @@ class JamMiddleware:
 
     async def _async_call(self, request: HttpRequest) -> HttpResponse:
         """Process an asynchronous request without using sync ORM in its loop."""
-        principal, response = await sync_to_async(
-            self._authenticate_bearer,
-            thread_sensitive=True,
-        )(request)
-        if response is not None:
-            return response
+        try:
+            principal = await authenticate_request_async(request)
+        except JamConfigurationError:
+            raise
+        except InvalidCredential:
+            return self._unauthorized()
+        if principal is not None:
+            install_principal(request, principal)
         if principal is None:
+            auser = getattr(request, "auser", None)
+            user = (
+                await auser()
+                if auser is not None
+                else getattr(request, "user")
+            )
             principal = Principal(
-                subject=request.user,
+                subject=user,
                 claims={},
                 token_type="django",
             )
