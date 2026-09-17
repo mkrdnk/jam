@@ -58,7 +58,11 @@ nav:
       - label: Flask
         file: integrations/flask.md
       - label: Django
-        file: integrations/django.md
+        pages:
+          - label: Django
+            file: integrations/django/django.md
+          - label: DRF
+            file: integrations/django/drf.md
   - block: Developer tools
     pages:
       - label: Logging
