@@ -4,79 +4,22 @@
 
 from __future__ import annotations
 
-import base64
-import binascii
 from collections.abc import Awaitable, Callable
 import inspect
-import json
-import re
 from typing import Any
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
-from django.contrib.auth import get_user_model
-from django.core.exceptions import (
-    ImproperlyConfigured,
-    ObjectDoesNotExist,
-    ValidationError,
-)
+from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpRequest, HttpResponse
 
 from jam.authz import AuthorizationContext, Principal
-from jam.exceptions import JamConfigurationError, JamError
-from jam.ext._base import DEFAULT_SOURCES, _extract_credential
+from jam.exceptions import JamConfigurationError
+from jam.ext.django._auth import (
+    InvalidBearerCredential,
+    authenticate_bearer,
+)
 from jam.ext.django.context import authorization_context, principal_context
-from jam.ext.django.runtime import get_jam
-
-
-_PASETO_PREFIX = re.compile(r"^v[1-4]\.(?:local|public)\.")
-
-
-def _bearer_credential(request: HttpRequest) -> str | None:
-    """Extract an explicitly supplied Bearer credential, if it is well formed."""
-    value = request.headers.get("Authorization")
-    if value is None:
-        return None
-    scheme, separator, credential = value.partition(" ")
-    if scheme.casefold() != "bearer":
-        return None
-    if not separator or not credential.strip():
-        return ""
-    token, _source = _extract_credential(
-        DEFAULT_SOURCES,
-        headers=request.headers,
-        cookies={},
-        query=None,
-    )
-    return token or ""
-
-
-def _token_type(token: str) -> str | None:
-    """Classify JWT and PASETO without trying cryptographic verification."""
-    if _PASETO_PREFIX.match(token):
-        return "paseto"
-    parts = token.split(".")
-    if len(parts) != 3:
-        return None
-    try:
-        encoded = parts[0] + "=" * (-len(parts[0]) % 4)
-        header = json.loads(base64.urlsafe_b64decode(encoded))
-    except (
-        UnicodeDecodeError,
-        ValueError,
-        json.JSONDecodeError,
-        binascii.Error,
-    ):
-        return None
-    return "jwt" if isinstance(header, dict) and "alg" in header else None
-
-
-def _token_subject(principal: Principal[Any]) -> Any:
-    """Return the primary-key subject from Jam's standard payload shape."""
-    subject = principal.subject
-    if isinstance(subject, dict):
-        return subject.get("id", subject.get("sub"))
-    return getattr(subject, "id", getattr(subject, "sub", subject))
 
 
 class JamMiddleware:
@@ -142,43 +85,22 @@ class JamMiddleware:
         request: HttpRequest,
     ) -> tuple[Principal[Any] | None, HttpResponse | None]:
         """Authenticate a token and resolve its subject to Django's user model."""
-        credential = _bearer_credential(request)
-        if credential is None:
-            return None, None
-        via = _token_type(credential)
-        if via is None:
-            return None, self._unauthorized()
         try:
-            token_principal = get_jam().authenticate(credential, via=via)
-            user = get_user_model()._default_manager.get(
-                pk=_token_subject(token_principal)
-            )
+            principal = authenticate_bearer(request)
         except JamConfigurationError:
             raise
-        except (
-            JamError,
-            ObjectDoesNotExist,
-            OverflowError,
-            TypeError,
-            ValidationError,
-            ValueError,
-        ):
+        except InvalidBearerCredential:
             return None, self._unauthorized()
-
+        if principal is None:
+            return None, None
+        user = principal.subject
         request.user = user
 
         async def auser() -> Any:
             return user
 
         request.auser = auser
-        return (
-            Principal(
-                subject=user,
-                claims=token_principal.claims,
-                token_type=token_principal.token_type,
-            ),
-            None,
-        )
+        return principal, None
 
     @staticmethod
     def _set_context(
