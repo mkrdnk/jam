@@ -46,7 +46,7 @@ class JamAuthentication(BaseAuthentication):
         if (
             current is not None
             and current.subject == user
-            and current.token_type in {"jwt", "paseto"}
+            and current.token_type in {"jwt", "jwe", "paseto"}
         ):
             return current.subject, current
 
