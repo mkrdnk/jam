@@ -5508,7 +5508,138 @@ refer to the same Django user.
 `} />
   ),
   "4.1.0/integrations--django--drf": () => (
-    <MarkdownRenderer content={``} />
+    <MarkdownRenderer content={`# Django REST Framework
+
+Install the DRF extra. It includes Django, so \`jamlib[django,drf]\` is not
+needed:
+
+\`\`\`bash
+pip install "jamlib[drf]"
+\`\`\`
+
+Jam uses DRF's standard authentication and permission extension points.
+
+## Authentication
+
+Configure the authenticator globally or per view:
+
+\`\`\`python
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "jam.ext.django.drf.JamAuthentication",
+    ],
+}
+\`\`\`
+
+\`\`\`python
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+
+from jam.ext.django.drf import JamAuthentication
+
+
+class ProfileView(APIView):
+    authentication_classes = [JamAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return {
+            "user": request.user.pk,
+            "permissions": list(request.auth.permissions),
+        }
+\`\`\`
+
+\`request.user\` is the configured \`AUTH_USER_MODEL\`; \`request.auth\` is a Jam
+\`Principal\`, and \`request.auth.subject == request.user\`. JWT and PASETO Bearer
+credentials are detected and verified by the same Django adapter used by
+\`JamMiddleware\`.
+
+An absent or non-Bearer \`Authorization\` header returns \`None\`, allowing another
+DRF authenticator to run. An explicitly supplied invalid Bearer credential
+returns \`401\` with \`WWW-Authenticate: Bearer\` and does not fall back:
+
+\`\`\`python
+from rest_framework.authentication import SessionAuthentication
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "jam.ext.django.drf.JamAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+}
+\`\`\`
+
+\`JamMiddleware\` is not required. When it is present for regular Django views,
+the DRF adapter reuses its token principal instead of verifying the credential
+again.
+
+## Jam-native permissions
+
+Use \`JamPermission\` with \`JamPermissionMixin\` for Jam permission names. Jam
+receives the full \`Principal\` and DRF \`Request\`:
+
+\`\`\`python
+from rest_framework.views import APIView
+
+from jam.ext.django.drf import JamPermission, JamPermissionMixin
+
+
+class ReportView(JamPermissionMixin, APIView):
+    permission_classes = [JamPermission]
+    jam_permissions = {
+        "GET": "reports:read",
+        "POST": ("reports:read", "reports:export"),
+    }
+\`\`\`
+
+All listed permissions must be allowed. A mapping first resolves a ViewSet's
+\`action\`, then falls back to the HTTP method. This supports built-in and custom
+\`@action\` actions:
+
+\`\`\`python
+class PostViewSet(JamPermissionMixin, ModelViewSet):
+    permission_classes = [JamPermission]
+    jam_permissions = {
+        "list": "posts:list",
+        "create": "posts:create",
+    }
+    jam_object_permissions = {
+        "retrieve": "posts:view",
+        "update": "posts:edit",
+        "partial_update": "posts:edit",
+        "destroy": "posts:delete",
+        "publish": "posts:publish",
+    }
+\`\`\`
+
+Request-level checks receive \`AuthorizationContext(request=request)\`.
+Object-level checks receive \`AuthorizationContext(request=request,
+resource=obj)\`, and are performed by DRF when the view calls \`get_object()\`.
+Override \`get_jam_permissions(request)\` or
+\`get_jam_object_permissions(request, obj)\` for dynamic configuration.
+
+DRF does not run object-permission checks for every item in a list response.
+Restrict \`get_queryset()\` or add a filter backend when a list must contain
+only objects the subject may view.
+
+## Django permission classes
+
+\`DjangoModelPermissions\` and \`DjangoObjectPermissions\` remain supported and
+are a separate integration path:
+
+\`\`\`python
+from rest_framework.permissions import DjangoModelPermissions
+
+
+class PostViewSet(ModelViewSet):
+    permission_classes = [DjangoModelPermissions]
+\`\`\`
+
+They use Django permission names through \`request.user.has_perm()\`, so include
+\`"jam.ext.django.JamBackend"\` in \`AUTHENTICATION_BACKENDS\`. In contrast,
+\`JamPermission\` calls \`get_jam().authorize()\` directly with the principal,
+claims, DRF request, and optional resource.
+`} />
   ),
   "4.1.0/dev--logging": () => (
     <MarkdownRenderer content={`# Logging
@@ -8321,6 +8452,44 @@ Django-native authentication and authorization integration.
 
 This module does not expose documented public definitions.
 
+## jam.ext.django._auth
+
+Source: \`src/jam/ext/django/_auth.py\`
+
+Shared Bearer authentication helpers for Django adapters.
+
+## \`InvalidBearerCredential\`
+
+\`\`\`python
+class class InvalidBearerCredential(Exception)
+\`\`\`
+
+Raised when an explicitly supplied Bearer credential is invalid.
+
+## \`get_bearer_credential\`
+
+\`\`\`python
+function def get_bearer_credential(request
+\`\`\`
+
+Extract a Bearer credential or return \`\`None\`\` for another scheme.
+
+## \`detect_token_type\`
+
+\`\`\`python
+function def detect_token_type(token
+\`\`\`
+
+Classify JWT and PASETO without cryptographic verification.
+
+## \`authenticate_bearer\`
+
+\`\`\`python
+function def authenticate_bearer(request
+\`\`\`
+
+Authenticate a Bearer token and adapt its subject to a Django user.
+
 ## jam.ext.django.apps
 
 Source: \`src/jam/ext/django/apps.py\`
@@ -8378,6 +8547,104 @@ function def context_for(resource
 \`\`\`
 
 Build a context without mutating the request-local context.
+
+## jam.ext.django.drf
+
+Source: \`src/jam/ext/django/drf/__init__.py\`
+
+Django REST Framework integration for Jam.
+
+This module does not expose documented public definitions.
+
+## jam.ext.django.drf.authentication
+
+Source: \`src/jam/ext/django/drf/authentication.py\`
+
+DRF authentication backed by the Django Jam adapter.
+
+## \`JamAuthentication\`
+
+\`\`\`python
+class class JamAuthentication(BaseAuthentication)
+\`\`\`
+
+Authenticate Bearer JWT and PASETO credentials with Jam.
+
+### \`authenticate\`
+
+\`\`\`python
+def authenticate(self, request
+\`\`\`
+
+Return the Django user and its Jam principal for a Bearer token.
+
+### \`authenticate_header\`
+
+\`\`\`python
+def authenticate_header(self, request
+\`\`\`
+
+Advertise the Bearer scheme for unauthenticated DRF responses.
+
+## jam.ext.django.drf.mixins
+
+Source: \`src/jam/ext/django/drf/mixins.py\`
+
+View configuration helpers for Jam DRF permissions.
+
+## \`JamPermissionMixin\`
+
+\`\`\`python
+class class JamPermissionMixin
+\`\`\`
+
+Provide declarative Jam permission mappings for DRF views.
+
+### \`get_jam_permissions\`
+
+\`\`\`python
+def get_jam_permissions(self, request
+\`\`\`
+
+Return request-level permissions for the current action or method.
+
+### \`get_jam_object_permissions\`
+
+\`\`\`python
+def get_jam_object_permissions(self, request
+\`\`\`
+
+Return object-level permissions for the current action or method.
+
+## jam.ext.django.drf.permissions
+
+Source: \`src/jam/ext/django/drf/permissions.py\`
+
+Jam-native DRF authorization permissions.
+
+## \`JamPermission\`
+
+\`\`\`python
+class class JamPermission(BasePermission)
+\`\`\`
+
+Authorize configured DRF view permissions through Jam policies.
+
+### \`has_permission\`
+
+\`\`\`python
+def has_permission(self, request
+\`\`\`
+
+Check all configured request-level Jam permissions.
+
+### \`has_object_permission\`
+
+\`\`\`python
+def has_object_permission(self, request
+\`\`\`
+
+Check all configured object-level Jam permissions.
 
 ## jam.ext.django.middleware
 
