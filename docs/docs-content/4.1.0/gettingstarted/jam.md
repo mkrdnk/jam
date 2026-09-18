@@ -1,0 +1,200 @@
+# Jam instance
+
+`Jam` is the main facade of the library. It loads modules from the
+[configuration](/4.1.0/gettingstarted/configuration) and exposes three
+high-level operations: `issue`, `authenticate` and `authorize`.
+
+Module-level classes (e.g. `jam.jose.JWT`, `jam.paseto.PASETOv4`) remain
+fully usable standalone. `Jam` is a convenience layer on top of them.
+
+## Creating an instance
+
+Class: `jam.Jam`
+
+Args:
+
+* `config`: `str | dict[str, Any] | None = None` - Configuration dict or
+  config file path (TOML/YAML/JSON). See
+  [Configuration](/4.1.0/gettingstarted/configuration).
+* `pointer`: `str = "jam"` - Config pointer.
+* `serializer`: `BaseEncoder | type[BaseEncoder] = JsonEncoder` - JSON
+  serializer used by token modules.
+* `subject`: `type[BaseSubject] | None = None` - Subject class override.
+  Used by `authenticate` to build typed subjects.
+* `plugins`: `list[type[BasePlugin]] | None = None` - List of plugins.
+
+```python
+from jam import Jam
+
+jam = Jam(config="config.toml")
+```
+
+## Attributes
+
+After initialization the configured modules are available as attributes:
+
+| Attribute | Type | Configured by |
+|-----------|------|---------------|
+| `jam.jwt` | `jam.jose.JWT` | `[jam.jose.jwt]` |
+| `jam.jws` | `jam.jose.JWS` | `[jam.jose.jws]` |
+| `jam.jwe` | `jam.jose.JWE` | `[jam.jose.jwe]` |
+| `jam.jose` | `dict[str, Any]` | `[jam.jose]` |
+| `jam.session` | `RedisSessions` / `JSONSessions` | `[jam.session]` |
+| `jam.paseto` | `PASETOv1`–`PASETOv4` | `[jam.paseto]` |
+| `jam.otp` | `HOTP` / `TOTP` class | `[jam.otp]` |
+| `jam.oauth2` | `dict[str, OAuth2Client]` | `[jam.oauth2]` |
+| `jam.config` | `dict[str, Any] / None` | - |
+| `jam.subject` | `type[BaseSubject]` | `subject=` argument |
+| `jam.keychains` | `dict[str, BaseKeyChain]` | `[jam.keychains]` |
+
+Unconfigured modules remain `None`. You can always access the underlying
+module directly, e.g. `jam.jwt.encode(payload={...})`.
+
+## issue
+
+Method: `jam.issue`
+
+Issues a token or a session for a subject.
+
+Args:
+
+* `subject`: `BaseSubject | dict[str, Any]` - Subject instance or a dict
+  with an `"id"` key. Serialized into the payload; the `id` becomes `sub`.
+* `via`: `JamIssueType` - Required credential type: `"jwt"`, `"paseto"`, or
+  `"session"`.
+* `exp`: `int | None = None` - Expiration in seconds.
+* `iss`: `str | None = None` - Issuer.
+* `aud`: `str | None = None` - Audience.
+* `nbf`: `int | None = None` - Not-before in seconds.
+* `jti`: `str | None = None` - Token ID.
+* `permissions`: `list[str] | None = None` - Permissions granted to this
+  specific token or session.
+* `**claims` - Extra payload claims.
+
+Returns:
+
+`str` - Issued token or session ID.
+
+```python
+from dataclasses import dataclass
+
+from jam import BaseSubject, Jam
+
+
+@dataclass
+class User(BaseSubject):
+    id: str
+    role: str = "user"
+
+
+jam = Jam(config="config.toml")
+
+jwt_token = jam.issue(
+    User(id="1", role="admin"),
+    via="jwt",
+    exp=3600,
+    permissions=["profile:read", "user:delete"],
+)
+paseto_token = jam.issue({"id": "1", "role": "admin"}, via="paseto")
+session_id = jam.issue(User(id="1"), via="session")
+```
+
+## authenticate
+
+Method: `jam.authenticate`
+
+Verifies a token or session and returns a `Principal`. The principal preserves
+the reconstructed subject and all verified credential claims.
+
+Args:
+
+* `token`: `str` - Token or session ID.
+* `via`: `JamAuthType` - Required credential type: `"jwt"`, `"jwe"`,
+  `"paseto"`, or `"session"`.
+
+Returns:
+
+`Principal` with `subject`, `claims`, `permissions`, optional JWT `jti` and
+`token_type`.
+
+Raises:
+
+* `JamConfigurationError` - No matching module is configured.
+* `JamSessionNotFound` - Session does not exist.
+
+```python
+@dataclass
+class User(BaseSubject):
+    id: str
+    role: str = "user"
+
+
+jam = Jam(config="config.toml", subject=User)
+
+principal = jam.authenticate(jwt_token, via="jwt")
+print(principal.subject.id)   # -> "1"
+print(principal.subject.role) # -> "admin"
+print(principal.permissions)  # -> frozenset({"profile:read", "user:delete"})
+```
+
+## authorize
+
+Method: `jam.authorize`
+
+Checks whether a principal is allowed to perform a permission. Credential
+grants are combined with the configured `[jam.authz]` policy. Deny rules take
+precedence and unmatched permissions are denied.
+
+Args:
+
+* `principal`: `Principal | BaseSubject | Mapping` - Authentication result or
+  standalone subject.
+* `permission`: `str` - Permission name, e.g. `"post:edit"`.
+* `context`: `AuthorizationContext | None = None` - Current time, resource,
+  request and application attributes used by dynamic conditions.
+
+Returns:
+
+`bool` - True if allowed, False otherwise.
+
+```python
+jam = Jam(config="config.toml")
+
+principal = jam.authenticate(token, via="jwt")
+if jam.authorize(principal, "post:edit"):
+    ...
+```
+
+See [Authorization](/4.1.0/authz/rules) for the policy syntax.
+
+## Async
+
+The async facade is independent from the synchronous `Jam` contract. Its
+high-level credential operations are always awaitable because a credential
+may use an I/O-backed session store or token list:
+
+```python
+from jam.aio import AsyncJam
+
+jam = AsyncJam(config="config.toml")
+token = await jam.issue({"id": "user@example.com"}, via="jwt", exp=3600)
+principal = await jam.authenticate(token, via="jwt")
+```
+
+Pure module operations remain synchronous in both facades:
+
+```python
+token = jam.jwt.encode(payload={"sub": "user@example.com"})
+allowed = jam.authorize(principal, "post:edit")
+```
+
+Session stores, token lists, and OAuth2 network operations use native async
+implementations. Prefer `async with AsyncJam(...)` when the configuration
+creates Redis or HTTP clients:
+
+```python
+async with AsyncJam(config="config.toml") as jam:
+    principal = await jam.authenticate(token, via="jwt")
+```
+
+`jam.aio.Jam` remains an alias for `AsyncJam` for import compatibility.
