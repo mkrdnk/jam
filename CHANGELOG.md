@@ -24,8 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## 4.1.0 - [unreleased]
 
 ### Added
-- Vanilla Django integration.
-- Django rest framework integration.
+- Integration with django `jam.ext.django`:
+  - Django-native auth perms
+  - Mixins
+  - Templates permissions
+  - Django REST framework (`drf`) integration
+  - Django modern REST (`dmr`) integration
 
 ### Changed
 
