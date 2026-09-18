@@ -179,6 +179,7 @@ policy). The full list:
 | `session` | `RedisSessions` / `JSONSessions` | [Sessions](/4.1.0/authx/sessions) |
 | `otp` | `HOTP` / `TOTP` | [OTP](/4.1.0/authx/otp) |
 | `oauth2` | `dict[str, OAuth2Client]` | [OAuth2](/4.1.0/authx/oauth2) |
+| `keychains` | `dict[str, BaseKeyChain]` | [KeyChain](/4.1.0/dev/keychain) |
 | `authz` | `jam.Policy` (or custom) | [Authorization](/4.1.0/authz/subject) |
 | `serializer` | `BaseEncoder` | [Serialization](/4.1.0/dev/serializers) |
 

@@ -212,6 +212,11 @@
               "slug": "dev--key-generators"
             },
             {
+              "id": "dev--keychain",
+              "title": "KeyChain",
+              "slug": "dev--keychain"
+            },
+            {
               "id": "dev--custom",
               "title": "Custom modules",
               "slug": "dev--custom"
@@ -377,6 +382,10 @@
         {
           "slug": "dev--key-generators",
           "title": "Key generators"
+        },
+        {
+          "slug": "dev--keychain",
+          "title": "KeyChain"
         },
         {
           "slug": "dev--custom",

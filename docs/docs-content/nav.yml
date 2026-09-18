@@ -79,6 +79,8 @@ nav:
         file: dev/utils.md
       - label: Key generators
         file: dev/key-generators.md
+      - label: KeyChain
+        file: dev/keychain.md
       - label: Customization
         file: dev/custom.md
   - block: Reference
