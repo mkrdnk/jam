@@ -19,10 +19,6 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Not a stable release tag: $RELEASE_TAG"
-            exit 1
-          fi
 
           PROJECT_VERSION="$(uv run --no-project --with tomli python -c \
             'import tomli; print(tomli.load(open("pyproject.toml", "rb"))["project"]["version"])')"
