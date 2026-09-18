@@ -691,14 +691,14 @@ principal = jam.authenticate(token)
 jam.authorize(principal, "users.read")`
 
 const MODULES = [
-  { name: "JOSE",          desc: "JWT · JWE · JWS · JWK", slug: "authentication--jose--index" },
-  { name: "PASETO",       desc: "v1-4 · local · public",     slug: "authentication--paseto" },
-  { name: "Sessions",     desc: "Redis · Database · Memory",     slug: "authentication--sessions" },
-  { name: "SAML",         desc: "IdP · SP",                      slug: "authentication--saml" },
-  { name: "OAuth2",       desc: "GitHub · Google · Custom",      slug: "identity--oauth2" },
+  { name: "JOSE",          desc: "JWT · JWE · JWS · JWK", slug: "authx--jose--index" },
+  { name: "PASETO",       desc: "v1-4 · local · public",     slug: "authx--paseto" },
+  { name: "Sessions",     desc: "Redis · Database · Memory",     slug: "authx--sessions" },
+  { name: "SAML",         desc: "IdP · SP",                      slug: "authx--saml" },
+  { name: "OAuth2",       desc: "GitHub · Google · Custom",      slug: "authx--oauth2" },
   // { name: "OIDC",         desc: "Authorization code · ID tokens", slug: "usage--oauth2" },
-  { name: "Authorization", desc: "RBAC · Permissions · Policies", slug: "core--authz" },
-  { name: "OTP / TOTP",   desc: "RFC 4226 · RFC 6238 · 2FA",     slug: "authentication--otp" },
+  { name: "Authorization", desc: "RBAC · Permissions · Policies", slug: "authz--subject" },
+  { name: "OTP / TOTP",   desc: "RFC 4226 · RFC 6238 · 2FA",     slug: "authx--otp" },
   { name: "KeyChain",     desc: "Rotation · FileStorage · Custom", slug: "dev--keychain" },
 ]
 
