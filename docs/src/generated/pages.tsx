@@ -5716,12 +5716,11 @@ claims, DRF request, and optional resource.
   "4.1.3/integrations--django--dmr": () => (
     <MarkdownRenderer content={`# Django Modern REST
 
-Install Jam's DMR extra together with DMR's Pydantic serializer extra. The
 DMR extra includes Django support, so \`jamlib[django,dmr]\` is not needed.
 Python 3.11 or newer is required:
 
 \`\`\`bash
-pip install "jamlib[dmr]" "django-modern-rest[pydantic]"
+pip install "jamlib[dmr]"
 \`\`\`
 
 Jam uses DMR's standard authentication extension points and Django's standard
