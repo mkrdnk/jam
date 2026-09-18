@@ -10,13 +10,24 @@ from typing import Any
 
 from dmr.errors import ErrorType, format_error
 from dmr.response import APIError
+from dmr.security import AuthenticatedHttpRequest
 
 from jam.authz import AuthorizationContext, Principal
 from jam.ext.django.context import authorization_context, principal_context
 
 
-def request_principal(request: Any) -> Principal[Any]:
-    """Return the Principal associated with this exact request."""
+_UNSET = object()
+
+
+def request_principal(
+    request: AuthenticatedHttpRequest[Any],
+) -> Principal[Any]:
+    """Return this request's Principal, including an anonymous Django user.
+
+    A request not authenticated by Jam falls back to a Principal with
+    ``token_type="django"``. Its subject can be ``AnonymousUser``; callers
+    must inspect ``principal.subject.is_authenticated`` when that matters.
+    """
     principal = getattr(request, "_jam_principal", None)
     if isinstance(principal, Principal):
         return principal
@@ -32,42 +43,87 @@ def request_principal(request: Any) -> Principal[Any]:
     return Principal(subject=user, claims={}, token_type="django")
 
 
-def authorize(
-    request: Any,
-    permission: str,
-    *,
-    resource: Any = None,
-    attributes: dict[str, Any] | None = None,
-) -> None:
-    """Raise a DMR-native 403 when Django's permission chain denies access."""
-    principal = request_principal(request)
+def _context_for(
+    request: AuthenticatedHttpRequest[Any],
+    resource: Any,
+    attributes: dict[str, Any] | None,
+) -> AuthorizationContext:
     current = authorization_context.get()
     if current is None or current.request is not request:
-        context = AuthorizationContext(
+        return AuthorizationContext(
             request=request,
-            resource=resource,
+            resource=None if resource is _UNSET else resource,
             attributes=dict(attributes or {}),
         )
-    else:
-        merged = {**current.attributes, **(attributes or {})}
-        context = replace(
-            current,
-            request=request,
-            resource=resource,
-            attributes=merged,
-        )
+    merged = {**current.attributes, **(attributes or {})}
+    return replace(
+        current,
+        request=request,
+        resource=current.resource if resource is _UNSET else resource,
+        attributes=merged,
+    )
+
+
+def _raise_permission_denied() -> None:
+    raise APIError(
+        format_error(
+            "Permission denied.",
+            error_type=ErrorType.security,
+        ),
+        status_code=HTTPStatus.FORBIDDEN,
+    )
+
+
+def authorize(
+    request: AuthenticatedHttpRequest[Any],
+    permission: str,
+    *,
+    resource: Any = _UNSET,
+    attributes: dict[str, Any] | None = None,
+) -> None:
+    """Synchronously enforce a Django permission with a DMR-native 403.
+
+    An omitted ``resource`` inherits the resource from an existing
+    authorization context for this request. Pass ``None`` explicitly to
+    clear it.
+    """
+    principal = request_principal(request)
+    context = _context_for(request, resource, attributes)
     context_token = authorization_context.set(context)
     principal_token = principal_context.set(principal)
     try:
-        allowed = request.user.has_perm(permission, resource)
+        allowed = request.user.has_perm(permission, context.resource)
     finally:
         principal_context.reset(principal_token)
         authorization_context.reset(context_token)
     if not allowed:
-        raise APIError(
-            format_error(
-                "Permission denied.",
-                error_type=ErrorType.security,
-            ),
-            status_code=HTTPStatus.FORBIDDEN,
+        _raise_permission_denied()
+
+
+async def aauthorize(
+    request: AuthenticatedHttpRequest[Any],
+    permission: str,
+    *,
+    resource: Any = _UNSET,
+    attributes: dict[str, Any] | None = None,
+) -> None:
+    """Asynchronously enforce a Django permission with a DMR-native 403.
+
+    An omitted ``resource`` inherits the resource from an existing
+    authorization context for this request. Pass ``None`` explicitly to
+    clear it.
+    """
+    principal = request_principal(request)
+    context = _context_for(request, resource, attributes)
+    context_token = authorization_context.set(context)
+    principal_token = principal_context.set(principal)
+    try:
+        allowed = await request.user.ahas_perm(
+            permission,
+            context.resource,
         )
+    finally:
+        principal_context.reset(principal_token)
+        authorization_context.reset(context_token)
+    if not allowed:
+        _raise_permission_denied()
