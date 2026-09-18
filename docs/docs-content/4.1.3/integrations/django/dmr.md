@@ -17,7 +17,8 @@ Complete the base [Django setup](/latest/integrations/django/django): define
 `JAM_CONFIG`, add `"jam.ext.django"` to `INSTALLED_APPS`, and configure
 `JamBackend` when Django permission APIs should use Jam policies.
 
-Configure DMR's sync and async authenticators:
+Configure DMR's sync and async authenticators. This compact form is suitable
+when `JAM_CONFIG` enables only Bearer credentials or only Jam Session:
 
 ```python
 from dmr.security import SyncOrAsyncAuth
@@ -38,6 +39,35 @@ DMR_SETTINGS = {
 
 `JAM_CONFIG` enables the supported credential mechanisms. Auth instances are
 stateless and can be safely configured globally.
+
+When `JAM_CONFIG` enables both Bearer credentials and Jam Session, configure
+the two transports as separate auth instances. This is required so both the
+runtime auth chain and OpenAPI describe Bearer **OR** Session correctly:
+
+```python
+from dmr.security import SyncOrAsyncAuth
+from dmr.settings import Settings
+
+from jam.ext.django.dmr import JamAsyncAuth, JamSyncAuth
+
+
+DMR_SETTINGS = {
+    Settings.auth: [
+        SyncOrAsyncAuth(
+            JamSyncAuth(source="bearer"),
+            JamAsyncAuth(source="bearer"),
+        ),
+        SyncOrAsyncAuth(
+            JamSyncAuth(source="session"),
+            JamAsyncAuth(source="session"),
+        ),
+    ],
+}
+```
+
+At least one applicable Jam authentication mechanism must be enabled. Schema
+generation raises `ImproperlyConfigured` instead of publishing an anonymous
+OpenAPI requirement when an auth instance has no enabled mechanism.
 
 `JamMiddleware` is optional for DMR-only applications. When it is installed
 for regular Django views, DMR reuses the verified principal instead of
@@ -96,7 +126,12 @@ class ProfileController(Controller):
 ```
 
 The returned Principal preserves all credential claims and satisfies
-`principal.subject == request.user`.
+`principal.subject == request.user`. When another Django authentication
+backend, rather than Jam, supplied the user, the helper returns a Principal
+with `token_type="django"` and empty claims. Its subject can be
+`AnonymousUser`; the presence of a Principal alone does not prove
+authentication, so check `principal.subject.is_authenticated` when the
+endpoint permits anonymous requests.
 
 ### Jam Session source
 
@@ -116,6 +151,11 @@ auth = JamSyncAuth(
     session_source=CredentialSource.cookie("jam_session"),
 )
 
+session_only = JamSyncAuth(
+    source="session",
+    session_source=CredentialSource.cookie("jam_session"),
+)
+
 header_auth = JamSyncAuth(
     session_source=CredentialSource.header("X-Jam-Session"),
 )
@@ -124,6 +164,17 @@ header_auth = JamSyncAuth(
 Cookie, header, and query sources are supported. This is a Jam Session,
 verified with `Jam.authenticate(..., via="session")`; it is not a Django
 Session.
+
+`source="session"` selects only Jam Session and uses `session_source` to
+choose its transport. Passing a `CredentialSource` directly as `source`
+remains a shorthand for the same session-only configuration.
+
+When a Jam Session is read from a cookie, the adapter enforces Django CSRF
+validation after the cookie has been authenticated. Unsafe requests must send
+the CSRF token in `X-CSRFToken`, and CSRF failure produces a documented JSON
+`403`. The check is not applied to Bearer, header, or query credentials,
+because browsers do not attach those transports automatically. Ensure
+`CsrfViewMiddleware` is installed so Django issues and manages CSRF tokens.
 
 ### Django Session authentication
 
@@ -191,7 +242,23 @@ authorize(
 
 The message is `Permission denied.`. Additional attributes are available to
 Jam policies as `context.attributes`; the resource is `context.resource`.
-The temporary authorization context is always restored.
+The temporary authorization context is always restored. When called inside an
+existing context for the same request, omitting `resource` preserves the
+current resource; passing `resource=None` explicitly clears it.
+
+Async controllers must use `aauthorize()` so Django's asynchronous permission
+chain is used instead of blocking the event loop:
+
+```python
+from jam.ext.django.dmr import aauthorize
+
+
+await aauthorize(
+    self.request,
+    "posts.change_post",
+    resource=post,
+)
+```
 
 ## Declarative permissions
 
@@ -234,7 +301,8 @@ Authentication schemes are derived from `JAM_CONFIG`:
 DMR 0.15 allows one OpenAPI Security Requirement object per auth instance.
 Putting Bearer and Session in that object would incorrectly mean Bearer AND
 Session. For a mixed configuration, use two instances of the same public Jam
-auth classes so DMR publishes Bearer OR Session:
+auth classes so DMR publishes Bearer OR Session. This is the expanded form of
+the mixed setup shown above, with an explicit custom cookie source:
 
 ```python
 from dmr.security import SyncOrAsyncAuth
