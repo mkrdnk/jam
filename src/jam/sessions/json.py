@@ -104,7 +104,7 @@ class JSONSessions(BaseSessionModule):
         )
 
         self._db.insert(doc.__dict__)
-        logger.debug("Session created with ID %s", session_id)
+        logger.debug("Created session in JSON storage")
         return session_id
 
     def get(self, session_id) -> dict | None:
@@ -116,7 +116,7 @@ class JSONSessions(BaseSessionModule):
         Returns:
             dict | None: The session data if found, otherwise None.
         """
-        logger.debug("Getting session with ID: %s", session_id)
+        logger.debug("Reading session from JSON storage")
         # session_id = self.__decode_session_id_if_needed__(session_id)
         result = self._db.search(self._qs.session_id == session_id)
         if result:
@@ -125,17 +125,16 @@ class JSONSessions(BaseSessionModule):
             except AttributeError:
                 loads_data = self._serializer.loads(result[0]["data"])
             logger.debug(
-                "Session %s found, data keys: %s",
-                session_id,
+                "Found session in JSON storage with data_key_count=%d",
                 (
-                    list(loads_data.keys())
+                    len(loads_data)
                     if isinstance(loads_data, dict)
-                    else "N/A"
+                    else 0
                 ),
             )
             del result
             return loads_data
-        logger.debug("Session %s not found", session_id)
+        logger.debug("Session not found in JSON storage")
         return None
 
     def delete(self, session_id: str) -> None:
@@ -147,11 +146,10 @@ class JSONSessions(BaseSessionModule):
         Returns:
             None
         """
-        logger.debug("Deleting session with ID: %s", session_id)
+        logger.debug("Deleting session from JSON storage")
         removed_count = self._db.remove(self._qs.session_id == session_id)
         logger.debug(
-            "Session with ID %s deleted, removed %s document(s)",
-            session_id,
+            "Deleted session from JSON storage, removed_document_count=%d",
             len(removed_count),
         )
 
@@ -166,9 +164,8 @@ class JSONSessions(BaseSessionModule):
             JamSessionNotFound: If session not found
         """
         logger.debug(
-            "Updating session %s with data keys: %s",
-            session_id,
-            list(data.keys()),
+            "Updating session in JSON storage with data_key_count=%d",
+            len(data),
         )
         try:
             dumps_data = self.__encode_session_data__(data)
@@ -183,8 +180,7 @@ class JSONSessions(BaseSessionModule):
             {"data": dumps_data}, self._qs.session_id == session_id
         )
         logger.debug(
-            "Session with ID %s updated, modified %s document(s)",
-            session_id,
+            "Updated session in JSON storage, modified_document_count=%d",
             len(updated_count),
         )
 
@@ -220,5 +216,5 @@ class JSONSessions(BaseSessionModule):
             {"session_id": new_session_id},
             self._qs.session_id == session_id,
         )
-        logger.debug("Session ID %s reworked to %s", session_id, new_session_id)
+        logger.debug("Regenerated session ID in JSON storage")
         return new_session_id

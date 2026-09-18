@@ -74,7 +74,7 @@ class RedisSessions(BaseSessionModule):
             self._redis = Redis.from_url(redis_uri, decode_responses=True)
         else:
             self._redis = redis_uri
-        logger.debug("Redis connection established at %s", redis_uri)
+        logger.debug("Redis session storage initialized")
 
         self.ttl = ttl
         self.session_path = redis_sessions_key
@@ -100,7 +100,7 @@ class RedisSessions(BaseSessionModule):
         session_id = self.__encode_session_id_if_needed__(
             f"{session_key}:{self.id}"
         )
-        logger.debug("Gen session: %s", session_id)
+        logger.debug("Creating session in Redis storage")
 
         # trying to encode data
         try:
@@ -114,14 +114,13 @@ class RedisSessions(BaseSessionModule):
             key=session_id,
             value=dumps_data,
         )
-        logger.debug("Set session %s successfully.", session_id)
+        logger.debug("Created session in Redis storage")
         if self.ttl:
             self._redis.hexpire(
                 f"{self.session_path}:{session_key}", self.ttl, session_id
             )
             logger.debug(
-                "Set TTL for session %s to %d seconds.",
-                session_id,
+                "Set session TTL in Redis storage to %d seconds",
                 self.ttl,
             )
 
@@ -136,22 +135,19 @@ class RedisSessions(BaseSessionModule):
         Returns:
             dict | None: The session data if found, otherwise None.
         """
-        logger.debug("Getting session with ID: %s", session_id)
+        logger.debug("Reading session from Redis storage")
         decoded_session_key = self.__decode_session_id_if_needed__(
             session_id
         ).split(":", 1)
         logger.debug(
-            "Decoded session key: %s, looking in Redis key: %s:%s",
-            decoded_session_key[0],
-            self.session_path,
-            decoded_session_key[0],
+            "Resolved session namespace in Redis storage"
         )
         session = self._redis.hget(
             name=f"{self.session_path}:{decoded_session_key[0]}",
             key=session_id,
         )
         if not session:
-            logger.debug("Session %s not found in Redis", session_id)
+            logger.debug("Session not found in Redis storage")
             return None
 
         try:
@@ -159,12 +155,11 @@ class RedisSessions(BaseSessionModule):
         except AttributeError:
             loads_data = self._serializer.loads(session)  # type: ignore[arg-type]
         logger.debug(
-            "Session %s found, data keys: %s",
-            session_id,
+            "Found session in Redis storage with data_key_count=%d",
             (
-                list(loads_data.keys())
+                len(loads_data)
                 if isinstance(loads_data, dict)
-                else "N/A"
+                else 0
             ),
         )
         del session
@@ -177,7 +172,7 @@ class RedisSessions(BaseSessionModule):
         Args:
             session_id (str): The session ID.
         """
-        logger.debug("Deleting session with ID: %s", session_id)
+        logger.debug("Deleting session from Redis storage")
         decoded_session_key = self.__decode_session_id_if_needed__(
             session_id
         ).split(":", 1)
@@ -186,8 +181,7 @@ class RedisSessions(BaseSessionModule):
             session_id,
         )
         logger.debug(
-            "Session %s deleted from Redis, removed %s field(s)",
-            session_id,
+            "Deleted session from Redis storage, removed_field_count=%d",
             deleted_count,
         )
 
@@ -198,9 +192,7 @@ class RedisSessions(BaseSessionModule):
             session_key (str): The session key to clear.
         """
         self._redis.delete(f"{self.session_path}:{session_key}")
-        logger.debug(
-            "All sessions for key '%s' cleared successfully.", session_key
-        )
+        logger.debug("Cleared sessions from Redis storage")
 
     def update(self, session_id: str, data: dict) -> None:
         """Update an existing session with new data.
@@ -213,17 +205,14 @@ class RedisSessions(BaseSessionModule):
             JamSessionNotFound: If the session with the given ID does not exist.
         """
         logger.debug(
-            "Updating session %s with data keys: %s",
-            session_id,
-            list(data.keys()),
+            "Updating session in Redis storage with data_key_count=%d",
+            len(data),
         )
         decoded_session_key = self.__decode_session_id_if_needed__(
             session_id
         ).split(":", 1)
         if not self.get(session_id):
-            logger.warning(
-                "Attempted to update non-existent session %s", session_id
-            )
+            logger.warning("Attempted to update a non-existent Redis session")
             raise JamSessionNotFound(details={"session_id": session_id})
 
         try:
@@ -237,7 +226,7 @@ class RedisSessions(BaseSessionModule):
             key=session_id,
             value=dumps_data,
         )
-        logger.debug("Session %s updated successfully in Redis", session_id)
+        logger.debug("Updated session in Redis storage")
 
         if self.ttl:
             self._redis.hexpire(
@@ -246,8 +235,7 @@ class RedisSessions(BaseSessionModule):
                 session_id,
             )
             logger.debug(
-                "TTL for session %s reset to %d seconds.",
-                session_id,
+                "Reset session TTL in Redis storage to %d seconds",
                 self.ttl,
             )
 

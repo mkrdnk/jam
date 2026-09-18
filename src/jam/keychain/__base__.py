@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 import hashlib
+import logging
 import secrets
 
 from jam.exceptions import JamKeyChainError
@@ -15,6 +16,9 @@ from jam.utils import (
     generate_ed25519_keypair,
     generate_rsa_key_pair,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class KeyStatus(str, Enum):
@@ -58,6 +62,11 @@ class BaseKeyChain(ABC):
         """Initialize a chain for a signing algorithm or PASETO purpose."""
         self.algorithm = algorithm.upper()
         self.purpose = purpose
+        logger.info(
+            "Initialized KeyChain with algorithm=%s and purpose=%s",
+            self.algorithm,
+            self.purpose,
+        )
 
     @abstractmethod
     def _load(self, key_id: str) -> _StoredKey | None:
@@ -126,6 +135,7 @@ class BaseKeyChain(ABC):
             fingerprint=self._fingerprint(material),
         )
         self._save(_StoredKey(info=info, material=material))
+        logger.info("Added KeyChain key id=%s with status=standby", key_id)
         return info
 
     def rotate(self, key_id: str | None = None) -> KeyInfo:
@@ -147,6 +157,7 @@ class BaseKeyChain(ABC):
             self._set_status(current.id, KeyStatus.RETIRED)
         if target.info.status != KeyStatus.CURRENT:
             self._set_status(key_id, KeyStatus.CURRENT)
+        logger.info("Activated KeyChain key id=%s", key_id)
         return self.get(key_id)
 
     def retire(self, key_id: str) -> KeyInfo:
@@ -163,12 +174,14 @@ class BaseKeyChain(ABC):
                 error_code="keychain.revoked_key",
             )
         self._set_status(key_id, KeyStatus.RETIRED)
+        logger.info("Retired KeyChain key id=%s", key_id)
         return self.get(key_id)
 
     def revoke(self, key_id: str) -> KeyInfo:
         """Make a key unavailable for all future verification."""
         self._require(key_id)
         self._set_status(key_id, KeyStatus.REVOKED)
+        logger.warning("Revoked KeyChain key id=%s", key_id)
         return self.get(key_id)
 
     def remove(self, key_id: str) -> None:
@@ -180,11 +193,13 @@ class BaseKeyChain(ABC):
                 error_code="keychain.current_key",
             )
         self._delete(key_id)
+        logger.warning("Removed KeyChain key id=%s", key_id)
 
     def _material_for_issue(self) -> tuple[str, bytes]:
         """Return the current material for credential issuing."""
         current = self.current()
         if current is None:
+            logger.error("Cannot issue credential: KeyChain has no current key")
             raise JamKeyChainError(
                 "KeyChain has no current key.", error_code="keychain.no_current"
             )
@@ -194,6 +209,10 @@ class BaseKeyChain(ABC):
         """Return material for a non-revoked historical verification key."""
         key = self._require(key_id)
         if key.info.status == KeyStatus.REVOKED:
+            logger.warning(
+                "Rejected credential verification with revoked KeyChain key id=%s",
+                key_id,
+            )
             raise JamKeyChainError(
                 f"Key '{key_id}' has been revoked.",
                 error_code="keychain.revoked_key",
@@ -218,6 +237,7 @@ class BaseKeyChain(ABC):
     def _require(self, key_id: str) -> _StoredKey:
         key = self._load(key_id)
         if key is None:
+            logger.warning("KeyChain key id=%s was not found", key_id)
             raise JamKeyChainError(
                 f"Key '{key_id}' does not exist.",
                 error_code="keychain.key_not_found",

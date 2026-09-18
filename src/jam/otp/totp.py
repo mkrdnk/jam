@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 
+import logging
 import time
 from typing import Literal
 
 from jam.otp.__base__ import BaseOTP
+
+
+logger = logging.getLogger(__name__)
 
 
 class TOTP(BaseOTP):
@@ -69,5 +73,10 @@ class TOTP(BaseOTP):
             factor = int(time.time())
         for offset in range(-look_ahead, look_ahead + 1):
             if self.at(factor + offset * self.interval) == code:
+                logger.debug(
+                    "TOTP verification succeeded with look_ahead=%d",
+                    look_ahead,
+                )
                 return True
+        logger.warning("TOTP verification failed with look_ahead=%d", look_ahead)
         return False

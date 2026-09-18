@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import logging
 from typing import Any
 
 from jam.__base__ import BaseJam
@@ -11,6 +12,9 @@ from jam.exceptions import (
     JamSessionNotFound,
 )
 from jam.subject import BaseSubject
+
+
+logger = logging.getLogger(__name__)
 
 
 class Jam(BaseJam):
@@ -35,7 +39,12 @@ class Jam(BaseJam):
             bool: True if allowed, False otherwise.
 
         """
-        return self._policy.check(principal, permission, context)
+        allowed = self._policy.check(principal, permission, context)
+        if allowed:
+            logger.debug("Authorization granted for permission=%s", permission)
+        else:
+            logger.warning("Authorization denied for permission=%s", permission)
+        return allowed
 
     def issue(
         self,
@@ -69,6 +78,11 @@ class Jam(BaseJam):
             JamConfigurationError: If no matching module is configured.
         """
         payload = self._prepare_payload(subject, permissions, claims)
+        logger.debug(
+            "Issuing credential via=%s with claim_count=%d",
+            via,
+            len(payload),
+        )
         match via:
             case "jwt":
                 if self.jwt is None:
@@ -76,7 +90,7 @@ class Jam(BaseJam):
                         message="JWT module is not configured.",
                         error_code="configuration.jwt.not_configured",
                     )
-                return self.jwt.encode(
+                credential = self.jwt.encode(
                     payload=payload,
                     exp=exp,
                     iss=iss,
@@ -84,13 +98,19 @@ class Jam(BaseJam):
                     nbf=nbf,
                     jti=jti,
                 )
+                logger.info("Issued credential via=jwt")
+                return credential
             case "paseto":
                 if self.paseto is None:
                     raise JamConfigurationError(
                         message="PASETO module is not configured.",
                         error_code="configuration.paseto.not_configured",
                     )
-                return self._issue_paseto(payload, exp, iss, aud, nbf, jti)
+                credential = self._issue_paseto(
+                    payload, exp, iss, aud, nbf, jti
+                )
+                logger.info("Issued credential via=paseto")
+                return credential
             case "session":
                 if self.session is None:
                     raise JamConfigurationError(
@@ -102,8 +122,11 @@ class Jam(BaseJam):
                     .get("session", {})
                     .get("session_key", "auth")
                 )
-                return self.session.create(session_key, payload)
+                credential = self.session.create(session_key, payload)
+                logger.info("Issued credential via=session")
+                return credential
             case _:
+                logger.warning("Cannot issue credential via unsupported type=%s", via)
                 raise JamConfigurationError(
                     message=f"Unknown 'via' type: {via}. "
                     "Available: jwt, paseto, session",
@@ -125,6 +148,7 @@ class Jam(BaseJam):
             JamConfigurationError: If no matching module is configured.
             JamSessionNotFound: If a session does not exist.
         """
+        logger.debug("Authenticating credential via=%s", via)
         match via:
             case "jwt":
                 if self.jwt is None:
@@ -160,15 +184,21 @@ class Jam(BaseJam):
                     )
                 data = self.session.get(token)
                 if data is None:
+                    logger.warning("Session authentication failed: session not found")
                     raise JamSessionNotFound(details={"session_id": token})
                 payload = data
             case _:
+                logger.warning(
+                    "Cannot authenticate credential via unsupported type=%s",
+                    via,
+                )
                 raise JamConfigurationError(
                     message=f"Unknown 'via' type: {via}. "
                     "Available: jwt, paseto, session",
                     error_code="configuration.authenticate_unknown_via",
                 )
 
+        logger.info("Authenticated credential via=%s", via)
         return Principal(
             subject=self._subject_from_payload(payload),
             claims=dict(payload),

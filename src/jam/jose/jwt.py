@@ -484,6 +484,12 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         if self.list and self.list.__list_type__ == "white":
             self.list.add(token)
 
+        logger.debug(
+            "Issued JWT with alg=%s, claim_count=%d, and keychain=%s",
+            self._alg,
+            len(_payload),
+            self.keychain is not None,
+        )
         return token
 
     def decode(
@@ -521,9 +527,11 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
             match self.list.__list_type__:
                 case "white":
                     if not self.list.check(token):
+                        logger.warning("Rejected JWT not present in whitelist")
                         raise JamJWTNotInWhiteList
                 case "black":
                     if self.list.check(token):
+                        logger.warning("Rejected JWT present in blacklist")
                         raise JamJWTInBlackList
                 case _:
                     raise JamConfigurationError(
@@ -542,6 +550,7 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
                 ValueError,
                 json.JSONDecodeError,
             ) as exc:
+                logger.warning("Rejected KeyChain JWT without a valid key ID")
                 raise JamJWSVerificationError(
                     details={"reason": "missing_or_invalid_kid"}
                 ) from exc
@@ -554,12 +563,19 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
             data = self.jws.verify(token, True)
         header = data["header"]
         if header.get("typ") != "JWT":
+            logger.warning("Rejected token with invalid JWT type")
             raise JamJWSVerificationError(message="Invalid token type")
         payload = json.loads(data["payload"])
 
         if validate_claims:
             self._validate_claims(payload)
 
+        logger.debug(
+            "Decoded JWT with alg=%s, validate_claims=%s, and keychain=%s",
+            self._alg,
+            validate_claims,
+            self.keychain is not None,
+        )
         return {
             "header": header,
             "payload": payload,
@@ -580,11 +596,13 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         if "exp" in payload:
             exp = payload["exp"]
             if isinstance(exp, int | float) and exp < now:
+                logger.warning("Rejected expired JWT")
                 raise JamJWTExpired(details={"exp": exp, "now": now})
 
         if "nbf" in payload:
             nbf = payload["nbf"]
             if isinstance(nbf, int | float) and nbf > now:
+                logger.warning("Rejected JWT that is not yet valid")
                 raise JamJWTNotYetValid(details={"nbf": nbf, "now": now})
 
     def encrypt(
@@ -626,9 +644,16 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
             if header:
                 _base_header.update(header)
             jws_payload = self.jws.sign(header=_base_header, data=payload_bytes)
-            return self.jwe.encrypt(jws_payload, header)
+            token = self.jwe.encrypt(jws_payload, header)
         else:
-            return self.jwe.encrypt(payload_bytes, header)
+            token = self.jwe.encrypt(payload_bytes, header)
+        logger.debug(
+            "Encrypted JWT with alg=%s, enc=%s, and payload_size=%d",
+            self._alg,
+            self._enc,
+            len(payload_bytes),
+        )
+        return token
 
     def decrypt(self, token: str) -> dict[str, Any] | bytes:
         """Decrypt JWE or JWS+JWE token.
@@ -652,6 +677,12 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
                 error_code="configuration.jwt.jwe_not_configured",
             )
 
+        logger.debug(
+            "Decrypting JWT with alg=%s, enc=%s, and nested_jws=%s",
+            self._alg,
+            self._enc,
+            self.jws is not None,
+        )
         plaintext = self.jwe.decrypt(token)
 
         if self.jws and self._alg:

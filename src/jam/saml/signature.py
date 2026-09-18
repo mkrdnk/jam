@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import logging
 import xml.etree.ElementTree as ET
 
 from cryptography.exceptions import InvalidSignature
@@ -21,6 +22,9 @@ from jam.saml.xml import (
     make_element,
     sub_element,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 __all__ = [
@@ -49,6 +53,7 @@ def load_private_key(pem_str: str) -> rsa.RSAPrivateKey:
         password=None,
     )
     if not isinstance(key, rsa.RSAPrivateKey):
+        logger.warning("Rejected non-RSA SAML private signing key")
         raise JamSAMLValidationError(
             message="SAML signing requires an RSA private key.",
         )
@@ -73,6 +78,7 @@ def load_public_key(pem_str: str) -> rsa.RSAPublicKey:
         cert = load_pem_x509_certificate(pem_str.encode("utf-8"))
         key = cert.public_key()
     if not isinstance(key, rsa.RSAPublicKey):
+        logger.warning("Rejected non-RSA SAML public verification key")
         raise JamSAMLValidationError(
             message="SAML requires an RSA public key.",
         )
@@ -110,6 +116,7 @@ def sign_assertion(
     """
     assertion_id = assertion.get("ID")
     if not assertion_id:
+        logger.warning("Cannot sign SAML assertion without an ID")
         raise JamSAMLValidationError(
             message="Assertion must have an ID attribute for signing.",
         )
@@ -165,6 +172,10 @@ def sign_assertion(
         x509_data.append(x509_cert)
         x509_cert.text = _strip_pem_headers(cert_pem)
 
+    logger.debug(
+        "Signed SAML assertion with algorithm=RSA-SHA256 and certificate=%s",
+        cert_pem is not None,
+    )
     return assertion
 
 
@@ -188,6 +199,7 @@ def verify_assertion_signature(
     """
     sig = assertion.find(f"{{{NS_DS}}}Signature")
     if sig is None:
+        logger.warning("Rejected SAML assertion without XML signature")
         raise JamSAMLValidationError(
             message="No XML signature found on assertion.",
         )
@@ -199,6 +211,7 @@ def verify_assertion_signature(
         or sig_value_elem is None
         or sig_value_elem.text is None
     ):
+        logger.warning("Rejected SAML assertion with invalid signature structure")
         raise JamSAMLValidationError(
             message="Invalid signature structure.",
         )
@@ -212,6 +225,7 @@ def verify_assertion_signature(
         or digest_value_elem is None
         or digest_value_elem.text is None
     ):
+        logger.warning("Rejected SAML assertion with invalid signature reference")
         raise JamSAMLValidationError(
             message="Invalid signature reference structure.",
         )
@@ -228,6 +242,7 @@ def verify_assertion_signature(
     assertion.append(sig)
 
     if actual_digest != expected_digest:
+        logger.warning("Rejected SAML assertion with mismatched digest")
         raise JamSAMLValidationError(
             message="Assertion digest mismatch -- content has been modified.",
         )
@@ -246,10 +261,12 @@ def verify_assertion_signature(
             hashes.SHA256(),
         )
     except InvalidSignature:
+        logger.warning("Rejected SAML assertion with invalid signature")
         raise JamSAMLValidationError(
             message="Assertion signature is invalid.",
         )
 
+    logger.debug("Verified SAML assertion signature with algorithm=RSA-SHA256")
     return True
 
 

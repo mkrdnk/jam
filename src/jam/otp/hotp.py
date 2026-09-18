@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 
+import logging
+
 from jam.otp.__base__ import BaseOTP
+
+
+logger = logging.getLogger(__name__)
 
 
 class HOTP(BaseOTP):
@@ -32,5 +37,10 @@ class HOTP(BaseOTP):
         """
         for i in range(factor, factor + look_ahead + 1):
             if self.at(i) == code:
+                logger.debug(
+                    "HOTP verification succeeded with look_ahead=%d",
+                    look_ahead,
+                )
                 return True
+        logger.warning("HOTP verification failed with look_ahead=%d", look_ahead)
         return False

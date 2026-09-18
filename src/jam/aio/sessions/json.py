@@ -86,7 +86,7 @@ class JSONSessions(BaseAsyncSessionModule):
         )
 
         await asyncio.to_thread(self._db.insert, doc.__dict__)
-        logger.debug("Session created with ID %s", session_id)
+        logger.debug("Created session in async JSON storage")
         return session_id
 
     async def get(self, session_id) -> dict | None:
@@ -98,7 +98,7 @@ class JSONSessions(BaseAsyncSessionModule):
         Returns:
             dict | None: The session data if found, otherwise None.
         """
-        logger.debug(f"Getting session with ID: {session_id}")
+        logger.debug("Reading session from async JSON storage")
         # session_id = self.__decode_session_id_if_needed__(session_id)
         result = await asyncio.to_thread(
             self._db.search, self._qs.session_id == session_id
@@ -109,11 +109,12 @@ class JSONSessions(BaseAsyncSessionModule):
             except AttributeError:
                 loads_data = self._serializer.loads(result[0]["data"])
             logger.debug(
-                f"Session {session_id} found, data keys: {list(loads_data.keys()) if isinstance(loads_data, dict) else 'N/A'}"
+                "Found session in async JSON storage with data_key_count=%d",
+                len(loads_data) if isinstance(loads_data, dict) else 0,
             )
             del result
             return loads_data
-        logger.debug(f"Session {session_id} not found")
+        logger.debug("Session not found in async JSON storage")
         return None
 
     async def delete(self, session_id: str) -> None:
@@ -125,12 +126,13 @@ class JSONSessions(BaseAsyncSessionModule):
         Returns:
             None
         """
-        logger.debug(f"Deleting session with ID: {session_id}")
+        logger.debug("Deleting session from async JSON storage")
         removed_count = await asyncio.to_thread(
             self._db.remove, self._qs.session_id == session_id
         )
         logger.debug(
-            f"Session with ID {session_id} deleted, removed {len(removed_count)} document(s)"
+            "Deleted session from async JSON storage, removed_document_count=%d",
+            len(removed_count),
         )
 
     async def update(self, session_id: str, data: dict) -> None:
@@ -147,7 +149,8 @@ class JSONSessions(BaseAsyncSessionModule):
             None
         """
         logger.debug(
-            f"Updating session {session_id} with data keys: {list(data.keys())}"
+            "Updating session in async JSON storage with data_key_count=%d",
+            len(data),
         )
         try:
             dumps_data = self.__encode_session_data__(data)
@@ -164,7 +167,8 @@ class JSONSessions(BaseAsyncSessionModule):
             self._qs.session_id == session_id,
         )
         logger.debug(
-            f"Session with ID {session_id} updated, modified {len(updated_count)} document(s)"
+            "Updated session in async JSON storage, modified_document_count=%d",
+            len(updated_count),
         )
 
     async def clear(self, session_key: str) -> None:
@@ -177,9 +181,7 @@ class JSONSessions(BaseAsyncSessionModule):
             None
         """
         await asyncio.to_thread(self._db.remove, self._qs.key == session_key)
-        logger.debug(
-            "All sessions for key '%s' cleared successfully.", session_key
-        )
+        logger.debug("Cleared sessions from async JSON storage")
 
     async def rework(self, session_id: str) -> str:
         """Rework (regenerate) a session ID.
@@ -205,7 +207,7 @@ class JSONSessions(BaseAsyncSessionModule):
             {"session_id": new_session_id},
             self._qs.session_id == session_id,
         )
-        logger.debug("Session ID %s reworked to %s", session_id, new_session_id)
+        logger.debug("Regenerated session ID in async JSON storage")
         return new_session_id
 
     async def aclose(self) -> None:

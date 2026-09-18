@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Literal, TypedDict
 
 from jam.exceptions import JamJWKValidationError
@@ -10,6 +11,9 @@ from jam.jose.__algorithms__ import KeyLike
 from jam.jose.__base__ import BaseJWK, BaseJWKSet
 from jam.jose.jws import JWS
 from jam.jose.utils import __base64url_decode__
+
+
+logger = logging.getLogger(__name__)
 
 
 class JWKCommon(TypedDict, total=False):
@@ -167,12 +171,14 @@ class JWK(BaseJWK):
             JamJWKValidationError: If JWK is invalid.
         """
         if "kty" not in data:
+            logger.warning("Rejected JWK without key type")
             raise JamJWKValidationError(
                 message="Missing required 'kty' parameter"
             )
 
         kty = data["kty"]
         if kty not in JWK._SUPPORTED_KEY_TYPES:
+            logger.warning("Rejected JWK with unsupported key type")
             raise JamJWKValidationError(
                 message=f"Unsupported kty: {kty}",
                 details={"supported": list(JWK._SUPPORTED_KEY_TYPES)},
@@ -185,6 +191,7 @@ class JWK(BaseJWK):
         elif kty == "oct":
             _validate_oct(data)
 
+        logger.debug("Validated JWK with key type=%s", kty)
         return JWK(data)
 
     @classmethod
@@ -252,6 +259,7 @@ class JWK(BaseJWK):
         _alg = alg or self.alg or self._get_default_alg()
         key = self._to_keylike()
         jws = JWS(alg=_alg, key=key)
+        logger.debug("Signing data with JWK using alg=%s", _alg)
         return jws.serialize_compact({"alg": _alg}, data)
 
     def verify(self, token: str, alg: str | None = None) -> dict[str, Any]:
@@ -270,6 +278,7 @@ class JWK(BaseJWK):
         _alg = alg or self.alg or self._get_default_alg()
         key = self._to_keylike()
         jws = JWS(alg=_alg, key=key)
+        logger.debug("Verifying JWS with JWK using alg=%s", _alg)
         return jws.deserialize_compact(token)
 
     def _get_default_alg(self) -> str:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+import logging
 from typing import Any, Literal
 
 from jam import Jam
@@ -12,6 +13,9 @@ from jam.__core__ import JamAuthType
 from jam.aio import AsyncJam
 from jam.authz import Principal
 from jam.exceptions import JamConfigurationError, JamError
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,6 +116,11 @@ class Authenticator:
         self.jam = jam
         self.sources = tuple(sources)
         self.via = via
+        logger.info(
+            "Initialized HTTP authenticator with via=%s and source_count=%d",
+            via,
+            len(self.sources),
+        )
 
     def extract(
         self,
@@ -135,7 +144,13 @@ class Authenticator:
         except JamConfigurationError:
             raise
         except JamError as error:
+            logger.warning(
+                "HTTP credential authentication failed via=%s with error=%s",
+                self.via,
+                type(error).__name__,
+            )
             return AuthenticationResult(token=token, error=error)
+        logger.info("HTTP credential authenticated via=%s", self.via)
         return AuthenticationResult(principal=principal, token=token)
 
     def authenticate_request(
@@ -152,8 +167,14 @@ class Authenticator:
             query=query,
         )
         if token is None:
+            logger.debug("HTTP request has no configured credential source")
             return AuthenticationResult()
         result = self.authenticate(token)
+        if source is not None:
+            logger.debug(
+                "Authenticated HTTP credential from source_kind=%s",
+                source.kind,
+            )
         return AuthenticationResult(
             principal=result.principal,
             token=result.token,
@@ -180,6 +201,11 @@ class AsyncAuthenticator:
         self.jam = jam
         self.sources = tuple(sources)
         self.via = via
+        logger.info(
+            "Initialized async HTTP authenticator with via=%s and source_count=%d",
+            via,
+            len(self.sources),
+        )
 
     def extract(
         self,
@@ -210,7 +236,13 @@ class AsyncAuthenticator:
         except JamConfigurationError:
             raise
         except JamError as error:
+            logger.warning(
+                "Async HTTP credential authentication failed via=%s with error=%s",
+                self.via,
+                type(error).__name__,
+            )
             return AuthenticationResult(token=token, error=error)
+        logger.info("Async HTTP credential authenticated via=%s", self.via)
         return AuthenticationResult(principal=principal, token=token)
 
     async def authenticate_request(
@@ -227,8 +259,14 @@ class AsyncAuthenticator:
             query=query,
         )
         if token is None:
+            logger.debug("HTTP request has no configured credential source")
             return AuthenticationResult()
         result = await self.authenticate(token)
+        if source is not None:
+            logger.debug(
+                "Authenticated HTTP credential from source_kind=%s",
+                source.kind,
+            )
         return AuthenticationResult(
             principal=result.principal,
             token=result.token,
