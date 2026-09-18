@@ -13,8 +13,11 @@ model, or permission DSL.
 
 ## Setup
 
-Add the Jam Django application and authorization backend, then configure the
-sync and async DMR authenticators:
+Complete the base [Django setup](/4.1.0/integrations/django/django): define
+`JAM_CONFIG`, add `"jam.ext.django"` to `INSTALLED_APPS`, and configure
+`JamBackend` when Django permission APIs should use Jam policies.
+
+Configure DMR's sync and async authenticators:
 
 ```python
 from dmr.security import SyncOrAsyncAuth
@@ -22,20 +25,6 @@ from dmr.settings import Settings
 
 from jam.ext.django.dmr import JamAsyncAuth, JamSyncAuth
 
-
-INSTALLED_APPS = [
-    # ...
-    "jam.ext.django",
-]
-
-AUTHENTICATION_BACKENDS = [
-    "django.contrib.auth.backends.ModelBackend",
-    "jam.ext.django.JamBackend",
-]
-
-JAM_CONFIG = {
-    # ordinary Jam configuration
-}
 
 DMR_SETTINGS = {
     Settings.auth: [
@@ -47,13 +36,12 @@ DMR_SETTINGS = {
 }
 ```
 
-`JAM_CONFIG` enables the supported credential mechanisms. The same
-configuration is used by regular Django, DRF, and DMR integrations. Auth
-instances are stateless and can be safely configured globally.
+`JAM_CONFIG` enables the supported credential mechanisms. Auth instances are
+stateless and can be safely configured globally.
 
-`JamMiddleware` is optional for DMR. When it is already installed for regular
-Django views, DMR reuses the verified Principal instead of verifying the
-credential again.
+`JamMiddleware` is optional for DMR-only applications. When it is installed
+for regular Django views, DMR reuses the verified principal instead of
+verifying the credential again.
 
 ## Authentication
 

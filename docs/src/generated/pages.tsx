@@ -5496,14 +5496,19 @@ the Jam tag for object checks:
 {% if can_edit %}<a href="...">Edit</a>{% endif %}
 \`\`\`
 
-## JWT and PASETO Bearer authentication
+## Jam credential authentication
 
-\`JamMiddleware\` accepts JWT and PASETO credentials from the standard
-\`Authorization: Bearer ...\` header. The token subject must be the primary key
-of a Django user. The resolved \`AUTH_USER_MODEL\` instance becomes
-\`request.user\`, including for custom user models and custom primary keys.
+\`JamMiddleware\` accepts JWT, compact JWE, and PASETO credentials from the
+standard \`Authorization: Bearer ...\` header. When the \`session\` module is
+configured, it also accepts a Jam Session from the \`session\` cookie. The token
+or session subject must be the primary key of a Django user. The resolved
+\`AUTH_USER_MODEL\` instance becomes \`request.user\`, including for custom user
+models and custom primary keys.
 
 \`\`\`python
+from jam.ext.django import get_jam
+
+
 token = get_jam().issue(
     subject={"id": user.pk},
     via="jwt",
@@ -5511,13 +5516,10 @@ token = get_jam().issue(
 )
 \`\`\`
 
-The authenticated token's claims remain available to Jam authorization, while
-Django code always sees the Django user object. The same issuance approach
-works with \`via="paseto"\`.
-
-\`\`\`python
-from jam.ext.django import get_jam
-\`\`\`
+The authenticated credential's claims remain available to Jam authorization,
+while Django code always sees the Django user object. The same issuance
+approach works with \`via="paseto"\`. Configure JWT encryption to issue and
+accept compact JWE credentials.
 
 Jam resolves the token subject with
 \`AUTH_USER_MODEL._default_manager.get(pk=subject)\`. A Bearer credential does
@@ -5527,15 +5529,24 @@ user. In a policy, \`Principal.subject\` is that user, while
 current request and \`context.resource\` contains the object passed to
 \`user.has_perm(permission, obj)\`.
 
+### Jam Session source
+
+Jam Session credentials use \`Cookie: session=<session-id>\` by default. This is
+not a Django session: it is verified with \`Jam.authenticate(...,
+via="session")\`. It is enabled only when the \`session\` module is present in
+\`JAM_CONFIG\`.
+
 Authentication precedence is deliberate:
 
-* no Bearer header: retain the normal session (or anonymous) user;
-* valid Bearer header: it replaces any session identity;
-* malformed, invalid, expired, or unknown-user Bearer header: return \`401\`
-  with \`WWW-Authenticate: Bearer\`; do not fall back to the session.
+* valid Bearer credential: it replaces a Jam or Django session identity;
+* invalid Bearer credential: return \`401\` with \`WWW-Authenticate: Bearer\`; do
+  not fall back;
+* no Bearer and valid Jam Session: it replaces the Django session identity;
+* invalid Jam Session: return \`401\`; do not fall back to the Django session;
+* no Jam credential: retain the normal Django session (or anonymous) user.
 
 Both synchronous and asynchronous Django views are supported. In a
-Bearer-authenticated async view, \`request.user\` and \`await request.auser()\`
+Jam-authenticated async view, \`request.user\` and \`await request.auser()\`
 refer to the same Django user.
 `} />
   ),
@@ -5551,14 +5562,13 @@ pip install "jamlib[drf]"
 
 Jam uses DRF's standard authentication and permission extension points.
 
+## Setup
+
 Before configuring DRF, complete the base
 [Django setup](/4.1.0/integrations/django/django): define \`JAM_CONFIG\` and add
 \`"jam.ext.django"\` to \`INSTALLED_APPS\`.
-\`JamMiddleware\` is optional for DRF-only applications.
 
-## Authentication
-
-Configure the authenticator globally or per view:
+Configure the authenticator globally:
 
 \`\`\`python
 REST_FRAMEWORK = {
@@ -5567,6 +5577,14 @@ REST_FRAMEWORK = {
     ],
 }
 \`\`\`
+
+\`JamMiddleware\` is optional for DRF-only applications. When it is installed
+for regular Django views, DRF reuses the verified Bearer principal instead of
+verifying the credential again.
+
+## Authentication
+
+Configure the authenticator per view when it is not global:
 
 \`\`\`python
 from rest_framework.permissions import IsAuthenticated
@@ -5592,13 +5610,18 @@ class ProfileView(JamPermissionMixin, APIView):
 \`\`\`
 
 \`request.user\` is the configured \`AUTH_USER_MODEL\`; \`request.auth\` is a Jam
-\`Principal\`, and \`request.auth.subject == request.user\`. JWT and PASETO Bearer
-credentials are detected and verified by the same Django adapter used by
-\`JamMiddleware\`.
+\`Principal\`, and \`request.auth.subject == request.user\`. JWT, compact JWE, and
+PASETO Bearer credentials are detected and verified by the same Django adapter
+used by \`JamMiddleware\`.
 
 An absent or non-Bearer \`Authorization\` header returns \`None\`, allowing another
 DRF authenticator to run. An explicitly supplied invalid Bearer credential
-returns \`401\` with \`WWW-Authenticate: Bearer\` and does not fall back:
+returns \`401\` with \`WWW-Authenticate: Bearer\` and does not fall back.
+
+### Django Session authentication
+
+Add DRF's \`SessionAuthentication\` after \`JamAuthentication\` when an API also
+accepts Django sessions:
 
 \`\`\`python
 from rest_framework.authentication import SessionAuthentication
@@ -5611,9 +5634,9 @@ REST_FRAMEWORK = {
 }
 \`\`\`
 
-\`JamMiddleware\` is not required. When it is present for regular Django views,
-the DRF adapter reuses its token principal instead of verifying the credential
-again.
+\`JamAuthentication\` accepts only Bearer credentials. An invalid explicitly
+supplied Bearer credential returns \`401\` and does not fall back to Django
+session authentication.
 
 ## Jam-native permissions
 
@@ -5670,7 +5693,7 @@ DRF does not run object-permission checks for every item in a list response.
 Restrict \`get_queryset()\` or add a filter backend when a list must contain
 only objects the subject may view.
 
-## Django permission classes
+## Django permissions
 
 \`DjangoModelPermissions\` and \`DjangoObjectPermissions\` remain supported and
 are a separate integration path:
@@ -5705,8 +5728,11 @@ model, or permission DSL.
 
 ## Setup
 
-Add the Jam Django application and authorization backend, then configure the
-sync and async DMR authenticators:
+Complete the base [Django setup](/4.1.0/integrations/django/django): define
+\`JAM_CONFIG\`, add \`"jam.ext.django"\` to \`INSTALLED_APPS\`, and configure
+\`JamBackend\` when Django permission APIs should use Jam policies.
+
+Configure DMR's sync and async authenticators:
 
 \`\`\`python
 from dmr.security import SyncOrAsyncAuth
@@ -5714,20 +5740,6 @@ from dmr.settings import Settings
 
 from jam.ext.django.dmr import JamAsyncAuth, JamSyncAuth
 
-
-INSTALLED_APPS = [
-    # ...
-    "jam.ext.django",
-]
-
-AUTHENTICATION_BACKENDS = [
-    "django.contrib.auth.backends.ModelBackend",
-    "jam.ext.django.JamBackend",
-]
-
-JAM_CONFIG = {
-    # ordinary Jam configuration
-}
 
 DMR_SETTINGS = {
     Settings.auth: [
@@ -5739,13 +5751,12 @@ DMR_SETTINGS = {
 }
 \`\`\`
 
-\`JAM_CONFIG\` enables the supported credential mechanisms. The same
-configuration is used by regular Django, DRF, and DMR integrations. Auth
-instances are stateless and can be safely configured globally.
+\`JAM_CONFIG\` enables the supported credential mechanisms. Auth instances are
+stateless and can be safely configured globally.
 
-\`JamMiddleware\` is optional for DMR. When it is already installed for regular
-Django views, DMR reuses the verified Principal instead of verifying the
-credential again.
+\`JamMiddleware\` is optional for DMR-only applications. When it is installed
+for regular Django views, DMR reuses the verified principal instead of
+verifying the credential again.
 
 ## Authentication
 
@@ -9050,7 +9061,7 @@ DRF authentication backed by the Django Jam adapter.
 class class JamAuthentication(BaseAuthentication)
 \`\`\`
 
-Authenticate Bearer JWT and PASETO credentials with Jam.
+Authenticate Bearer JWT, compact JWE, and PASETO credentials with Jam.
 
 ### \`authenticate\`
 
@@ -9132,7 +9143,7 @@ Check all configured object-level Jam permissions.
 
 Source: \`src/jam/ext/django/middleware.py\`
 
-Django middleware for request context and Bearer authentication.
+Django middleware for request context and Jam credential authentication.
 
 ## \`JamMiddleware\`
 

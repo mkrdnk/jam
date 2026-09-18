@@ -121,14 +121,19 @@ the Jam tag for object checks:
 {% if can_edit %}<a href="...">Edit</a>{% endif %}
 ```
 
-## JWT and PASETO Bearer authentication
+## Jam credential authentication
 
-`JamMiddleware` accepts JWT and PASETO credentials from the standard
-`Authorization: Bearer ...` header. The token subject must be the primary key
-of a Django user. The resolved `AUTH_USER_MODEL` instance becomes
-`request.user`, including for custom user models and custom primary keys.
+`JamMiddleware` accepts JWT, compact JWE, and PASETO credentials from the
+standard `Authorization: Bearer ...` header. When the `session` module is
+configured, it also accepts a Jam Session from the `session` cookie. The token
+or session subject must be the primary key of a Django user. The resolved
+`AUTH_USER_MODEL` instance becomes `request.user`, including for custom user
+models and custom primary keys.
 
 ```python
+from jam.ext.django import get_jam
+
+
 token = get_jam().issue(
     subject={"id": user.pk},
     via="jwt",
@@ -136,13 +141,10 @@ token = get_jam().issue(
 )
 ```
 
-The authenticated token's claims remain available to Jam authorization, while
-Django code always sees the Django user object. The same issuance approach
-works with `via="paseto"`.
-
-```python
-from jam.ext.django import get_jam
-```
+The authenticated credential's claims remain available to Jam authorization,
+while Django code always sees the Django user object. The same issuance
+approach works with `via="paseto"`. Configure JWT encryption to issue and
+accept compact JWE credentials.
 
 Jam resolves the token subject with
 `AUTH_USER_MODEL._default_manager.get(pk=subject)`. A Bearer credential does
@@ -152,13 +154,22 @@ user. In a policy, `Principal.subject` is that user, while
 current request and `context.resource` contains the object passed to
 `user.has_perm(permission, obj)`.
 
+### Jam Session source
+
+Jam Session credentials use `Cookie: session=<session-id>` by default. This is
+not a Django session: it is verified with `Jam.authenticate(...,
+via="session")`. It is enabled only when the `session` module is present in
+`JAM_CONFIG`.
+
 Authentication precedence is deliberate:
 
-* no Bearer header: retain the normal session (or anonymous) user;
-* valid Bearer header: it replaces any session identity;
-* malformed, invalid, expired, or unknown-user Bearer header: return `401`
-  with `WWW-Authenticate: Bearer`; do not fall back to the session.
+* valid Bearer credential: it replaces a Jam or Django session identity;
+* invalid Bearer credential: return `401` with `WWW-Authenticate: Bearer`; do
+  not fall back;
+* no Bearer and valid Jam Session: it replaces the Django session identity;
+* invalid Jam Session: return `401`; do not fall back to the Django session;
+* no Jam credential: retain the normal Django session (or anonymous) user.
 
 Both synchronous and asynchronous Django views are supported. In a
-Bearer-authenticated async view, `request.user` and `await request.auser()`
+Jam-authenticated async view, `request.user` and `await request.auser()`
 refer to the same Django user.

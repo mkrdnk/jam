@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-"""Django middleware for request context and Bearer authentication."""
+"""Django middleware for request context and Jam credential authentication."""
 
 from __future__ import annotations
 

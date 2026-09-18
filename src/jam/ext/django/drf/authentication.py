@@ -20,7 +20,7 @@ from jam.ext.django.context import principal_context
 
 
 class JamAuthentication(BaseAuthentication):
-    """Authenticate Bearer JWT and PASETO credentials with Jam."""
+    """Authenticate Bearer JWT, compact JWE, and PASETO credentials with Jam."""
 
     keyword = "Bearer"
     _error_message = "Invalid Bearer credential."
