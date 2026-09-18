@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Templates permissions
   - Django REST framework (`drf`) integration
   - Django modern REST (`dmr`) integration
+- Added more logs hooks.
 
 ### Changed
 
