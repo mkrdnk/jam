@@ -46,6 +46,8 @@ if not settings.configured:
     django.setup()
 
 
+from django.contrib.auth.models import AnonymousUser  # noqa: E402
+
 from jam.ext.django._authentication import (  # noqa: E402
     InvalidCredential,
     authenticate_request,
@@ -58,6 +60,7 @@ from jam.ext.django.context import (  # noqa: E402
 from jam.ext.django.dmr import (  # noqa: E402
     JamAsyncAuth,
     JamSyncAuth,
+    aauthorize,
     authorize,
     request_principal,
 )
@@ -360,3 +363,71 @@ def test_authorize_denial_is_dmr_api_error():
         authorize(request, "posts.change")
     assert exc_info.value.status_code == 403
     assert exc_info.value.raw_data["detail"][0]["msg"] == "Permission denied."
+
+
+def test_request_principal_preserves_anonymous_django_identity():
+    request = _request()
+    request.user = AnonymousUser()
+
+    principal = request_principal(request)
+
+    assert principal.subject is request.user
+    assert principal.token_type == "django"
+    assert principal.subject.is_authenticated is False
+
+
+def test_authorize_distinguishes_inherited_and_cleared_resource():
+    request = _request()
+    request.user.has_perm = Mock(return_value=True)
+    original = AuthorizationContext(request=request, resource="outer")
+    token = authorization_context.set(original)
+    try:
+        authorize(request, "posts.change")
+        authorize(request, "posts.change", resource=None)
+    finally:
+        authorization_context.reset(token)
+
+    assert request.user.has_perm.call_args_list == [
+        (("posts.change", "outer"), {}),
+        (("posts.change", None), {}),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_aauthorize_uses_async_permission_api_and_cleans_context():
+    principal = Principal(
+        SimpleNamespace(pk="42"),
+        {"permissions": ["posts.change"]},
+        "jwt",
+    )
+    request = _request()
+    request.user = principal.subject
+    request._jam_principal = principal
+
+    async def check_permission(permission, resource):
+        assert permission == "posts.change"
+        assert resource == "outer"
+        assert authorization_context.get().resource == "outer"
+        assert principal_context.get() is principal
+        return True
+
+    request.user.ahas_perm = AsyncMock(side_effect=check_permission)
+    original = AuthorizationContext(request=request, resource="outer")
+    token = authorization_context.set(original)
+    try:
+        assert await aauthorize(request, "posts.change") is None
+        assert authorization_context.get() is original
+        assert principal_context.get() is None
+    finally:
+        authorization_context.reset(token)
+
+
+@pytest.mark.asyncio
+async def test_aauthorize_denial_is_dmr_api_error():
+    request = _request()
+    request.user.ahas_perm = AsyncMock(return_value=False)
+
+    with pytest.raises(APIError) as exc_info:
+        await aauthorize(request, "posts.change")
+
+    assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
