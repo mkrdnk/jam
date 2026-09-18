@@ -36,7 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   documents custom session-header prefixes and cookie-session CSRF responses.
 - Updated the 4.1.3 documentation and README links for the current
   documentation layout, including valid serializer-backed DMR controllers.
-- Added CI coverage for both the minimum and latest compatible DMR versions.
 
 ### Fixed
 - Fixed DMR examples that used serializer-free controllers for Python return
