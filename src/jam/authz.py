@@ -8,6 +8,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field, fields, is_dataclass
 from datetime import datetime, time, timezone
 import ipaddress
+import logging
 import operator
 import re
 from typing import Any, Generic, TypeVar, cast
@@ -15,6 +16,9 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from jam.exceptions import JamConfigurationError
 from jam.subject import BaseSubject
+
+
+logger = logging.getLogger(__name__)
 
 
 SubjectT = TypeVar("SubjectT", bound=BaseSubject | Mapping[str, Any])
@@ -219,6 +223,10 @@ class Policy(BasePolicy):
             **kwargs: Ignored for config compatibility.
         """
         self._rules = _RuleCompiler.compile(rules or {})
+        logger.info(
+            "Initialized authorization policy with rule_count=%d",
+            len(self._rules),
+        )
 
     def check(
         self,
@@ -247,6 +255,10 @@ class Policy(BasePolicy):
             claim in authenticated.claims for claim in ("permissions", "scope")
         )
         if grants_declared and not authenticated.has_permission(permission):
+            logger.warning(
+                "Authorization denied for permission=%s: credential grant missing",
+                permission,
+            )
             return False
 
         auth_context = context or AuthorizationContext()
@@ -254,15 +266,42 @@ class Policy(BasePolicy):
             rule.effect == "deny" and rule.matches(authenticated, auth_context)
             for rule in matching
         ):
+            logger.warning(
+                "Authorization denied for permission=%s: deny rule matched",
+                permission,
+            )
             return False
 
         allow_rules = [rule for rule in matching if rule.effect == "allow"]
         if allow_rules:
-            return any(
+            allowed = any(
                 rule.matches(authenticated, auth_context)
                 for rule in allow_rules
             )
-        return grants_declared and authenticated.has_permission(permission)
+            if allowed:
+                logger.debug(
+                    "Authorization granted for permission=%s by allow rule",
+                    permission,
+                )
+            else:
+                logger.warning(
+                    "Authorization denied for permission=%s: no allow rule matched",
+                    permission,
+                )
+            return allowed
+
+        allowed = grants_declared and authenticated.has_permission(permission)
+        if allowed:
+            logger.debug(
+                "Authorization granted for permission=%s by credential grant",
+                permission,
+            )
+        else:
+            logger.warning(
+                "Authorization denied for permission=%s: no matching rule",
+                permission,
+            )
+        return allowed
 
 
 class _RuleCompiler:

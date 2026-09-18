@@ -55,7 +55,7 @@ class RedisSessions(BaseAsyncSessionModule):
         else:
             self._redis = redis_uri
             self._owns_redis = False
-        logger.debug("Redis async connection established at %s", redis_uri)
+        logger.debug("Async Redis session storage initialized")
 
         self.ttl = default_ttl
         self.session_path = redis_sessions_key
@@ -81,7 +81,7 @@ class RedisSessions(BaseAsyncSessionModule):
         session_id = self.__encode_session_id_if_needed__(
             f"{session_key}:{self.id}"
         )
-        logger.debug("Gen session: %s", session_id)
+        logger.debug("Creating session in async Redis storage")
 
         # trying to encode data
         try:
@@ -95,14 +95,13 @@ class RedisSessions(BaseAsyncSessionModule):
             key=session_id,
             value=dumps_data,
         )
-        logger.debug("Set session %s successfully.", session_id)
+        logger.debug("Created session in async Redis storage")
         if self.ttl:
             await self._redis.hexpire(  # type: ignore[not-async]
                 f"{self.session_path}:{session_key}", self.ttl, session_id
             )
             logger.debug(
-                "Set TTL for session %s to %d seconds.",
-                session_id,
+                "Set session TTL in async Redis storage to %d seconds",
                 self.ttl,
             )
 
@@ -117,19 +116,19 @@ class RedisSessions(BaseAsyncSessionModule):
         Returns:
             dict | None: The session data if found, otherwise None.
         """
-        logger.debug(f"Getting session with ID: {session_id}")
+        logger.debug("Reading session from async Redis storage")
         decoded_session_key = self.__decode_session_id_if_needed__(
             session_id
         ).split(":", 1)
         logger.debug(
-            f"Decoded session key: {decoded_session_key[0]}, looking in Redis key: {self.session_path}:{decoded_session_key[0]}"
+            "Resolved session namespace in async Redis storage"
         )
         session = await self._redis.hget(  # type: ignore[not-async]
             name=f"{self.session_path}:{decoded_session_key[0]}",
             key=session_id,
         )
         if not session:
-            logger.debug(f"Session {session_id} not found in Redis")
+            logger.debug("Session not found in async Redis storage")
             return None
 
         try:
@@ -137,7 +136,8 @@ class RedisSessions(BaseAsyncSessionModule):
         except AttributeError:
             loads_data = self._serializer.loads(session)
         logger.debug(
-            f"Session {session_id} found, data keys: {list(loads_data.keys()) if isinstance(loads_data, dict) else 'N/A'}"
+            "Found session in async Redis storage with data_key_count=%d",
+            len(loads_data) if isinstance(loads_data, dict) else 0,
         )
         del session
 
@@ -149,7 +149,7 @@ class RedisSessions(BaseAsyncSessionModule):
         Args:
             session_id (str): The session ID.
         """
-        logger.debug(f"Deleting session with ID: {session_id}")
+        logger.debug("Deleting session from async Redis storage")
         decoded_session_key = self.__decode_session_id_if_needed__(
             session_id
         ).split(":", 1)
@@ -158,7 +158,8 @@ class RedisSessions(BaseAsyncSessionModule):
             session_id,
         )
         logger.debug(
-            f"Session {session_id} deleted from Redis, removed {deleted_count} field(s)"
+            "Deleted session from async Redis storage, removed_field_count=%d",
+            deleted_count,
         )
 
     async def clear(self, session_key: str) -> None:
@@ -168,9 +169,7 @@ class RedisSessions(BaseAsyncSessionModule):
             session_key (str): The session key to clear.
         """
         await self._redis.delete(f"{self.session_path}:{session_key}")
-        logger.debug(
-            "All sessions for key '%s' cleared successfully.", session_key
-        )
+        logger.debug("Cleared sessions from async Redis storage")
 
     async def update(self, session_id: str, data: dict) -> None:
         """Update an existing session with new data.
@@ -183,14 +182,15 @@ class RedisSessions(BaseAsyncSessionModule):
             JamSessionNotFound: If the session with the given ID does not exist.
         """
         logger.debug(
-            f"Updating session {session_id} with data keys: {list(data.keys())}"
+            "Updating session in async Redis storage with data_key_count=%d",
+            len(data),
         )
         decoded_session_key = self.__decode_session_id_if_needed__(
             session_id
         ).split(":", 1)
         if not await self.get(session_id):
             logger.warning(
-                f"Attempted to update non-existent session {session_id}"
+                "Attempted to update a non-existent async Redis session"
             )
             raise JamSessionNotFound(details={"session_id": session_id})
 
@@ -205,7 +205,7 @@ class RedisSessions(BaseAsyncSessionModule):
             key=session_id,
             value=dumps_data,
         )
-        logger.debug(f"Session {session_id} updated successfully in Redis")
+        logger.debug("Updated session in async Redis storage")
 
         if self.ttl:
             await self._redis.hexpire(
@@ -214,8 +214,7 @@ class RedisSessions(BaseAsyncSessionModule):
                 session_id,
             )
             logger.debug(
-                "TTL for session %s reset to %d seconds.",
-                session_id,
+                "Reset session TTL in async Redis storage to %d seconds",
                 self.ttl,
             )
 

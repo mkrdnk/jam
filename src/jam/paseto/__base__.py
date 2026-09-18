@@ -603,6 +603,12 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
                 self._secret, self._public_key = old_secret, old_public
 
         self._list_add(token)
+        logger.debug(
+            "Issued PASETO version=%s purpose=%s with_keychain=%s",
+            self._VERSION,
+            self._purpose,
+            self._keychain is not None,
+        )
         return token
 
     def decode(
@@ -659,8 +665,17 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
                 self._secret, self._public_key = old_secret, old_public
         if self._keychain is not None:
             if not isinstance(footer, dict) or "_jam" not in footer:
+                logger.warning(
+                    "Rejected PASETO with invalid KeyChain footer"
+                )
                 raise JamPASETOInvalidTokenFormat(
                     message="Invalid KeyChain footer."
                 )
             footer = footer.get("footer")
+        logger.debug(
+            "Verified PASETO version=%s purpose=%s with_keychain=%s",
+            self._VERSION,
+            self._purpose,
+            self._keychain is not None,
+        )
         return payload, footer

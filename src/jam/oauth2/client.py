@@ -3,12 +3,16 @@
 from contextlib import contextmanager
 from http.client import HTTPSConnection
 import json
+import logging
 from typing import Any
 import urllib.parse
 
 from jam.exceptions import JamOAuth2EmptyRaw, JamOAuth2Error
 
 from .__base__ import BaseOAuth2Client
+
+
+logger = logging.getLogger(__name__)
 
 
 class OAuth2Client(BaseOAuth2Client):
@@ -45,6 +49,10 @@ class OAuth2Client(BaseOAuth2Client):
         params.update(
             extra_params
         )  # for example: access_type='offline', state='xyz'
+        logger.debug(
+            "Built OAuth2 authorization URL with scope_count=%d",
+            len(scope),
+        )
         return f"{self.auth_url}?{urllib.parse.urlencode(params)}"
 
     def fetch_token(
@@ -130,6 +138,14 @@ class OAuth2Client(BaseOAuth2Client):
     def __post_form(self, url: str, params: dict[str, Any]) -> dict[str, Any]:
         """Send POST form and parse JSON response."""
         encoded = urllib.parse.urlencode(params)
+        parsed_url = urllib.parse.urlparse(url)
+        grant_type = params.get("grant_type", "unknown")
+        logger.debug(
+            "Sending OAuth2 token request with grant_type=%s to %s%s",
+            grant_type,
+            parsed_url.netloc,
+            parsed_url.path,
+        )
 
         with self.__http(url) as (conn, parsed):
             conn.request(
@@ -142,6 +158,10 @@ class OAuth2Client(BaseOAuth2Client):
             raw = response.read().decode("utf-8")
 
         if not raw:
+            logger.error(
+                "OAuth2 token endpoint returned an empty response for grant_type=%s",
+                grant_type,
+            )
             raise JamOAuth2EmptyRaw(
                 details={"endpoint": url, "methid": "POST", "params": params}
             )
@@ -152,6 +172,11 @@ class OAuth2Client(BaseOAuth2Client):
             data = {k: v[0] for k, v in urllib.parse.parse_qs(raw).items()}
 
         if response.status >= 400:
+            logger.warning(
+                "OAuth2 token request failed with status=%d for grant_type=%s",
+                response.status,
+                grant_type,
+            )
             raise JamOAuth2Error(
                 details={
                     "status": response.status,
@@ -160,4 +185,9 @@ class OAuth2Client(BaseOAuth2Client):
                 }
             )
 
+        logger.debug(
+            "OAuth2 token request completed with status=%d for grant_type=%s",
+            response.status,
+            grant_type,
+        )
         return data

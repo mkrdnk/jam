@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import json
+import logging
 from typing import TYPE_CHECKING, Any
 
 from jam.exceptions import JamJWTUnsupportedAlgorithm
@@ -16,6 +17,9 @@ from jam.jose.__base__ import BaseJWS
 from jam.jose.utils import __base64url_decode__, __base64url_encode__
 from jam.utils.config_maker import __key_loader__
 from jam.utils.config_meta import ConfigMeta
+
+
+logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
@@ -64,6 +68,7 @@ class JWS(BaseJWS, metaclass=ConfigMeta):
             secret=key,
             password=password,
         )
+        logger.info("Initialized JWS with alg=%s", self._alg)
 
     def _validate_algorithm(self, alg: str) -> None:
         """Validate algorithm name.
@@ -113,6 +118,11 @@ class JWS(BaseJWS, metaclass=ConfigMeta):
 
         signing_input = f"{protected_b64}.{payload_b64}".encode()
         signature_b64 = self._algorithm.sign(signing_input)
+        logger.debug(
+            "Created JWS with alg=%s and payload_size=%d",
+            self._alg,
+            len(payload_bytes),
+        )
 
         return f"{protected_b64}.{payload_b64}.{signature_b64}"
 
@@ -139,6 +149,7 @@ class JWS(BaseJWS, metaclass=ConfigMeta):
         try:
             protected_b64, payload_b64, signature_b64 = s.split(".")
         except ValueError:
+            logger.warning("Rejected JWS with invalid compact serialization")
             raise JamJWSVerificationError(
                 details={"reason": "invalid_jws_format"}
             )
@@ -149,6 +160,9 @@ class JWS(BaseJWS, metaclass=ConfigMeta):
             registered = {"alg", "typ", "kid", "x5u", "x5t", "cty", "crit"}
             unknown = [k for k in header["crit"] if k not in registered]
             if unknown:
+                logger.warning(
+                    "Rejected JWS with unsupported critical headers"
+                )
                 raise JamJWSVerificationError(
                     details={
                         "reason": "unknown_critical_header",
@@ -158,6 +172,10 @@ class JWS(BaseJWS, metaclass=ConfigMeta):
 
         header_alg = header.get("alg")
         if header_alg != self._alg:
+            logger.warning(
+                "Rejected JWS because its algorithm does not match configured alg=%s",
+                self._alg,
+            )
             raise JamJWSVerificationError(
                 details={
                     "reason": "algorithm_mismatch",
@@ -173,9 +191,18 @@ class JWS(BaseJWS, metaclass=ConfigMeta):
             try:
                 self._algorithm.verify(signature, signing_input, self._key)
             except ValueError:
+                logger.warning(
+                    "JWS signature verification failed for alg=%s",
+                    self._alg,
+                )
                 raise JamJWSVerificationError(
                     details={"reason": "signature_verification_failed"}
                 )
+        logger.debug(
+            "Parsed JWS with alg=%s and signature_validation=%s",
+            self._alg,
+            validate,
+        )
 
         return {
             "header": header,

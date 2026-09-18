@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import logging
 import xml.etree.ElementTree as ET
+
+
+logger = logging.getLogger(__name__)
 
 
 __all__ = [
@@ -162,13 +166,17 @@ def safe_fromstring(xml_str: str) -> ET.Element:
     from jam.exceptions.saml import JamSAMLValidationError
 
     if "<!DOCTYPE" in xml_str.upper() or "<!ENTITY" in xml_str.upper():
+        logger.warning("Rejected SAML XML containing DTD or entity declarations")
         raise JamSAMLValidationError(
             message="XML with DTD/entity declarations is rejected.",
         )
 
     try:
-        return ET.fromstring(xml_str)
+        root = ET.fromstring(xml_str)
     except ET.ParseError as exc:
+        logger.warning("Rejected malformed SAML XML")
         raise JamSAMLValidationError(
             message=f"Malformed SAML XML: {exc}"
         ) from exc
+    logger.debug("Parsed SAML XML with root_tag=%s", root.tag)
+    return root

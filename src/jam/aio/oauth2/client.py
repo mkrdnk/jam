@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import json
+import logging
 from typing import Any
 import urllib.parse
 
@@ -15,6 +16,9 @@ except ImportError:
 from jam.aio.oauth2.__base__ import BaseAsyncOAuth2Client
 from jam.encoders import BaseEncoder, JsonEncoder
 from jam.exceptions import JamOAuth2EmptyRaw, JamOAuth2Error
+
+
+logger = logging.getLogger(__name__)
 
 
 class OAuth2Client(BaseAsyncOAuth2Client):
@@ -63,6 +67,10 @@ class OAuth2Client(BaseAsyncOAuth2Client):
         params.update(
             extra_params
         )  # for example: access_type='offline', state='xyz'
+        logger.debug(
+            "Built OAuth2 authorization URL with scope_count=%d",
+            len(scope),
+        )
         return f"{self.auth_url}?{urllib.parse.urlencode(params)}"
 
     async def fetch_token(
@@ -149,9 +157,21 @@ class OAuth2Client(BaseAsyncOAuth2Client):
         self, url: str, params: dict[str, Any]
     ) -> dict[str, Any]:
         """Send a non-blocking POST form request and parse its response."""
+        parsed_url = urllib.parse.urlparse(url)
+        grant_type = params.get("grant_type", "unknown")
+        logger.debug(
+            "Sending OAuth2 token request with grant_type=%s to %s%s",
+            grant_type,
+            parsed_url.netloc,
+            parsed_url.path,
+        )
         response = await self._client.post(url, data=params)
         raw = response.text
         if not raw:
+            logger.error(
+                "OAuth2 token endpoint returned an empty response for grant_type=%s",
+                grant_type,
+            )
             raise JamOAuth2EmptyRaw(
                 details={
                     "endpoint": url,
@@ -169,6 +189,11 @@ class OAuth2Client(BaseAsyncOAuth2Client):
             }
 
         if response.is_error:
+            logger.warning(
+                "OAuth2 token request failed with status=%d for grant_type=%s",
+                response.status_code,
+                grant_type,
+            )
             raise JamOAuth2Error(
                 details={
                     "status": response.status_code,
@@ -176,9 +201,15 @@ class OAuth2Client(BaseAsyncOAuth2Client):
                     "data": data,
                 }
             )
+        logger.debug(
+            "OAuth2 token request completed with status=%d for grant_type=%s",
+            response.status_code,
+            grant_type,
+        )
         return data
 
     async def aclose(self) -> None:
         """Close the internally-created HTTP client."""
         if self._owns_client:
             await self._client.aclose()
+            logger.debug("Closed internally-managed async OAuth2 HTTP client")
