@@ -21,6 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 -->
 
+## [4.1.2] - 2026-09-18
+
+### Fixed
+- Fix documentation routing.
+
+---
+
 ## [4.1.1] - 2026-09-18
 
 ### Fixed

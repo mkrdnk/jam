@@ -11,6 +11,15 @@ import type { NavItem as MdNavItem, VersionManifest } from "./types"
 const MD_MANIFEST = manifest as unknown as VersionManifest
 const DOC_VERSIONS: string[] = MD_MANIFEST.versions
 const DOC_LAYOUT_WIDTH = 1040
+const LATEST_VERSION_ROUTE = "latest"
+
+function docsVersionRoute(version: string): string {
+  return version === DOC_VERSIONS[0] ? LATEST_VERSION_ROUTE : version
+}
+
+function docsPath(version: string, slug: string): string {
+  return `/${docsVersionRoute(version)}/${slug.replace(/--/g, "/")}`
+}
 
 type Theme = "light" | "dark"
 type PageId = "home" | "search"
@@ -1161,9 +1170,21 @@ export default function App() {
 
   const pathSegments = location.pathname.split("/").filter(Boolean)
   const first = pathSegments[0] ?? ""
-  const isDocRoute = DOC_VERSIONS.includes(first) && pathSegments.length >= 2
+  const isLatestDocRoute =
+    first === LATEST_VERSION_ROUTE && pathSegments.length >= 2
+  const isDocRoute =
+    (DOC_VERSIONS.includes(first) || isLatestDocRoute) &&
+    pathSegments.length >= 2
   const searchVersion = searchParams.get("version") ?? docVersion
-  const effectiveVersion = isDocRoute ? first : (first === "search" ? searchVersion : docVersion)
+  const effectiveVersion = isDocRoute
+    ? isLatestDocRoute
+      ? DOC_VERSIONS[0]
+      : first
+    : first === "search"
+      ? searchVersion === LATEST_VERSION_ROUTE
+        ? DOC_VERSIONS[0]
+        : searchVersion
+      : docVersion
   const mdSlug = isDocRoute ? pathSegments.slice(1).join("--") : null
   const searchQuery = searchParams.get("q") ?? ""
 
@@ -1201,18 +1222,18 @@ export default function App() {
       setSidebarOpen(false)
       return
     }
-    navigate(`/${v}/${slug.replace(/--/g, "/")}`)
+    navigate(docsPath(v, slug))
     setSidebarOpen(false)
   }, [effectiveVersion, navigate])
 
   const goHome = useCallback(() => { navigate("/"); setSidebarOpen(false) }, [navigate])
   const goDocs = useCallback(() => {
     const firstSlug = getFirstPageSlug(MD_MANIFEST.docs[effectiveVersion]?.nav || [])
-    navigate(firstSlug ? `/${effectiveVersion}/${firstSlug.replace(/--/g, "/")}` : "/")
+    navigate(firstSlug ? docsPath(effectiveVersion, firstSlug) : "/")
     setSidebarOpen(false)
   }, [effectiveVersion, navigate])
   const handleSearch = useCallback((q: string) => {
-    navigate(`/search?q=${encodeURIComponent(q)}&version=${encodeURIComponent(effectiveVersion)}`)
+    navigate(`/search?q=${encodeURIComponent(q)}&version=${encodeURIComponent(docsVersionRoute(effectiveVersion))}`)
     setSidebarOpen(false)
   }, [effectiveVersion, navigate])
   const toggleTheme = useCallback(() => {
@@ -1227,14 +1248,14 @@ export default function App() {
   const changeVersion = useCallback((v: string) => {
     setSidebarOpen(false)
     if (mode === "search") {
-      navigate(`/search?q=${encodeURIComponent(searchQuery)}&version=${encodeURIComponent(v)}`)
+      navigate(`/search?q=${encodeURIComponent(searchQuery)}&version=${encodeURIComponent(docsVersionRoute(v))}`)
       return
     }
     if (mode === "doc") {
       const target = mdSlug && findPageBySlug(MD_MANIFEST.docs[v]?.nav || [], mdSlug)
         ? mdSlug
         : getFirstPageSlug(MD_MANIFEST.docs[v]?.nav || [])
-      navigate(target ? `/${v}/${target.replace(/--/g, "/")}` : "/")
+      navigate(target ? docsPath(v, target) : "/")
       return
     }
     if (mode === "api") {

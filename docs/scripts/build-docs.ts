@@ -62,6 +62,10 @@ function escapeForTs(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$/g, "\\$");
 }
 
+function linksToLatest(content: string, version: string): string {
+  return content.replaceAll(`](/${version}/`, "](/latest/");
+}
+
 function buildNavFromYml(ymlRoot: YmlBlock[], versionDir: string): NavItem[] {
   const buildItems = (pages: YmlPage[], parentId: string): NavItem[] =>
     pages.flatMap((page, index) => {
@@ -144,7 +148,10 @@ async function main() {
       const filePath = path.join(versionDir, page.slug.replace(/--/g, "/") + ".md");
       const raw = fs.readFileSync(filePath, "utf-8");
       const { content } = matter(raw);
-      pageEntries.push({ key: `${version}/${page.slug}`, content });
+      pageEntries.push({
+        key: `${version}/${page.slug}`,
+        content: version === versions[0] ? linksToLatest(content, version) : content,
+      });
     }
   }
 
