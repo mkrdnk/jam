@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import django
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.middleware.csrf import get_token
 from django.test import RequestFactory, override_settings
 import pytest
 
@@ -201,6 +202,25 @@ def test_cookie_session_enforces_csrf_with_native_dmr_error():
         JamSyncAuth(source="session")(None, controller)
     assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
     assert exc_info.value.raw_data is error
+
+
+@override_settings(JAM_CONFIG={"session": {"type": "json"}})
+def test_cookie_session_accepts_valid_csrf_token():
+    request = _request(session="id", method="post")
+    csrf_token = get_token(request)
+    request.COOKIES[settings.CSRF_COOKIE_NAME] = request.META["CSRF_COOKIE"]
+    request.META["HTTP_X_CSRFTOKEN"] = csrf_token
+    principal = Principal(SimpleNamespace(pk="42"), {}, "session")
+    controller = SimpleNamespace(request=request)
+
+    with patch(
+        "jam.ext.django._authentication.authenticate_credential",
+        return_value=principal,
+    ):
+        auth = JamSyncAuth(source="session")
+        assert auth(None, controller) is auth
+
+    assert request.user is principal.subject
 
 
 @override_settings(JAM_CONFIG={"session": {"type": "json"}})
