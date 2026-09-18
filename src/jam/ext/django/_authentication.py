@@ -151,6 +151,11 @@ def adapt_principal(
     )
 
 
+def _user_can_authenticate(user: Any) -> bool:
+    """Применить правило Django для отключённых учётных записей."""
+    return getattr(user, "is_active", True)
+
+
 def _invalid_errors() -> tuple[type[BaseException], ...]:
     return (
         JamError,
@@ -172,6 +177,8 @@ def authenticate_credential(
     try:
         principal = get_jam().authenticate(credential, via=via)
         user = get_user_model()._default_manager.get(pk=_subject_pk(principal))
+        if not _user_can_authenticate(user):
+            raise InvalidCredential
     except JamConfigurationError:
         raise
     except _invalid_errors():
@@ -191,6 +198,8 @@ async def authenticate_credential_async(
         user = await get_user_model()._default_manager.aget(
             pk=_subject_pk(principal)
         )
+        if not _user_can_authenticate(user):
+            raise InvalidCredential
     except JamConfigurationError:
         raise
     except _invalid_errors():
@@ -216,10 +225,6 @@ def install_principal(request: Any, principal: Principal[Any]) -> None:
     user = principal.subject
     request.user = user
     request._jam_principal = principal
-    # Django permission backends only receive ``user_obj``. The ORM result is
-    # unique to this request, so this request-local bridge cannot leak between
-    # concurrent requests.
-    user._jam_principal = principal
 
     async def auser() -> Any:
         return user
