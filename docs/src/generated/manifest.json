@@ -435,7 +435,6 @@
         "jam.ext",
         "jam.ext._base",
         "jam.ext.django",
-        "jam.ext.django._auth",
         "jam.ext.django._authentication",
         "jam.ext.django.apps",
         "jam.ext.django.backends",

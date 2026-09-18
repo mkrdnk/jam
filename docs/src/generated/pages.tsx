@@ -8792,36 +8792,6 @@ Django-native authentication and authorization integration.
 
 This module does not expose documented public definitions.
 
-## jam.ext.django._auth
-
-Source: \`src/jam/ext/django/_auth.py\`
-
-Backward-compatible Bearer helpers for existing Django adapters.
-
-## \`get_bearer_credential\`
-
-\`\`\`python
-function def get_bearer_credential(request
-\`\`\`
-
-Extract a Bearer credential or return \`\`None\`\` for another scheme.
-
-## \`detect_token_type\`
-
-\`\`\`python
-function def detect_token_type(token
-\`\`\`
-
-Classify JWT, JWE, and PASETO without cryptographic verification.
-
-## \`authenticate_bearer\`
-
-\`\`\`python
-function def authenticate_bearer(request
-\`\`\`
-
-Authenticate a Bearer token and adapt its subject to a Django user.
-
 ## jam.ext.django._authentication
 
 Source: \`src/jam/ext/django/_authentication.py\`
