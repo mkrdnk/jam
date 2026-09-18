@@ -7060,7 +7060,7 @@ Jam - A universal auth* framework that provides
 popular auth mechanisms strictly according to the specification.
 
 Source code: https://github.com/mkrdnk/jam
-Documentation: https://jam.makridenko.ru
+Documentation: https://jam.makridenko.com
 
 This module does not expose documented public definitions.
 

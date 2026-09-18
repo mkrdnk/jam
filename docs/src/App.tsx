@@ -690,7 +690,7 @@ const MODULES = [
   // { name: "OIDC",         desc: "Authorization code · ID tokens", slug: "usage--oauth2" },
   { name: "Authorization", desc: "RBAC · Permissions · Policies", slug: "core--authz" },
   { name: "OTP / TOTP",   desc: "RFC 4226 · RFC 6238 · 2FA",     slug: "authentication--otp" },
-  { name: "KeyChain",     desc: "Rotation · FileStorage · Custom", slug: "core--keychain" },
+  { name: "KeyChain",     desc: "Rotation · FileStorage · Custom", slug: "dev--keychain" },
 ]
 
 const INTEGRATIONS = [
