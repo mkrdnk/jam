@@ -1,6 +1,11 @@
-# Jam
-
-![logo](https://github.com/mkrdnk/jam/blob/master/docs/public/assets/h_logo_n_title.png?raw=true)
+---
+title: Home
+image: assets/logo_n_title.png
+---
+<div style="text-align: center;">
+    <img alt="logo" src="assets/loog_n_title.png" />
+    <p>Welcome to Jam documentation!</p>
+</div>
 
 ![Python Version](https://img.shields.io/badge/Python-3.10+-blue?logo=python&logoColor=white)
 [![PyPI - Version](https://img.shields.io/pypi/v/jamlib)](https://pypi.org/project/jamlib/)
@@ -9,18 +14,20 @@
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/mkrdnk/jam)
 [![GitHub License](https://img.shields.io/github/license/mkrdnk/jam)](https://github.com/mkrdnk/jam/blob/master/LICENSE.md)
 
-**Jam (Jam Auth Module)** - Jam (Jam Auth Module) - A universal auth* framework that provides popular auth mechanisms strictly according to the specification.
+## About
+**Jam (Jam Auth Module)** - A universal auth* framework that provides popular auth mechanisms strictly according to the specification.
 
-* Documentation: [jam.makridenko.com](https://jam.makridenko.com)
-* Changelog: [CHANGELOG.md](https://github.com/mkrdnk/jam/blob/master/CHANGELOG.md)
-
-
-## Install
-```bash
-pip install jamlib
+## Installation
+<!-- termynal -->
+```
+> pip install jamlib
+---> 100%
+Installed!
 ```
 
+
 ## Quick example
+
 ```python
 from dataclasses import dataclass
 
@@ -30,7 +37,7 @@ from jam import BaseSubject, Jam
 @dataclass
 class User(BaseSubject):
     id: int
-    email: str
+    email: str = ""
 
 
 jam = Jam(config="config.toml", subject=User)
@@ -47,42 +54,51 @@ allowed: bool = jam.authorize(
 )
 ```
 
+See the [Quickstart](/latest/gettingstarted/quickstart) for a step-by-step walkthrough.
+
+## Asynchronous support
+!!! note
+    `AsyncJam` uses native async session, token-list, and OAuth2 backends.
+    Stateless cryptographic modules and authorization remain synchronous.
+
+```python
+from jam.aio import AsyncJam
+
+jam = AsyncJam(config="config.toml")
+token = await jam.issue(
+    {"id": "username@example.com"},
+    via="jwt",
+    iss="Jam",
+)
+principal = await jam.authenticate(token, via="jwt")
+```
+
+
 ## Why Jam?
 Jam is a library that provides the most popular AUTH* mechanisms right out of the box.
 
-* [JOSE](https://jam.makridenko.com/latest/authx/jose/index)
-* [PASETO](https://jam.makridenko.com/latest/authx/paseto)
-* [Server side sessions](https://jam.makridenko.com/latest/authx/sessions/)
-* [OTP](https://jam.makridenko.com/latest/authx/otp/)
-* [OAuth2](https://jam.makridenko.com/latest/authx/oauth2/)
-* [SAML](https://jam.makridenko.com/latest/authx/saml/)
+* [JOSE](usage/jose/)
+* [PASETO](/latest/authx/paseto)
+* [Server side sessions](/latest/authx/sessions)
+* [OTP](/latest/authx/otp)
+* [OAuth2](/latest/authx/oauth2)
+* [SAML](/latest/authx/saml)
 
-### Authorization
-Jam combines permissions granted to one credential with server-side policy rules. This makes it possible to issue two tokens for the same user with different permissions and to restrict those permissions using the current time, resource or request.
-
-```python
-principal = jam.authenticate(token, via="jwt")
-
-if jam.authorize(principal, "user:delete"):
-    ...
-```
 
 ### Framework integrations
 
 Jam provides ready-to-use integrations for the most popular frameworks:
 
-* [Django](https://jam.makridenko.com/latest/integrations/django)
-* [FastAPI](https://jam.makridenko.com/latest/integrations/fastapi)
-* [Starlette](https://jam.makridenko.com/latest/integrations/starlette)
-* [Litestar](https://jam.makridenko.com/latest/integrations/litestar)
-* [Flask](https://jam.makridenko.com/latest/integrations/flask)
+* [FastAPI](/latest/integrations/fastapi)
+* [Starlette](/latest/integrations/starlette)
+* [Litestar](/latest/integrations/litestar)
+* [Flask](/latest/integrations/flask)
 
 Each integration offers built-in middleware or plugin support for JWT and session-based authentication.
 
 ### Why choose Jam?
 Jam supports many authentication methods out of the box with minimal dependencies.
 Here is a comparison with other libraries:
-
 
 | Features / Library    | **Jam** | [Authx](https://authx.yezz.me/) | [PyJWT](https://pyjwt.readthedocs.io) | [AuthLib](https://docs.authlib.org) | [OTP Auth](https://otp.authlib.org/) |
 |-----------------------|--------|----------------------------------|---------------------------------------|-------------------------------------|--------------------------------------|

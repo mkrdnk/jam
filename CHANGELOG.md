@@ -21,6 +21,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 -->
 
+## [4.1.3] - 2026-09-18
+
+### Added
+- Added `aauthorize()` for non-blocking permission checks in asynchronous
+  Django Modern REST controllers.
+- Added `source="session"` as an explicit session-only mode for
+  `JamSyncAuth` and `JamAsyncAuth`.
+
+### Changed
+- DMR authorization helpers now preserve an existing resource when `resource`
+  is omitted and allow it to be cleared explicitly with `resource=None`.
+- DMR OpenAPI output now rejects auth instances with no enabled mechanism and
+  documents custom session-header prefixes and cookie-session CSRF responses.
+- Updated the 4.1.3 documentation and README links for the current
+  documentation layout, including valid serializer-backed DMR controllers.
+
+### Fixed
+- Fixed DMR examples that used serializer-free controllers for Python return
+  values or imported decorators from an unsupported module.
+- Clarified Bearer-or-Session configuration so OpenAPI describes alternative
+  authentication methods instead of requiring both.
+
+### Security
+- Jam Session credentials read from cookies now enforce Django CSRF validation
+  for unsafe requests in synchronous and asynchronous DMR controllers.
+
+---
+
 ## [4.1.2] - 2026-09-18
 
 ### Fixed

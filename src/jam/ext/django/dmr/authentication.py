@@ -4,12 +4,17 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from collections.abc import Mapping
+from http import HTTPStatus
+from typing import TYPE_CHECKING, Any, Literal
 
 from django.core.exceptions import ImproperlyConfigured
+from django.middleware.csrf import CsrfViewMiddleware
 from django.views.decorators.debug import sensitive_variables
 from dmr.exceptions import NotAuthenticatedError
+from dmr.metadata import EndpointMetadata, ResponseSpec
 from dmr.openapi.objects import SecurityRequirement, SecurityScheme
+from dmr.response import APIError
 from dmr.security import AsyncAuth, SyncAuth
 
 from jam.ext import CredentialSource
@@ -20,6 +25,12 @@ from jam.ext.django._authentication import (
     configured_mechanisms,
     install_principal,
 )
+
+
+if TYPE_CHECKING:
+    from dmr.controller import Controller
+    from dmr.endpoint import Endpoint
+    from dmr.serializer import BaseSerializer
 
 
 _Mode = Literal["all", "bearer", "session"]
@@ -52,12 +63,31 @@ def _bearer_format() -> str | None:
 
 
 def _api_key_scheme(source: CredentialSource) -> SecurityScheme:
+    description = "Jam Session authentication"
+    if source.kind == "header" and source.scheme is not None:
+        description += f"; value must use the {source.scheme} prefix"
     return SecurityScheme(
         type="apiKey",
         name=source.name,
         security_scheme_in=source.kind,
-        description="Jam Session authentication",
+        description=description,
     )
+
+
+def _ensure_csrf(controller: Controller[BaseSerializer]) -> None:
+    """Raise a native DMR 403 when Django rejects the CSRF check."""
+    middleware = CsrfViewMiddleware(lambda request: None)
+    rejection = middleware.process_view(
+        controller.request,
+        lambda request: None,
+        (),
+        {},
+    )
+    if rejection is not None:
+        raise APIError(
+            controller.format_error("CSRF verification failed."),
+            status_code=HTTPStatus.FORBIDDEN,
+        )
 
 
 class _JamAuth:
@@ -68,18 +98,19 @@ class _JamAuth:
     def __init__(
         self,
         *,
-        source: Literal["all", "bearer"] | CredentialSource = "all",
+        source: Literal["all", "bearer", "session"] | CredentialSource = "all",
         session_source: CredentialSource = CredentialSource.cookie("session"),
     ) -> None:
         if isinstance(source, CredentialSource):
             self._mode: _Mode = "session"
             self._session_source = source
-        elif source in {"all", "bearer"}:
+        elif source in {"all", "bearer", "session"}:
             self._mode = source
             self._session_source = session_source
         else:
             raise ValueError(
-                "source must be 'all', 'bearer', or a CredentialSource."
+                "source must be 'all', 'bearer', 'session', or a "
+                "CredentialSource."
             )
 
     @property
@@ -117,6 +148,11 @@ class _JamAuth:
                 "instance. Configure separate source='bearer' and "
                 "source=CredentialSource(...) instances."
             )
+        if not names:
+            raise ImproperlyConfigured(
+                "No enabled Jam authentication mechanism is accepted by "
+                "this auth instance."
+            )
         return {name: [] for name in names}
 
     @property
@@ -134,14 +170,74 @@ class _JamAuth:
             ),
         }
 
+    def _uses_cookie_session(self) -> bool:
+        return (
+            self._accepts_session
+            and self._session_source.kind == "cookie"
+        )
+
+    def _ensure_cookie_session_csrf(
+        self,
+        controller: Controller[BaseSerializer],
+        principal: Any,
+    ) -> None:
+        if (
+            self._uses_cookie_session()
+            and principal.token_type == "session"
+            and controller.request.COOKIES.get(self._session_source.name)
+        ):
+            _ensure_csrf(controller)
+
+    def _add_csrf_response_spec(
+        self,
+        controller_cls: type[Controller[BaseSerializer]],
+        existing_responses: Mapping[HTTPStatus, ResponseSpec],
+        responses: list[ResponseSpec],
+    ) -> list[ResponseSpec]:
+        """Add the cookie-session CSRF response unless already documented."""
+        if (
+            not self._uses_cookie_session()
+            or HTTPStatus.FORBIDDEN in existing_responses
+        ):
+            return responses
+        return [
+            *responses,
+            ResponseSpec(
+                controller_cls.error_model,
+                status_code=HTTPStatus.FORBIDDEN,
+                description="Raised when CSRF check failed",
+            ),
+        ]
+
 
 class JamSyncAuth(_JamAuth, SyncAuth):
     """Authenticate Jam credentials for synchronous DMR controllers."""
 
     __slots__ = ()
 
+    def provide_response_specs(
+        self,
+        metadata: EndpointMetadata,
+        controller_cls: type[Controller[BaseSerializer]],
+        existing_responses: Mapping[HTTPStatus, ResponseSpec],
+    ) -> list[ResponseSpec]:
+        """Document authentication and cookie-session CSRF failures."""
+        return self._add_csrf_response_spec(
+            controller_cls,
+            existing_responses,
+            super().provide_response_specs(
+                metadata,
+                controller_cls,
+                existing_responses,
+            ),
+        )
+
     @sensitive_variables()
-    def __call__(self, endpoint: Any, controller: Any) -> JamSyncAuth | None:
+    def __call__(
+        self,
+        endpoint: Endpoint,
+        controller: Controller[BaseSerializer],
+    ) -> JamSyncAuth | None:
         """Set DMR's canonical request identity after Jam authentication."""
         del endpoint
         try:
@@ -153,6 +249,7 @@ class JamSyncAuth(_JamAuth, SyncAuth):
             raise NotAuthenticatedError from None
         if principal is None:
             return None
+        self._ensure_cookie_session_csrf(controller, principal)
         install_principal(controller.request, principal)
         return self
 
@@ -162,11 +259,28 @@ class JamAsyncAuth(_JamAuth, AsyncAuth):
 
     __slots__ = ()
 
+    def provide_response_specs(
+        self,
+        metadata: EndpointMetadata,
+        controller_cls: type[Controller[BaseSerializer]],
+        existing_responses: Mapping[HTTPStatus, ResponseSpec],
+    ) -> list[ResponseSpec]:
+        """Document authentication and cookie-session CSRF failures."""
+        return self._add_csrf_response_spec(
+            controller_cls,
+            existing_responses,
+            super().provide_response_specs(
+                metadata,
+                controller_cls,
+                existing_responses,
+            ),
+        )
+
     @sensitive_variables()
     async def __call__(
         self,
-        endpoint: Any,
-        controller: Any,
+        endpoint: Endpoint,
+        controller: Controller[BaseSerializer],
     ) -> JamAsyncAuth | None:
         """Set identity using async credential and Django ORM paths."""
         del endpoint
@@ -179,5 +293,6 @@ class JamAsyncAuth(_JamAuth, AsyncAuth):
             raise NotAuthenticatedError from None
         if principal is None:
             return None
+        self._ensure_cookie_session_csrf(controller, principal)
         install_principal(controller.request, principal)
         return self

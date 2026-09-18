@@ -1,5 +1,6 @@
 import asyncio
 import base64
+from http import HTTPStatus
 import json
 import sys
 from types import SimpleNamespace
@@ -8,6 +9,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import django
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.middleware.csrf import get_token
 from django.test import RequestFactory, override_settings
 import pytest
 
@@ -45,6 +47,8 @@ if not settings.configured:
     django.setup()
 
 
+from django.contrib.auth.models import AnonymousUser  # noqa: E402
+
 from jam.ext.django._authentication import (  # noqa: E402
     InvalidCredential,
     authenticate_request,
@@ -57,6 +61,7 @@ from jam.ext.django.context import (  # noqa: E402
 from jam.ext.django.dmr import (  # noqa: E402
     JamAsyncAuth,
     JamSyncAuth,
+    aauthorize,
     authorize,
     request_principal,
 )
@@ -67,13 +72,13 @@ def _segment(value):
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
 
 
-def _request(*, authorization=None, session=None):
+def _request(*, authorization=None, session=None, method="get"):
     headers = {}
     if authorization is not None:
         headers["HTTP_AUTHORIZATION"] = authorization
     if session is not None:
         headers["HTTP_COOKIE"] = f"session={session}"
-    request = RequestFactory().get("/", **headers)
+    request = getattr(RequestFactory(), method)("/", **headers)
     request.user = SimpleNamespace(pk="django")
     return request
 
@@ -178,6 +183,86 @@ async def test_async_auth_installs_request_identity():
     assert request_principal(request) is principal
 
 
+@override_settings(JAM_CONFIG={"session": {"type": "json"}})
+def test_cookie_session_enforces_csrf_with_native_dmr_error():
+    request = _request(session="id", method="post")
+    principal = Principal(SimpleNamespace(pk="42"), {}, "session")
+    error = {"detail": [{"msg": "CSRF verification failed."}]}
+    controller = SimpleNamespace(
+        request=request,
+        format_error=Mock(return_value=error),
+    )
+    with (
+        patch(
+            "jam.ext.django._authentication.authenticate_credential",
+            return_value=principal,
+        ),
+        pytest.raises(APIError) as exc_info,
+    ):
+        JamSyncAuth(source="session")(None, controller)
+    assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
+    assert exc_info.value.raw_data is error
+
+
+@override_settings(JAM_CONFIG={"session": {"type": "json"}})
+def test_cookie_session_accepts_valid_csrf_token():
+    request = _request(session="id", method="post")
+    csrf_token = get_token(request)
+    request.COOKIES[settings.CSRF_COOKIE_NAME] = request.META["CSRF_COOKIE"]
+    request.META["HTTP_X_CSRFTOKEN"] = csrf_token
+    principal = Principal(SimpleNamespace(pk="42"), {}, "session")
+    controller = SimpleNamespace(request=request)
+
+    with patch(
+        "jam.ext.django._authentication.authenticate_credential",
+        return_value=principal,
+    ):
+        auth = JamSyncAuth(source="session")
+        assert auth(None, controller) is auth
+
+    assert request.user is principal.subject
+
+
+@override_settings(JAM_CONFIG={"session": {"type": "json"}})
+@pytest.mark.asyncio
+async def test_async_cookie_session_enforces_csrf():
+    request = _request(session="id", method="post")
+    principal = Principal(SimpleNamespace(pk="42"), {}, "session")
+    controller = SimpleNamespace(
+        request=request,
+        format_error=Mock(return_value={"detail": []}),
+    )
+    with (
+        patch(
+            "jam.ext.django._authentication.authenticate_credential_async",
+            new=AsyncMock(return_value=principal),
+        ),
+        pytest.raises(APIError) as exc_info,
+    ):
+        await JamAsyncAuth(source="session")(None, controller)
+    assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
+
+
+@override_settings(JAM_CONFIG={"session": {"type": "json"}})
+def test_non_cookie_session_does_not_enforce_csrf():
+    request = RequestFactory().post("/", HTTP_X_JAM_SESSION="id")
+    principal = Principal(SimpleNamespace(pk="42"), {}, "session")
+    controller = SimpleNamespace(request=request)
+    auth = JamSyncAuth(
+        source="session",
+        session_source=CredentialSource.header("X-Jam-Session"),
+    )
+    with (
+        patch(
+            "jam.ext.django._authentication.authenticate_credential",
+            return_value=principal,
+        ),
+        patch("jam.ext.django.dmr.authentication._ensure_csrf") as ensure_csrf,
+    ):
+        assert auth(None, controller) is auth
+    ensure_csrf.assert_not_called()
+
+
 @override_settings(JAM_CONFIG={"jose": {"jwt": {}}})
 def test_invalid_explicit_credential_raises_dmr_error():
     controller = SimpleNamespace(
@@ -214,6 +299,35 @@ def test_openapi_custom_session_source():
     assert scheme.name == "X-Jam-Session"
     assert auth.security_requirement == {"jamSession": []}
     assert auth.www_authenticate_challenge is None
+
+
+@override_settings(JAM_CONFIG={"session": {"type": "json"}})
+def test_openapi_header_scheme_documents_required_prefix():
+    scheme = JamSyncAuth(
+        source=CredentialSource.header("X-Jam-Session", scheme="Session")
+    ).security_schemes["jamSession"]
+    assert "Session prefix" in scheme.description
+
+
+@override_settings(JAM_CONFIG={"session": {"type": "json"}})
+def test_cookie_session_documents_401_and_csrf_403():
+    auth = JamSyncAuth(source="session")
+    controller_cls = SimpleNamespace(error_model=dict)
+    specs = auth.provide_response_specs(
+        SimpleNamespace(auth=[auth]),
+        controller_cls,
+        {},
+    )
+    assert {spec.status_code for spec in specs} == {
+        HTTPStatus.UNAUTHORIZED,
+        HTTPStatus.FORBIDDEN,
+    }
+
+
+@override_settings(JAM_CONFIG={})
+def test_security_requirement_rejects_no_available_mechanism():
+    with pytest.raises(ImproperlyConfigured):
+        JamSyncAuth(source="session").security_requirement
 
 
 @override_settings(
@@ -269,3 +383,71 @@ def test_authorize_denial_is_dmr_api_error():
         authorize(request, "posts.change")
     assert exc_info.value.status_code == 403
     assert exc_info.value.raw_data["detail"][0]["msg"] == "Permission denied."
+
+
+def test_request_principal_preserves_anonymous_django_identity():
+    request = _request()
+    request.user = AnonymousUser()
+
+    principal = request_principal(request)
+
+    assert principal.subject is request.user
+    assert principal.token_type == "django"
+    assert principal.subject.is_authenticated is False
+
+
+def test_authorize_distinguishes_inherited_and_cleared_resource():
+    request = _request()
+    request.user.has_perm = Mock(return_value=True)
+    original = AuthorizationContext(request=request, resource="outer")
+    token = authorization_context.set(original)
+    try:
+        authorize(request, "posts.change")
+        authorize(request, "posts.change", resource=None)
+    finally:
+        authorization_context.reset(token)
+
+    assert request.user.has_perm.call_args_list == [
+        (("posts.change", "outer"), {}),
+        (("posts.change", None), {}),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_aauthorize_uses_async_permission_api_and_cleans_context():
+    principal = Principal(
+        SimpleNamespace(pk="42"),
+        {"permissions": ["posts.change"]},
+        "jwt",
+    )
+    request = _request()
+    request.user = principal.subject
+    request._jam_principal = principal
+
+    async def check_permission(permission, resource):
+        assert permission == "posts.change"
+        assert resource == "outer"
+        assert authorization_context.get().resource == "outer"
+        assert principal_context.get() is principal
+        return True
+
+    request.user.ahas_perm = AsyncMock(side_effect=check_permission)
+    original = AuthorizationContext(request=request, resource="outer")
+    token = authorization_context.set(original)
+    try:
+        assert await aauthorize(request, "posts.change") is None
+        assert authorization_context.get() is original
+        assert principal_context.get() is None
+    finally:
+        authorization_context.reset(token)
+
+
+@pytest.mark.asyncio
+async def test_aauthorize_denial_is_dmr_api_error():
+    request = _request()
+    request.user.ahas_perm = AsyncMock(return_value=False)
+
+    with pytest.raises(APIError) as exc_info:
+        await aauthorize(request, "posts.change")
+
+    assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
