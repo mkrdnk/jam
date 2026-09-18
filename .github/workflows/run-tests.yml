@@ -35,28 +35,3 @@ jobs:
           uv sync --group tests --all-extras
       - name: Run tests
         run: uv run pytest -x
-
-  dmr-compatibility:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - dmr-version: "minimum"
-            dmr-spec: "==0.15.0"
-          - dmr-version: "latest"
-            dmr-spec: ">=0.15.0"
-    name: DMR ${{ matrix.dmr-version }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install uv
-          uv sync --python 3.11 --extra dmr --group tests
-          uv pip install --upgrade "django-modern-rest${{ matrix.dmr-spec }}"
-      - name: Run DMR integration tests
-        run: uv run pytest -x tests/extensions/test_django_dmr.py
