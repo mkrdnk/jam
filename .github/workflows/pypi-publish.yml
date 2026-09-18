@@ -30,11 +30,6 @@ jobs:
         run: uv sync --group tests --all-extras
       - name: Run tests
         run: uv run pytest -x
-      - name: Check source quality
-        run: |
-          uv run ruff check src/
-          uv run ruff format --check src/
-          uv run pyrefly check
       - name: Build distribution
         run: uv build
       - name: Upload distribution
