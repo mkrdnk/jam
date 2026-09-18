@@ -35,7 +35,25 @@ JAM_CONFIG = {
 
 `JAM_CONFIG` is required. The app validates it during Django startup. Jam is
 created once per process; `get_jam()` is available when direct access is
-necessary, but application code normally uses Django APIs.
+necessary, but application code normally uses Django APIs. Configure at least
+the token module that the application will issue and accept. For example:
+
+```python
+import os
+
+
+JAM_CONFIG = {
+    "jose": {
+        "jwt": {
+            "alg": "HS256",
+            "secret_key": os.environ["JAM_JWT_SECRET"],
+        },
+    },
+}
+```
+
+See [Configuration](/4.1.0/gettingstarted/configuration) for all available
+modules and options.
 
 ## Sessions and permissions
 
@@ -69,8 +87,10 @@ request is `context.request`. This also works outside a request, where the
 context simply has no request.
 
 `ModelBackend` and `JamBackend` can be installed together as above: Django's
-normal backend aggregation allows either backend to grant a permission. To use
-only Jam authorization, configure:
+normal backend aggregation allows either backend to grant a permission. This
+means a Django model or group permission can grant access without a Jam policy
+grant. Keep both backends only when that is intentional. To use Jam as the
+only authorization source, configure:
 
 ```python
 AUTHENTICATION_BACKENDS = ["jam.ext.django.JamBackend"]
@@ -119,6 +139,18 @@ token = get_jam().issue(
 The authenticated token's claims remain available to Jam authorization, while
 Django code always sees the Django user object. The same issuance approach
 works with `via="paseto"`.
+
+```python
+from jam.ext.django import get_jam
+```
+
+Jam resolves the token subject with
+`AUTH_USER_MODEL._default_manager.get(pk=subject)`. A Bearer credential does
+not create or update a Django user; its subject must identify an existing
+user. In a policy, `Principal.subject` is that user, while
+`Principal.claims` contains the token claims. `context.request` contains the
+current request and `context.resource` contains the object passed to
+`user.has_perm(permission, obj)`.
 
 Authentication precedence is deliberate:
 

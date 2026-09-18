@@ -5410,7 +5410,25 @@ JAM_CONFIG = {
 
 \`JAM_CONFIG\` is required. The app validates it during Django startup. Jam is
 created once per process; \`get_jam()\` is available when direct access is
-necessary, but application code normally uses Django APIs.
+necessary, but application code normally uses Django APIs. Configure at least
+the token module that the application will issue and accept. For example:
+
+\`\`\`python
+import os
+
+
+JAM_CONFIG = {
+    "jose": {
+        "jwt": {
+            "alg": "HS256",
+            "secret_key": os.environ["JAM_JWT_SECRET"],
+        },
+    },
+}
+\`\`\`
+
+See [Configuration](/4.1.0/gettingstarted/configuration) for all available
+modules and options.
 
 ## Sessions and permissions
 
@@ -5444,8 +5462,10 @@ request is \`context.request\`. This also works outside a request, where the
 context simply has no request.
 
 \`ModelBackend\` and \`JamBackend\` can be installed together as above: Django's
-normal backend aggregation allows either backend to grant a permission. To use
-only Jam authorization, configure:
+normal backend aggregation allows either backend to grant a permission. This
+means a Django model or group permission can grant access without a Jam policy
+grant. Keep both backends only when that is intentional. To use Jam as the
+only authorization source, configure:
 
 \`\`\`python
 AUTHENTICATION_BACKENDS = ["jam.ext.django.JamBackend"]
@@ -5495,6 +5515,18 @@ The authenticated token's claims remain available to Jam authorization, while
 Django code always sees the Django user object. The same issuance approach
 works with \`via="paseto"\`.
 
+\`\`\`python
+from jam.ext.django import get_jam
+\`\`\`
+
+Jam resolves the token subject with
+\`AUTH_USER_MODEL._default_manager.get(pk=subject)\`. A Bearer credential does
+not create or update a Django user; its subject must identify an existing
+user. In a policy, \`Principal.subject\` is that user, while
+\`Principal.claims\` contains the token claims. \`context.request\` contains the
+current request and \`context.resource\` contains the object passed to
+\`user.has_perm(permission, obj)\`.
+
 Authentication precedence is deliberate:
 
 * no Bearer header: retain the normal session (or anonymous) user;
@@ -5519,6 +5551,11 @@ pip install "jamlib[drf]"
 
 Jam uses DRF's standard authentication and permission extension points.
 
+Before configuring DRF, complete the base
+[Django setup](/4.1.0/integrations/django/django): define \`JAM_CONFIG\` and add
+\`"jam.ext.django"\` to \`INSTALLED_APPS\`.
+\`JamMiddleware\` is optional for DRF-only applications.
+
 ## Authentication
 
 Configure the authenticator globally or per view:
@@ -5535,12 +5572,17 @@ REST_FRAMEWORK = {
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
-from jam.ext.django.drf import JamAuthentication
+from jam.ext.django.drf import (
+    JamAuthentication,
+    JamPermission,
+    JamPermissionMixin,
+)
 
 
-class ProfileView(APIView):
+class ProfileView(JamPermissionMixin, APIView):
     authentication_classes = [JamAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, JamPermission]
+    jam_permissions = {"GET": "profiles:read"}
 
     def get(self, request):
         return {
@@ -5576,16 +5618,19 @@ again.
 ## Jam-native permissions
 
 Use \`JamPermission\` with \`JamPermissionMixin\` for Jam permission names. Jam
-receives the full \`Principal\` and DRF \`Request\`:
+receives the full \`Principal\` and DRF \`Request\`. \`JamPermission\` authorizes
+configured permissions; it does not require an authenticated user by itself.
+Combine it with \`IsAuthenticated\` unless anonymous access is intentional:
 
 \`\`\`python
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from jam.ext.django.drf import JamPermission, JamPermissionMixin
 
 
 class ReportView(JamPermissionMixin, APIView):
-    permission_classes = [JamPermission]
+    permission_classes = [IsAuthenticated, JamPermission]
     jam_permissions = {
         "GET": "reports:read",
         "POST": ("reports:read", "reports:export"),
@@ -5594,11 +5639,12 @@ class ReportView(JamPermissionMixin, APIView):
 
 All listed permissions must be allowed. A mapping first resolves a ViewSet's
 \`action\`, then falls back to the HTTP method. This supports built-in and custom
-\`@action\` actions:
+\`@action\` actions. An action or method absent from the mapping has no Jam
+permission requirement, so configure every protected operation explicitly:
 
 \`\`\`python
 class PostViewSet(JamPermissionMixin, ModelViewSet):
-    permission_classes = [JamPermission]
+    permission_classes = [IsAuthenticated, JamPermission]
     jam_permissions = {
         "list": "posts:list",
         "create": "posts:create",
@@ -5617,6 +5663,8 @@ Object-level checks receive \`AuthorizationContext(request=request,
 resource=obj)\`, and are performed by DRF when the view calls \`get_object()\`.
 Override \`get_jam_permissions(request)\` or
 \`get_jam_object_permissions(request, obj)\` for dynamic configuration.
+For custom views that obtain objects without \`get_object()\`, call
+\`check_object_permissions(request, obj)\` yourself.
 
 DRF does not run object-permission checks for every item in a list response.
 Restrict \`get_queryset()\` or add a filter backend when a list must contain
