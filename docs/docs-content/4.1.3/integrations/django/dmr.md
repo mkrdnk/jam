@@ -1,10 +1,11 @@
 # Django Modern REST
 
-Install the DMR extra. It includes Django support, so
-`jamlib[django,dmr]` is not needed. Python 3.11 or newer is required:
+Install Jam's DMR extra together with DMR's Pydantic serializer extra. The
+DMR extra includes Django support, so `jamlib[django,dmr]` is not needed.
+Python 3.11 or newer is required:
 
 ```bash
-pip install "jamlib[dmr]"
+pip install "jamlib[dmr]" "django-modern-rest[pydantic]"
 ```
 
 Jam uses DMR's standard authentication extension points and Django's standard
@@ -98,10 +99,11 @@ custom user models and custom primary keys:
 
 ```python
 from dmr import Controller
+from dmr.plugins.pydantic import PydanticSerializer
 
 
-class ProfileController(Controller):
-    def get(self):
+class ProfileController(Controller[PydanticSerializer]):
+    def get(self) -> dict[str, int]:
         return {"user_id": self.request.user.pk}
 ```
 
@@ -112,12 +114,13 @@ Use `request_principal()` when application code also needs Jam claims:
 
 ```python
 from dmr import Controller
+from dmr.plugins.pydantic import PydanticSerializer
 
 from jam.ext.django.dmr import request_principal
 
 
-class ProfileController(Controller):
-    def get(self):
+class ProfileController(Controller[PydanticSerializer]):
+    def get(self) -> dict[str, object]:
         principal = request_principal(self.request)
         return {
             "user_id": self.request.user.pk,
@@ -211,8 +214,16 @@ Use Django's standard permission API. `JamBackend` passes the current
 Principal, request, and optional resource to `Jam.authorize()`:
 
 ```python
-if self.request.user.has_perm("posts.change_post", post):
-    ...
+from typing import Any
+
+from dmr.security import AuthenticatedHttpRequest
+
+
+def can_change_post(
+    request: AuthenticatedHttpRequest[Any],
+    post: object,
+) -> bool:
+    return request.user.has_perm("posts.change_post", post)
 ```
 
 `ModelBackend` and `JamBackend` can be installed together: Django allows
@@ -226,18 +237,29 @@ Use `authorize()` when denial should immediately become a DMR JSON `403`
 response:
 
 ```python
+from typing import Any
+
+from dmr.security import AuthenticatedHttpRequest
+
 from jam.ext.django.dmr import authorize
 
 
-authorize(
-    self.request,
-    "posts.change_post",
-    resource=post,
-    attributes={
-        "tenant": tenant,
-        "workspace": workspace,
-    },
-)
+def authorize_post_change(
+    request: AuthenticatedHttpRequest[Any],
+    post: object,
+    *,
+    tenant: str,
+    workspace: str,
+) -> None:
+    authorize(
+        request,
+        "posts.change_post",
+        resource=post,
+        attributes={
+            "tenant": tenant,
+            "workspace": workspace,
+        },
+    )
 ```
 
 The message is `Permission denied.`. Additional attributes are available to
@@ -250,14 +272,22 @@ Async controllers must use `aauthorize()` so Django's asynchronous permission
 chain is used instead of blocking the event loop:
 
 ```python
+from typing import Any
+
+from dmr.security import AuthenticatedHttpRequest
+
 from jam.ext.django.dmr import aauthorize
 
 
-await aauthorize(
-    self.request,
-    "posts.change_post",
-    resource=post,
-)
+async def authorize_post_change(
+    request: AuthenticatedHttpRequest[Any],
+    post: object,
+) -> None:
+    await aauthorize(
+        request,
+        "posts.change_post",
+        resource=post,
+    )
 ```
 
 ## Declarative permissions
@@ -267,18 +297,20 @@ DMR controllers are Django views, so use Django's standard
 
 ```python
 from django.contrib.auth.decorators import permission_required
-from dmr import Controller, dispatch_decorator, endpoint_decorator
+from dmr import Controller
+from dmr.decorators import dispatch_decorator, endpoint_decorator
+from dmr.plugins.pydantic import PydanticSerializer
 
 
 @dispatch_decorator(
     permission_required("posts.view_post", raise_exception=True),
 )
-class PostsController(Controller):
+class PostsController(Controller[PydanticSerializer]):
     @endpoint_decorator(
         permission_required("posts.add_post", raise_exception=True),
     )
-    def post(self):
-        ...
+    def post(self) -> dict[str, bool]:
+        return {"created": True}
 ```
 
 Use `dispatch_decorator()` for the whole controller and
