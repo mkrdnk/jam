@@ -71,7 +71,7 @@ if jam.authorize(principal, "user:delete"):
 
 Jam provides ready-to-use integrations for the most popular frameworks:
 
-* [Django](https://jam.makridenko.com/latest/integrations/django)
+* [Django](https://jam.makridenko.com/latest/integrations/django/django)
 * [FastAPI](https://jam.makridenko.com/latest/integrations/fastapi)
 * [Starlette](https://jam.makridenko.com/latest/integrations/starlette)
 * [Litestar](https://jam.makridenko.com/latest/integrations/litestar)
