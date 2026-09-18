@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import ast
-import re
 from pathlib import Path
+import re
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -40,7 +40,7 @@ def render_module(path: Path, module: str) -> str:
     ]
     for node in definitions:
         kind = "class" if isinstance(node, ast.ClassDef) else "function"
-        lines.extend([f"## `{node.name}`", "", f"```python", f"{kind} {signature(node) if kind == 'function' else ast.unparse(node).split(':', 1)[0]}", "```", ""])
+        lines.extend([f"## `{node.name}`", "", "```python", f"{kind} {signature(node) if kind == 'function' else ast.unparse(node).split(':', 1)[0]}", "```", ""])
         doc = clean_docstring(node)
         if doc:
             lines.extend([doc, ""])
