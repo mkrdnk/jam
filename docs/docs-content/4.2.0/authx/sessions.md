@@ -341,7 +341,7 @@ Args:
 
 * `session_id`: `str` - Session ID.
 
-Returns: 
+Returns:
 
 `str`: New session ID.
 

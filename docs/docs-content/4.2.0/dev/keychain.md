@@ -1,9 +1,15 @@
 # KeyChain
 
-`jam.keychain` manages the signing or encryption keys used by JWT and PASETO.
+`jam.keychain` manages the signing or encryption keys used by JWT, PASETO,
+and Macaroons.
 It supports safe key rotation: newly issued credentials use the current key,
 while credentials issued by retired keys remain verifiable until those keys are
 revoked or removed.
+
+Jam's KeyChain-backed Macaroon profile uses the distinct
+`MACAROON-HMAC-SHA256` algorithm and stores `kid` in the signed root identifier.
+A 32-byte secret is generated for this algorithm. Retired keys verify issued
+tokens and their attenuated copies; revoked keys are no longer accepted.
 
 Use a KeyChain when credentials must survive key rotation. A configured chain
 is available through `jam.keychains`.

@@ -12,8 +12,16 @@ Credential
 Principal
     ├── subject
     ├── claims
-    └── token_type
+    ├── token_type
+    └── constraints
 ```
+
+`constraints` is a separate tuple of mandatory credential restrictions.
+Jam's Macaroon authentication compiles caveats from the primary macaroon and
+verified discharges into this tuple. They do not become claims or permissions.
+`Jam.authorize()` checks these constraints before the custom policy; the
+policy cannot override a denial. JWT, JWE, PASETO, and sessions normally have
+`constraints=()`.
 
 The Principal is the object you use after authentication to identify the authenticated Subject and inspect the information provided by its credential.
 
