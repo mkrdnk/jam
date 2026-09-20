@@ -26,9 +26,11 @@ from jam.ext import CredentialSource
 from jam.ext.django.runtime import get_async_jam, get_jam
 
 
-BearerType = Literal["jwt", "jwe", "paseto"]
+BearerType = Literal["jwt", "jwe", "paseto", "macaroon"]
 _PASETO_PREFIX = re.compile(r"^v[1-4]\.(?:local|public)\.")
-_AUTHENTICATED_TYPES = frozenset({"jwt", "jwe", "paseto", "session"})
+_AUTHENTICATED_TYPES = frozenset(
+    {"jwt", "jwe", "paseto", "session", "macaroon"}
+)
 
 
 class InvalidCredential(Exception):
@@ -54,6 +56,7 @@ def configured_mechanisms() -> frozenset[str]:
             ("jwt", jwt),
             ("paseto", config.get("paseto")),
             ("session", config.get("session")),
+            ("macaroon", config.get("macaroon")),
         )
         if value is not None
     }
@@ -69,6 +72,16 @@ def detect_bearer_type(credential: str) -> BearerType | None:
         return "paseto"
     parts = credential.split(".")
     if len(parts) not in {3, 5}:
+        try:
+            raw = base64.b64decode(
+                credential + "=" * (-len(credential) % 4),
+                altchars=b"-_",
+                validate=True,
+            )
+        except (ValueError, binascii.Error):
+            return None
+        if raw.startswith(b"\x02"):
+            return "macaroon"
         return None
     try:
         encoded = parts[0] + "=" * (-len(parts[0]) % 4)
@@ -148,6 +161,7 @@ def adapt_principal(
         subject=user,
         claims=principal.claims,
         token_type=principal.token_type,
+        constraints=principal.constraints,
     )
 
 

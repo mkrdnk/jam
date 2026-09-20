@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from collections.abc import Sequence
 from typing import Any
 
 from jam.__core__ import JamAuthType, JamIssueType
@@ -12,6 +13,7 @@ from jam.exceptions import (
     JamJWTNotInWhiteList,
     JamSessionNotFound,
 )
+from jam.macaroons import Macaroon
 from jam.subject import BaseSubject
 
 
@@ -29,7 +31,7 @@ class AsyncJam(BaseAsyncJam):
         context: AuthorizationContext | None = None,
     ) -> bool:
         """Check whether a principal may perform a permission."""
-        return self._policy.check(principal, permission, context)
+        return self._authorize(principal, permission, context)
 
     async def issue(
         self,
@@ -46,6 +48,20 @@ class AsyncJam(BaseAsyncJam):
         """Issue a token or create a session."""
         payload = self._prepare_payload(subject, permissions, claims)
         match via:
+            case "macaroon":
+                if self.macaroon is None:
+                    raise JamConfigurationError(
+                        message="Macaroon module is not configured.",
+                        error_code="configuration.macaroon.not_configured",
+                    )
+                return self.macaroon.issue(
+                    payload,
+                    exp=exp,
+                    nbf=nbf,
+                    iss=iss,
+                    aud=aud,
+                    jti=jti,
+                )
             case "jwt":
                 if self.jwt is None:
                     raise JamConfigurationError(
@@ -82,15 +98,30 @@ class AsyncJam(BaseAsyncJam):
             case _:
                 raise JamConfigurationError(
                     message=f"Unknown 'via' type: {via}. "
-                    "Available: jwt, paseto, session",
+                    "Available: jwt, paseto, session, macaroon",
                     error_code="configuration.issue_unknown_via",
                 )
 
     async def authenticate(
-        self, token: str, via: JamAuthType
+        self,
+        token: str,
+        via: JamAuthType,
+        *,
+        discharges: Sequence[str | bytes | Macaroon] | None = None,
     ) -> Principal[Any]:
         """Authenticate a token or session and return its principal."""
+        constraints = ()
         match via:
+            case "macaroon":
+                if self.macaroon is None:
+                    raise JamConfigurationError(
+                        message="Macaroon module is not configured.",
+                        error_code="configuration.macaroon.not_configured",
+                    )
+                payload, constraints = self.macaroon.authenticate(
+                    token,
+                    discharges=() if discharges is None else discharges,
+                )
             case "jwt":
                 if self.jwt is None:
                     raise JamConfigurationError(
@@ -136,7 +167,7 @@ class AsyncJam(BaseAsyncJam):
             case _:
                 raise JamConfigurationError(
                     message=f"Unknown 'via' type: {via}. "
-                    "Available: jwt, paseto, session",
+                    "Available: jwt, jwe, paseto, session, macaroon",
                     error_code="configuration.authenticate_unknown_via",
                 )
 
@@ -144,6 +175,7 @@ class AsyncJam(BaseAsyncJam):
             subject=self._subject_from_payload(payload),
             claims=dict(payload),
             token_type=via,
+            constraints=constraints,
         )
 
     async def _issue_jwt(

@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
-"""Jam - A universal auth* framework that provides
-popular auth mechanisms strictly according to the specification.
+"""Jam — универсальная библиотека аутентификации и авторизации.
+
+Популярные механизмы реализованы в соответствии со спецификациями.
 
 Source code: https://github.com/mkrdnk/jam
 Documentation: https://jam.makridenko.com
@@ -11,12 +12,16 @@ import logging
 
 from jam.__base__ import BaseJam
 from jam.authz import (
+    AuthorizationConstraint,
     AuthorizationContext,
     BasePolicy,
+    ConditionConstraint,
+    PermissionConstraint,
     Policy,
     Principal,
 )
 from jam.instance import Jam
+from jam.macaroons import Caveat, CaveatRegistry, Macaroon
 from jam.subject import BaseSubject
 from jam.utils.redaction import SensitiveDataFilter
 
@@ -33,6 +38,12 @@ __all__ = [
     "BasePolicy",
     "Policy",
     "Principal",
+    "AuthorizationConstraint",
     "AuthorizationContext",
+    "ConditionConstraint",
+    "PermissionConstraint",
+    "Caveat",
+    "CaveatRegistry",
+    "Macaroon",
     "SensitiveDataFilter",
 ]

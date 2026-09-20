@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from collections.abc import Sequence
 import logging
 from typing import Any
 
@@ -11,6 +12,7 @@ from jam.exceptions import (
     JamJWSVerificationError,
     JamSessionNotFound,
 )
+from jam.macaroons import Macaroon
 from jam.subject import BaseSubject
 
 
@@ -39,12 +41,7 @@ class Jam(BaseJam):
             bool: True if allowed, False otherwise.
 
         """
-        allowed = self._policy.check(principal, permission, context)
-        if allowed:
-            logger.debug("Authorization granted for permission=%s", permission)
-        else:
-            logger.warning("Authorization denied for permission=%s", permission)
-        return allowed
+        return self._authorize(principal, permission, context)
 
     def issue(
         self,
@@ -84,6 +81,20 @@ class Jam(BaseJam):
             len(payload),
         )
         match via:
+            case "macaroon":
+                if self.macaroon is None:
+                    raise JamConfigurationError(
+                        message="Macaroon module is not configured.",
+                        error_code="configuration.macaroon.not_configured",
+                    )
+                return self.macaroon.issue(
+                    payload,
+                    exp=exp,
+                    nbf=nbf,
+                    iss=iss,
+                    aud=aud,
+                    jti=jti,
+                )
             case "jwt":
                 if self.jwt is None:
                     raise JamConfigurationError(
@@ -126,20 +137,29 @@ class Jam(BaseJam):
                 logger.info("Issued credential via=session")
                 return credential
             case _:
-                logger.warning("Cannot issue credential via unsupported type=%s", via)
+                logger.warning(
+                    "Cannot issue credential via unsupported type=%s", via
+                )
                 raise JamConfigurationError(
                     message=f"Unknown 'via' type: {via}. "
-                    "Available: jwt, paseto, session",
+                    "Available: jwt, paseto, session, macaroon",
                     error_code="configuration.issue_unknown_via",
                 )
 
-    def authenticate(self, token: str, via: JamAuthType) -> Principal[Any]:
+    def authenticate(
+        self,
+        token: str,
+        via: JamAuthType,
+        *,
+        discharges: Sequence[str | bytes | Macaroon] | None = None,
+    ) -> Principal[Any]:
         """Authenticate a token or session and return a subject.
 
         Args:
             token (str): Token or session ID.
             via (JamAuthType): Token type: "jwt", "jwe", "paseto" or
                 "session".
+            discharges: Bound discharges for third-party caveats.
 
         Returns:
             Principal: Authenticated subject and credential claims.
@@ -149,7 +169,18 @@ class Jam(BaseJam):
             JamSessionNotFound: If a session does not exist.
         """
         logger.debug("Authenticating credential via=%s", via)
+        constraints = ()
         match via:
+            case "macaroon":
+                if self.macaroon is None:
+                    raise JamConfigurationError(
+                        message="Macaroon module is not configured.",
+                        error_code="configuration.macaroon.not_configured",
+                    )
+                payload, constraints = self.macaroon.authenticate(
+                    token,
+                    discharges=() if discharges is None else discharges,
+                )
             case "jwt":
                 if self.jwt is None:
                     raise JamConfigurationError(
@@ -184,7 +215,9 @@ class Jam(BaseJam):
                     )
                 data = self.session.get(token)
                 if data is None:
-                    logger.warning("Session authentication failed: session not found")
+                    logger.warning(
+                        "Session authentication failed: session not found"
+                    )
                     raise JamSessionNotFound(details={"session_id": token})
                 payload = data
             case _:
@@ -194,7 +227,7 @@ class Jam(BaseJam):
                 )
                 raise JamConfigurationError(
                     message=f"Unknown 'via' type: {via}. "
-                    "Available: jwt, paseto, session",
+                    "Available: jwt, jwe, paseto, session, macaroon",
                     error_code="configuration.authenticate_unknown_via",
                 )
 
@@ -203,4 +236,5 @@ class Jam(BaseJam):
             subject=self._subject_from_payload(payload),
             claims=dict(payload),
             token_type=via,
+            constraints=constraints,
         )

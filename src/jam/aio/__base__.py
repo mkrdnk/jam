@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from typing import Any
 
 from jam.__core__ import JamAuthType, JamIssueType, _JamCore
 from jam.authz import AuthorizationContext, Principal
+from jam.macaroons import Macaroon
 from jam.subject import BaseSubject
 
 
@@ -48,6 +50,8 @@ class BaseAsyncJam(_JamCore, ABC):
         self,
         token: str,
         via: JamAuthType,
+        *,
+        discharges: Sequence[str | bytes | Macaroon] | None = None,
     ) -> Principal[Any]:
         """Authenticate a token or session."""
         raise NotImplementedError

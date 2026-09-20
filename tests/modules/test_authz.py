@@ -9,7 +9,9 @@ import pytest
 from jam import (
     AuthorizationContext,
     BaseSubject,
+    ConditionConstraint,
     Jam,
+    PermissionConstraint,
     Policy,
     Principal,
 )
@@ -115,6 +117,49 @@ def test_declared_token_grants_limit_policy_rules(user):
     policy = Policy({"user:delete": ["role=admin"]})
 
     assert not policy.check(principal, "user:delete")
+
+
+def test_credential_constraints_cannot_be_bypassed_by_custom_policy(user):
+    """Credential restrictions are enforced before a replaceable policy."""
+
+    class AllowEverything:
+        def check(self, principal, permission, context=None):
+            return True
+
+    jam = Jam()
+    jam._policy = AllowEverything()
+    principal = Principal(
+        subject=user,
+        claims={"permissions": ["documents:*"]},
+        token_type="macaroon",
+        constraints=(PermissionConstraint("documents:read"),),
+    )
+
+    assert jam.authorize(principal, "documents:read")
+    assert not jam.authorize(principal, "documents:write")
+
+
+def test_condition_constraint_fails_closed_on_missing_runtime_data(user):
+    """A missing field or reference cannot satisfy a credential constraint."""
+    principal = Principal(
+        subject=user,
+        claims={"permissions": ["documents:read"]},
+        token_type="macaroon",
+        constraints=(
+            ConditionConstraint(
+                field="context.resource.owner_id",
+                value="@subject.id",
+            ),
+        ),
+    )
+    jam = Jam()
+
+    assert not jam.authorize(principal, "documents:read")
+    assert jam.authorize(
+        principal,
+        "documents:read",
+        AuthorizationContext(resource={"owner_id": "42"}),
+    )
 
 
 def test_deny_rule_takes_precedence(user):
