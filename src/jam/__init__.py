@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
-"""Jam — универсальная библиотека аутентификации и авторизации.
-
-Популярные механизмы реализованы в соответствии со спецификациями.
+"""Jam (Jam Auth Module) - A universal auth* framework that provides popular
+auth mechanisms strictly according to the specification.
 
 Source code: https://github.com/mkrdnk/jam
 Documentation: https://jam.makridenko.com
