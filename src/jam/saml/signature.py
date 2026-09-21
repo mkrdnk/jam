@@ -31,6 +31,7 @@ __all__ = [
     "sign_assertion",
     "verify_assertion_signature",
     "extract_public_key_from_keyinfo",
+    "extract_key_id_from_keyinfo",
     "load_private_key",
     "load_public_key",
 ]
@@ -61,10 +62,10 @@ def load_private_key(pem_str: str) -> rsa.RSAPrivateKey:
 
 
 def load_public_key(pem_str: str) -> rsa.RSAPublicKey:
-    """Load an RSA public key from a PEM string or X.509 certificate.
+    """Load an RSA public key from public, private, or certificate PEM.
 
     Args:
-        pem_str: PEM-encoded public key or certificate.
+        pem_str: PEM-encoded public key, private key, or certificate.
 
     Returns:
         RSAPublicKey.
@@ -75,8 +76,15 @@ def load_public_key(pem_str: str) -> rsa.RSAPublicKey:
     try:
         key = serialization.load_pem_public_key(pem_str.encode("utf-8"))
     except ValueError:
-        cert = load_pem_x509_certificate(pem_str.encode("utf-8"))
-        key = cert.public_key()
+        try:
+            cert = load_pem_x509_certificate(pem_str.encode("utf-8"))
+            key = cert.public_key()
+        except ValueError:
+            private_key = serialization.load_pem_private_key(
+                pem_str.encode("utf-8"),
+                password=None,
+            )
+            key = private_key.public_key()
     if not isinstance(key, rsa.RSAPublicKey):
         logger.warning("Rejected non-RSA SAML public verification key")
         raise JamSAMLValidationError(
@@ -97,6 +105,7 @@ def sign_assertion(
     assertion: ET.Element,
     key: rsa.RSAPrivateKey,
     cert_pem: str | None = None,
+    key_id: str | None = None,
 ) -> ET.Element:
     """Sign a SAML Assertion with an enveloped XML signature.
 
@@ -107,6 +116,7 @@ def sign_assertion(
         assertion: The Assertion Element to sign (must have an ID attribute).
         key: RSA private key for signing.
         cert_pem: Optional PEM certificate for X509Data in KeyInfo.
+        key_id: Optional KeyChain key identifier for KeyInfo/KeyName.
 
     Returns:
         The assertion Element with Signature child appended.
@@ -163,9 +173,14 @@ def sign_assertion(
     sve = sub_element(sig, "SignatureValue", NS_DS)
     sve.text = signature_value
 
-    if cert_pem:
+    key_info: ET.Element | None = None
+    if cert_pem or key_id:
         key_info = make_element("KeyInfo", NS_DS)
         sig.append(key_info)
+        if key_id:
+            sub_element(key_info, "KeyName", NS_DS, text=key_id)
+    if cert_pem:
+        assert key_info is not None
         x509_data = make_element("X509Data", NS_DS)
         key_info.append(x509_data)
         x509_cert = make_element("X509Certificate", NS_DS)
@@ -268,6 +283,21 @@ def verify_assertion_signature(
 
     logger.debug("Verified SAML assertion signature with algorithm=RSA-SHA256")
     return True
+
+
+def extract_key_id_from_keyinfo(assertion: ET.Element) -> str:
+    """Extract a KeyChain key identifier from an assertion signature."""
+    sig = assertion.find(f"{{{NS_DS}}}Signature")
+    key_name = (
+        sig.find(f"{{{NS_DS}}}KeyInfo/{{{NS_DS}}}KeyName")
+        if sig is not None
+        else None
+    )
+    if key_name is None or not key_name.text:
+        raise JamSAMLValidationError(
+            message="SAML signature does not contain a KeyInfo/KeyName."
+        )
+    return key_name.text
 
 
 def extract_public_key_from_keyinfo(sig: ET.Element) -> rsa.RSAPublicKey:

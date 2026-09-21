@@ -102,3 +102,23 @@ async def test_async_redis_session():
 
     await jam.session.delete(session_id)
     assert await jam.session.get(session_id) is None
+
+
+@pytest.mark.asyncio
+async def test_saml_issue_and_authenticate(saml_configs):
+    idp_config, sp_config = saml_configs
+    idp = AsyncJam(config=idp_config)
+    sp = AsyncJam(config=sp_config)
+
+    token = await idp.issue(
+        {"id": "user123", "role": "admin"},
+        via="saml",
+        exp=60,
+    )
+    principal = await sp.authenticate(token, via="saml")
+
+    assert principal.subject["id"] == "user123"
+    assert principal.claims["role"] == "admin"
+    assert principal.claims["aud"] == "https://sp.test"
+    assert principal.claims["iss"] == "https://idp.test"
+    assert principal.token_type == "saml"

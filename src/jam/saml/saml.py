@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 from datetime import datetime, timedelta, timezone
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -41,6 +41,7 @@ from jam.saml.metadata import (
     parse_metadata,
 )
 from jam.saml.signature import (
+    extract_key_id_from_keyinfo,
     load_private_key,
     load_public_key,
     sign_assertion,
@@ -83,10 +84,17 @@ from jam.saml.xml import (
     sub_element,
 )
 from jam.utils.config_maker import __key_loader__
+from jam.utils.config_meta import ConfigMeta
 
 
-class SAML(BaseSAML):
+if TYPE_CHECKING:
+    from jam.keychain import BaseKeyChain
+
+
+class SAML(BaseSAML, metaclass=ConfigMeta):
     """Concrete SAML 2.0 implementation."""
+
+    _CONFIG_POINTER = "jam.saml"
 
     def __init__(
         self,
@@ -106,6 +114,9 @@ class SAML(BaseSAML):
         want_assertions_signed: bool = True,
         id_store: dict | None = None,
         replay_ttl: int = 300,
+        keychain: BaseKeyChain | None = None,
+        config: str | dict[str, Any] | None = None,
+        pointer: str | None = None,
     ) -> None:
         """Initialize SAML instance.
 
@@ -125,6 +136,9 @@ class SAML(BaseSAML):
             want_assertions_signed: Require signed assertions (``sp``, default True).
             id_store: Dict for replay attack protection. Auto-created if None.
             replay_ttl: Seconds before a consumed ID is eligible for cleanup.
+            keychain: Key lifecycle manager for SAML signing and verification.
+            config: Configuration dict or file path.
+            pointer: Config pointer. Defaults to ``"jam.saml"``.
         """
         register_namespaces()
 
@@ -136,6 +150,7 @@ class SAML(BaseSAML):
         self._allowed_clock_skew = allowed_clock_skew
         self._want_assertions_signed = want_assertions_signed
         self._replay_ttl = replay_ttl
+        self.keychain = keychain
         self._id_store: dict[str, float] = (
             id_store if id_store is not None else {}
         )
@@ -172,6 +187,31 @@ class SAML(BaseSAML):
             self._encryption_key = load_encryption_key(pem)
         else:
             self._encryption_key = None
+
+    def _signing_key(self) -> tuple[Any, str | None]:
+        """Return the configured static or current KeyChain signing key."""
+        if self.keychain is not None:
+            key_id, material = self.keychain._material_for_issue()
+            return load_private_key(material.decode("utf-8")), key_id
+        return self._private_key, None
+
+    def _sign_element(self, element: ET.Element) -> None:
+        """Sign an XML element with the active static or KeyChain key."""
+        signing_key, key_id = self._signing_key()
+        sign_assertion(
+            element,
+            signing_key,
+            self._certificate,
+            key_id=key_id,
+        )
+
+    def _verification_key(self, assertion: ET.Element) -> Any:
+        """Resolve the verification key for a signed assertion."""
+        if self.keychain is None:
+            return self._idp_public_key
+        key_id = extract_key_id_from_keyinfo(assertion)
+        material = self.keychain._material_for_verify(key_id)
+        return load_public_key(material.decode("utf-8"))
 
     # ── Replay protection ──
 
@@ -264,7 +304,7 @@ class SAML(BaseSAML):
         return build_redirect_url(
             idp_sso_url,
             params,
-            signing_key=self._private_key,
+            signing_key=self._signing_key()[0],
         )
 
     def parse_response(
@@ -358,7 +398,7 @@ class SAML(BaseSAML):
             "verify_signature", self._want_assertions_signed
         )
         if verify_sig:
-            verify_key = self._idp_public_key
+            verify_key = self._verification_key(assertion_elem)
             if verify_key:
                 verify_assertion_signature(assertion_elem, verify_key)
             else:
@@ -431,15 +471,28 @@ class SAML(BaseSAML):
             now: Current time.
             include_authn_statement: Whether to include AuthnStatement.
             **kwargs: destination, in_response_to, name_id_format,
-                      session_index.
+                      session_index, expires_in, and not_before.
 
         Returns:
             Signed Assertion ET.Element.
         """
         now_str = fmt_instant(now)
+        expires_in = kwargs.get("expires_in")
+        if expires_in is None:
+            expires_in = self._default_exp
+        not_before = kwargs.get("not_before")
+        if not_before is None:
+            not_before = 0
+        not_before_str = fmt_instant(
+            datetime.fromtimestamp(
+                now.timestamp() + not_before,
+                tz=timezone.utc,
+            )
+        )
         exp_str = fmt_instant(
             datetime.fromtimestamp(
-                now.timestamp() + self._default_exp, tz=timezone.utc
+                now.timestamp() + expires_in,
+                tz=timezone.utc,
             )
         )
 
@@ -481,7 +534,7 @@ class SAML(BaseSAML):
         )
 
         conditions = make_element("Conditions", NS_SAML)
-        conditions.set("NotBefore", now_str)
+        conditions.set("NotBefore", not_before_str)
         conditions.set("NotOnOrAfter", exp_str)
         assertion.append(conditions)
 
@@ -514,7 +567,7 @@ class SAML(BaseSAML):
             authn_stmt.set("SessionIndex", session_index)
             assertion.append(authn_stmt)
 
-        sign_assertion(assertion, self._private_key, self._certificate)
+        self._sign_element(assertion)
 
         return assertion
 
@@ -535,16 +588,17 @@ class SAML(BaseSAML):
             issuer: IdP entity ID.
             audience: SP entity ID.
             **kwargs: in_response_to, name_id_format, session_index,
-                      destination, encrypt (bool, default False).
+                      destination, encrypt (bool, default False),
+                      expires_in, not_before, and assertion_id.
 
         Returns:
             Signed (and optionally encrypted) SAML Response XML string.
         """
-        if self._private_key is None:
+        if self._private_key is None and self.keychain is None:
             raise JamSAMLEmptyPrivateKey
 
         response_id = make_id()
-        assertion_id = make_id()
+        assertion_id = kwargs.pop("assertion_id", None) or make_id()
         now = datetime.now(timezone.utc)
         now_str = fmt_instant(now)
 
@@ -677,7 +731,7 @@ class SAML(BaseSAML):
             POST: Base64-encoded signed XML.
             Redirect: Signed redirect URL.
         """
-        if self._private_key is None:
+        if self._private_key is None and self.keychain is None:
             raise JamSAMLEmptyPrivateKey
 
         query_id = make_id()
@@ -706,7 +760,7 @@ class SAML(BaseSAML):
             for name in attribute_names:
                 sub_element(query, "Attribute", NS_SAML, attrib={"Name": name})
 
-        sign_assertion(query, self._private_key, self._certificate)
+        self._sign_element(query)
 
         self._mark_consumed(query_id)
         xml_str = ET.tostring(query, encoding="unicode")
@@ -722,7 +776,7 @@ class SAML(BaseSAML):
         return build_redirect_url(
             destination,
             params,
-            signing_key=self._private_key,
+            signing_key=self._signing_key()[0],
         )
 
     def parse_attribute_query(
@@ -819,7 +873,7 @@ class SAML(BaseSAML):
         Returns:
             Signed SAML Response XML string.
         """
-        if self._private_key is None:
+        if self._private_key is None and self.keychain is None:
             raise JamSAMLEmptyPrivateKey
 
         response_id = make_id()
@@ -908,7 +962,7 @@ class SAML(BaseSAML):
             POST: Base64-encoded signed XML.
             Redirect: Signed redirect URL.
         """
-        if self._private_key is None:
+        if self._private_key is None and self.keychain is None:
             raise JamSAMLEmptyPrivateKey
 
         request_id = make_id()
@@ -939,7 +993,7 @@ class SAML(BaseSAML):
                 text=session_index,
             )
 
-        sign_assertion(logout_request, self._private_key, self._certificate)
+        self._sign_element(logout_request)
 
         self._mark_consumed(request_id)
         xml_str = ET.tostring(logout_request, encoding="unicode")
@@ -956,7 +1010,7 @@ class SAML(BaseSAML):
         return build_redirect_url(
             destination,
             params,
-            signing_key=self._private_key,
+            signing_key=self._signing_key()[0],
         )
 
     def parse_logout_request(
@@ -1044,7 +1098,7 @@ class SAML(BaseSAML):
             POST: Base64-encoded signed XML.
             Redirect: Signed redirect URL.
         """
-        if self._private_key is None:
+        if self._private_key is None and self.keychain is None:
             raise JamSAMLEmptyPrivateKey
 
         response_id = make_id()
@@ -1064,7 +1118,7 @@ class SAML(BaseSAML):
         sc = sub_element(status, "StatusCode", NS_SAMLP)
         sc.set("Value", status_code)
 
-        sign_assertion(logout_response, self._private_key, self._certificate)
+        self._sign_element(logout_response)
 
         self._mark_consumed(response_id)
         xml_str = ET.tostring(logout_response, encoding="unicode")
@@ -1081,7 +1135,7 @@ class SAML(BaseSAML):
         return build_redirect_url(
             destination,
             params,
-            signing_key=self._private_key,
+            signing_key=self._signing_key()[0],
         )
 
     def parse_logout_response(
@@ -1186,7 +1240,7 @@ class SAML(BaseSAML):
             Redirect: Signed redirect URL.
             SOAP: Raw XML.
         """
-        if self._private_key is None:
+        if self._private_key is None and self.keychain is None:
             raise JamSAMLEmptyPrivateKey
 
         resolve_id = make_id()
@@ -1202,7 +1256,7 @@ class SAML(BaseSAML):
 
         sub_element(resolve, "Artifact", NS_SAMLP, text=artifact)
 
-        sign_assertion(resolve, self._private_key, self._certificate)
+        self._sign_element(resolve)
 
         self._mark_consumed(resolve_id)
         xml_str = ET.tostring(resolve, encoding="unicode")
@@ -1218,7 +1272,7 @@ class SAML(BaseSAML):
             return build_redirect_url(
                 destination,
                 params,
-                signing_key=self._private_key,
+                signing_key=self._signing_key()[0],
             )
 
         return xml_str
@@ -1288,7 +1342,7 @@ class SAML(BaseSAML):
             Redirect: Signed redirect URL.
             SOAP: Raw XML.
         """
-        if self._private_key is None:
+        if self._private_key is None and self.keychain is None:
             raise JamSAMLEmptyPrivateKey
 
         response_id = make_id()
@@ -1314,7 +1368,7 @@ class SAML(BaseSAML):
         original_root = safe_fromstring(original_message_xml)
         artifact_response.append(original_root)
 
-        sign_assertion(artifact_response, self._private_key, self._certificate)
+        self._sign_element(artifact_response)
 
         self._mark_consumed(response_id)
         xml_str = ET.tostring(artifact_response, encoding="unicode")
@@ -1330,7 +1384,7 @@ class SAML(BaseSAML):
             return build_redirect_url(
                 destination,
                 params,
-                signing_key=self._private_key,
+                signing_key=self._signing_key()[0],
             )
 
         return xml_str
@@ -1544,7 +1598,7 @@ class SAML(BaseSAML):
             POST: Base64-encoded signed XML.
             Redirect: Signed redirect URL.
         """
-        if self._private_key is None:
+        if self._private_key is None and self.keychain is None:
             raise JamSAMLEmptyPrivateKey
 
         request_id = make_id()
@@ -1575,7 +1629,7 @@ class SAML(BaseSAML):
                 text=new_id,
             )
 
-        sign_assertion(req, self._private_key, self._certificate)
+        self._sign_element(req)
 
         self._mark_consumed(request_id)
         xml_str = ET.tostring(req, encoding="unicode")
@@ -1591,7 +1645,7 @@ class SAML(BaseSAML):
         return build_redirect_url(
             destination,
             params,
-            signing_key=self._private_key,
+            signing_key=self._signing_key()[0],
         )
 
     def parse_manage_name_id_request(
@@ -1679,7 +1733,7 @@ class SAML(BaseSAML):
             POST: Base64-encoded signed XML.
             Redirect: Signed redirect URL.
         """
-        if self._private_key is None:
+        if self._private_key is None and self.keychain is None:
             raise JamSAMLEmptyPrivateKey
 
         response_id = make_id()
@@ -1699,7 +1753,7 @@ class SAML(BaseSAML):
         sc = sub_element(status, "StatusCode", NS_SAMLP)
         sc.set("Value", status_code)
 
-        sign_assertion(resp, self._private_key, self._certificate)
+        self._sign_element(resp)
 
         self._mark_consumed(response_id)
         xml_str = ET.tostring(resp, encoding="unicode")
@@ -1715,7 +1769,7 @@ class SAML(BaseSAML):
         return build_redirect_url(
             destination,
             params,
-            signing_key=self._private_key,
+            signing_key=self._signing_key()[0],
         )
 
     def parse_manage_name_id_response(

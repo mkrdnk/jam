@@ -104,6 +104,88 @@ def test_issue_via_session(jam_session_instance):
     assert "jti" not in decoded.claims
 
 
+def test_saml_issue_and_authenticate(saml_configs):
+    idp_config, sp_config = saml_configs
+    idp = Jam(config=idp_config)
+    sp = Jam(config=sp_config)
+
+    token = idp.issue(
+        {"id": "user123", "role": "admin"},
+        via="saml",
+        exp=60,
+        jti="_assertion-id",
+        permissions=["documents:read"],
+    )
+    principal = sp.authenticate(token, via="saml")
+
+    assert principal.subject["id"] == "user123"
+    assert principal.subject["role"] == "admin"
+    assert principal.claims["sub"] == "user123"
+    assert principal.claims["aud"] == "https://sp.test"
+    assert principal.claims["iss"] == "https://idp.test"
+    assert principal.claims["jti"] == "_assertion-id"
+    assert principal.claims["permissions"] == ["documents:read"]
+    assert principal.claims["exp"] > principal.claims["nbf"]
+    assert principal.token_type == "saml"
+
+
+def test_saml_requires_configuration():
+    jam = Jam()
+
+    with pytest.raises(
+        JamConfigurationError,
+        match="SAML module is not configured",
+    ):
+        jam.issue({"id": "user123"}, via="saml")
+
+
+def test_saml_filestorage_keychain_issue_and_authenticate(tmp_path):
+    keychain_config = {
+        "saml": {
+            "type": "FileStorage",
+            "path": str(tmp_path / "saml"),
+            "algorithm": "RS256",
+        }
+    }
+    idp = Jam(
+        config={
+            "keychains": keychain_config,
+            "saml": {
+                "role": "idp",
+                "keychain": "saml",
+                "entity_id": "https://idp.test",
+                "audience": "https://sp.test",
+            },
+        }
+    )
+    sp = Jam(
+        config={
+            "keychains": keychain_config,
+            "saml": {
+                "role": "sp",
+                "keychain": "saml",
+                "entity_id": "https://sp.test",
+                "expected_issuer": "https://idp.test",
+            },
+        }
+    )
+    idp.keychains["saml"].rotate("saml-key")
+
+    token = idp.issue({"id": "user123"}, via="saml")
+    principal = sp.authenticate(token, via="saml")
+
+    assert principal.subject["id"] == "user123"
+    assert idp.saml.keychain is idp.keychains["saml"]
+    assert sp.saml.keychain is sp.keychains["saml"]
+
+    idp.keychains["saml"].rotate("rotated-key")
+
+    rotated_token = idp.issue({"id": "user456"}, via="saml")
+    rotated_principal = sp.authenticate(rotated_token, via="saml")
+
+    assert rotated_principal.subject["id"] == "user456"
+
+
 def test_authorize(jam_jwt_instance):
     user = User(id="user123", name="test")
     assert not jam_jwt_instance.authorize(user, "any")

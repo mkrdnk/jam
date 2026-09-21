@@ -82,6 +82,13 @@ class AsyncJam(BaseAsyncJam):
                     nbf,
                     jti,
                 )
+            case "saml":
+                if self.saml is None:
+                    raise JamConfigurationError(
+                        message="SAML module is not configured.",
+                        error_code="configuration.saml.not_configured",
+                    )
+                return self._issue_saml(payload, exp, iss, aud, nbf, jti)
             case "session":
                 if self.session is None:
                     raise JamConfigurationError(
@@ -97,7 +104,7 @@ class AsyncJam(BaseAsyncJam):
             case _:
                 raise JamConfigurationError(
                     message=f"Unknown 'via' type: {via}. "
-                    "Available: jwt, paseto, session, macaroon",
+                    "Available: jwt, paseto, session, macaroon, saml",
                     error_code="configuration.issue_unknown_via",
                 )
 
@@ -153,6 +160,13 @@ class AsyncJam(BaseAsyncJam):
                         error_code="configuration.paseto.not_configured",
                     )
                 payload, _footer = self.paseto.decode(token)
+            case "saml":
+                if self.saml is None:
+                    raise JamConfigurationError(
+                        message="SAML module is not configured.",
+                        error_code="configuration.saml.not_configured",
+                    )
+                payload = self._authenticate_saml(token)
             case "session":
                 if self.session is None:
                     raise JamConfigurationError(
@@ -166,7 +180,7 @@ class AsyncJam(BaseAsyncJam):
             case _:
                 raise JamConfigurationError(
                     message=f"Unknown 'via' type: {via}. "
-                    "Available: jwt, jwe, paseto, session, macaroon",
+                    "Available: jwt, jwe, paseto, session, macaroon, saml",
                     error_code="configuration.authenticate_unknown_via",
                 )
 

@@ -117,6 +117,7 @@ def test_closed_credential_types():
         "paseto",
         "session",
         "macaroon",
+        "saml",
     }
     assert set(get_args(JamAuthType)) == {
         "jwt",
@@ -124,6 +125,7 @@ def test_closed_credential_types():
         "paseto",
         "session",
         "macaroon",
+        "saml",
     }
 
 

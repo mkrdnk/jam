@@ -59,7 +59,7 @@ class BaseJam(_JamCore, ABC):
         Args:
             subject (BaseSubject | dict[str, Any]): Subject instance.
             via (JamIssueType): Token type: "jwt", "paseto", "session",
-                or "macaroon".
+                "macaroon", or "saml".
             exp (int | None): Expiration in seconds.
             iss (str | None): Issuer.
             aud (str | None): Audience.
@@ -86,7 +86,7 @@ class BaseJam(_JamCore, ABC):
         Args:
             token (str): Token or session ID.
             via (JamAuthType): Token type: "jwt", "jwe", "paseto",
-                "session", or "macaroon".
+                "session", "macaroon", or "saml".
             discharges: Bound discharges for third-party caveats.
 
         Returns:

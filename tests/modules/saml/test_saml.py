@@ -61,6 +61,38 @@ class TestSAMLIdP:
         assert "SingleSignOnService" in meta
 
 
+class TestSAMLConfiguration:
+    def test_config_meta_from_selected_dict(self):
+        saml = SAML(
+            config={
+                "role": "idp",
+                "entity_id": "https://idp.test",
+                "default_exp": 600,
+            }
+        )
+
+        assert saml.role == "idp"
+        assert saml._entity_id == "https://idp.test"
+        assert saml._default_exp == 600
+
+    def test_config_meta_from_file(self, tmp_path):
+        config = tmp_path / "jam.toml"
+        config.write_text(
+            """
+[jam.saml]
+role = "sp"
+entity_id = "https://sp.test"
+acs_url = "https://sp.test/acs"
+""".strip()
+        )
+
+        saml = SAML(config=str(config))
+
+        assert saml.role == "sp"
+        assert saml._entity_id == "https://sp.test"
+        assert saml._acs_url == "https://sp.test/acs"
+
+
 class TestSAMLSP:
     @pytest.fixture()
     def sp_saml(self, public_key_pem) -> SAML:
