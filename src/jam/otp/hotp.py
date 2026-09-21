@@ -42,5 +42,7 @@ class HOTP(BaseOTP):
                     look_ahead,
                 )
                 return True
-        logger.warning("HOTP verification failed with look_ahead=%d", look_ahead)
+        logger.warning(
+            "HOTP verification failed with look_ahead=%d", look_ahead
+        )
         return False

@@ -139,9 +139,7 @@ class RedisSessions(BaseSessionModule):
         decoded_session_key = self.__decode_session_id_if_needed__(
             session_id
         ).split(":", 1)
-        logger.debug(
-            "Resolved session namespace in Redis storage"
-        )
+        logger.debug("Resolved session namespace in Redis storage")
         session = self._redis.hget(
             name=f"{self.session_path}:{decoded_session_key[0]}",
             key=session_id,
@@ -156,11 +154,7 @@ class RedisSessions(BaseSessionModule):
             loads_data = self._serializer.loads(session)  # type: ignore[arg-type]
         logger.debug(
             "Found session in Redis storage with data_key_count=%d",
-            (
-                len(loads_data)
-                if isinstance(loads_data, dict)
-                else 0
-            ),
+            (len(loads_data) if isinstance(loads_data, dict) else 0),
         )
         del session
 

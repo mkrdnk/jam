@@ -5,7 +5,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast
 
 from jam.__base_encoder__ import BaseEncoder
 from jam.authz import (
@@ -22,7 +22,11 @@ from jam.utils.config_maker import __config_maker__, __module_loader__
 
 
 if TYPE_CHECKING:
+    from jam.jose import JWE, JWS, JWT
     from jam.macaroons import CaveatRegistry, MacaroonModule
+    from jam.otp import BaseOTP
+    from jam.paseto import BasePASETO
+    from jam.saml import SAML
 
 
 logger = logging.getLogger(__name__)
@@ -30,8 +34,12 @@ logger = logging.getLogger(__name__)
 JamIssueType = Literal["jwt", "paseto", "session", "macaroon", "saml"]
 JamAuthType = Literal["jwt", "jwe", "paseto", "session", "macaroon", "saml"]
 
+_SessionT = TypeVar("_SessionT")
+_OAuth2ClientT = TypeVar("_OAuth2ClientT")
+_ModuleT = TypeVar("_ModuleT")
 
-class _JamCore:
+
+class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
     """Configuration and pure operations shared by sync and async facades."""
 
     _async = False
@@ -39,16 +47,16 @@ class _JamCore:
     subject: type[BaseSubject] = BaseSubject
     config: dict[str, Any] | None = None
 
-    jwt: Any = None
-    jws: Any = None
-    jwe: Any = None
-    jose: dict[str, Any] | None = None
-    session: Any = None
-    oauth2: dict[str, Any] | None = None
-    otp: Any = None
-    paseto: Any = None
-    saml: Any = None
-    macaroon: MacaroonModule | None = None
+    _jwt: JWT | None = None
+    _jws: JWS | None = None
+    _jwe: JWE | None = None
+    _jose: dict[str, JWT | JWS | JWE] | None = None
+    _session: _SessionT | None = None
+    _oauth2: dict[str, _OAuth2ClientT] | None = None
+    _otp: type[BaseOTP] | None = None
+    _paseto: BasePASETO | None = None
+    _saml: SAML | None = None
+    _macaroon: MacaroonModule | None = None
     keychains: dict[str, Any]
     _jwt_list: Any = None
     _policy: BasePolicy
@@ -87,16 +95,16 @@ class _JamCore:
         if subject is not None:
             self.subject = subject
 
-        self.jwt = None
-        self.jws = None
-        self.jwe = None
-        self.jose: dict[str, Any] | None = None
-        self.session = None
-        self.oauth2: dict[str, Any] | None = None
-        self.otp = None
-        self.paseto = None
-        self.saml = None
-        self.macaroon = None
+        self._jwt = None
+        self._jws = None
+        self._jwe = None
+        self._jose = None
+        self._session = None
+        self._oauth2 = None
+        self._otp = None
+        self._paseto = None
+        self._saml = None
+        self._macaroon = None
         self.keychains = {}
         self._jwt_list = None
         self._policy: BasePolicy = Policy()
@@ -111,15 +119,124 @@ class _JamCore:
             "BaseJam initialization complete. Modules loaded:\n"
             " jwt=%s, jws=%s, jwe=%s, session=%s, oauth2=%s, paseto=%s, "
             "otp=%s, saml=%s",
-            self.jwt is not None,
-            self.jws is not None,
-            self.jwe is not None,
-            self.session is not None,
-            self.oauth2 is not None,
-            self.paseto is not None,
-            self.otp is not None,
-            self.saml is not None,
+            self._jwt is not None,
+            self._jws is not None,
+            self._jwe is not None,
+            self._session is not None,
+            self._oauth2 is not None,
+            self._paseto is not None,
+            self._otp is not None,
+            self._saml is not None,
         )
+
+    @staticmethod
+    def _require_module(
+        module: _ModuleT | None,
+        name: str,
+        display_name: str,
+    ) -> _ModuleT:
+        """Return a configured module or raise a stable configuration error."""
+        if module is None:
+            raise JamConfigurationError(
+                message=f"{display_name} module is not configured.",
+                error_code=f"configuration.{name}.not_configured",
+            )
+        return module
+
+    @property
+    def jwt(self) -> JWT:
+        """Return the configured JWT module."""
+        return self._require_module(self._jwt, "jwt", "JWT")
+
+    @jwt.setter
+    def jwt(self, module: Any | None) -> None:
+        self._jwt = module
+
+    @property
+    def jws(self) -> JWS:
+        """Return the configured JWS module."""
+        return self._require_module(self._jws, "jws", "JWS")
+
+    @jws.setter
+    def jws(self, module: Any | None) -> None:
+        self._jws = module
+
+    @property
+    def jwe(self) -> JWE:
+        """Return the configured JWE module."""
+        return self._require_module(self._jwe, "jwe", "JWE")
+
+    @jwe.setter
+    def jwe(self, module: Any | None) -> None:
+        self._jwe = module
+
+    @property
+    def jose(self) -> dict[str, JWT | JWS | JWE]:
+        """Return the configured JOSE modules."""
+        return self._require_module(self._jose, "jose", "JOSE")
+
+    @jose.setter
+    def jose(self, modules: dict[str, Any] | None) -> None:
+        self._jose = modules
+
+    @property
+    def session(self) -> _SessionT:
+        """Return the configured session module."""
+        return self._require_module(self._session, "session", "Session")
+
+    @session.setter
+    def session(self, module: Any | None) -> None:
+        self._session = module
+
+    @property
+    def oauth2(self) -> dict[str, _OAuth2ClientT]:
+        """Return the configured OAuth2 clients."""
+        return self._require_module(self._oauth2, "oauth2", "OAuth2")
+
+    @oauth2.setter
+    def oauth2(self, clients: dict[str, Any] | None) -> None:
+        self._oauth2 = clients
+
+    @property
+    def otp(self) -> type[BaseOTP]:
+        """Return the configured OTP module."""
+        return self._require_module(self._otp, "otp", "OTP")
+
+    @otp.setter
+    def otp(self, module: Any | None) -> None:
+        self._otp = module
+
+    @property
+    def paseto(self) -> BasePASETO:
+        """Return the configured PASETO module."""
+        return self._require_module(self._paseto, "paseto", "PASETO")
+
+    @paseto.setter
+    def paseto(self, module: Any | None) -> None:
+        self._paseto = module
+
+    @property
+    def saml(self) -> SAML:
+        """Return the configured SAML module."""
+        return self._require_module(self._saml, "saml", "SAML")
+
+    @saml.setter
+    def saml(self, module: Any | None) -> None:
+        self._saml = module
+
+    @property
+    def macaroon(self) -> MacaroonModule:
+        """Return the configured Macaroon module.
+
+        Raises:
+            JamConfigurationError: If the Macaroon module is not configured.
+        """
+        return self._require_module(self._macaroon, "macaroon", "Macaroon")
+
+    @macaroon.setter
+    def macaroon(self, module: Any | None) -> None:
+        """Replace the configured Macaroon module."""
+        self._macaroon = module
 
     def _authorize(
         self,
@@ -483,6 +600,7 @@ class _JamCore:
         jti: str | None,
     ) -> str:
         """Encode a payload with the configured PASETO module."""
+        paseto = self.paseto
         data = dict(payload)
         if exp is not None:
             data["exp"] = int(time.time()) + exp
@@ -494,7 +612,7 @@ class _JamCore:
             data["aud"] = aud
         if jti is not None:
             data["jti"] = jti
-        return self.paseto.encode(payload=data)
+        return paseto.encode(payload=data)
 
     def _issue_saml(
         self,
@@ -508,6 +626,7 @@ class _JamCore:
         """Build a Base64-encoded SAML response for HTTP-POST binding."""
         from jam.saml.binding import encode_post
 
+        saml = self.saml
         saml_config = (self.config or {}).get("saml") or {}
         issuer = iss or saml_config.get("entity_id")
         audience = aud or saml_config.get("audience")
@@ -529,7 +648,7 @@ class _JamCore:
                 message="SAML issuance requires a subject with an 'id'.",
                 error_code="configuration.saml.missing_subject",
             )
-        response = self.saml.build_response(
+        response = saml.build_response(
             subject=str(subject),
             attributes=attributes,
             issuer=issuer,
@@ -545,8 +664,9 @@ class _JamCore:
         from jam.exceptions import JamSAMLValidationError
         from jam.saml.xml import STATUS_SUCCESS
 
+        saml = self.saml
         saml_config = (self.config or {}).get("saml") or {}
-        response = self.saml.parse_response(
+        response = saml.parse_response(
             token,
             binding="post",
             audience=saml_config.get("audience")

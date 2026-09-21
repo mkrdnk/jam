@@ -166,7 +166,9 @@ def safe_fromstring(xml_str: str) -> ET.Element:
     from jam.exceptions.saml import JamSAMLValidationError
 
     if "<!DOCTYPE" in xml_str.upper() or "<!ENTITY" in xml_str.upper():
-        logger.warning("Rejected SAML XML containing DTD or entity declarations")
+        logger.warning(
+            "Rejected SAML XML containing DTD or entity declarations"
+        )
         raise JamSAMLValidationError(
             message="XML with DTD/entity declarations is rejected.",
         )

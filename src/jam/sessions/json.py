@@ -126,11 +126,7 @@ class JSONSessions(BaseSessionModule):
                 loads_data = self._serializer.loads(result[0]["data"])
             logger.debug(
                 "Found session in JSON storage with data_key_count=%d",
-                (
-                    len(loads_data)
-                    if isinstance(loads_data, dict)
-                    else 0
-                ),
+                (len(loads_data) if isinstance(loads_data, dict) else 0),
             )
             del result
             return loads_data

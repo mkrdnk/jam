@@ -665,9 +665,7 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
                 self._secret, self._public_key = old_secret, old_public
         if self._keychain is not None:
             if not isinstance(footer, dict) or "_jam" not in footer:
-                logger.warning(
-                    "Rejected PASETO with invalid KeyChain footer"
-                )
+                logger.warning("Rejected PASETO with invalid KeyChain footer")
                 raise JamPASETOInvalidTokenFormat(
                     message="Invalid KeyChain footer."
                 )

@@ -120,9 +120,7 @@ class RedisSessions(BaseAsyncSessionModule):
         decoded_session_key = self.__decode_session_id_if_needed__(
             session_id
         ).split(":", 1)
-        logger.debug(
-            "Resolved session namespace in async Redis storage"
-        )
+        logger.debug("Resolved session namespace in async Redis storage")
         session = await self._redis.hget(  # type: ignore[not-async]
             name=f"{self.session_path}:{decoded_session_key[0]}",
             key=session_id,

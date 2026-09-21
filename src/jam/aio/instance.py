@@ -48,11 +48,6 @@ class AsyncJam(BaseAsyncJam):
         payload = self._prepare_payload(subject, permissions, claims)
         match via:
             case "macaroon":
-                if self.macaroon is None:
-                    raise JamConfigurationError(
-                        message="Macaroon module is not configured.",
-                        error_code="configuration.macaroon.not_configured",
-                    )
                 return self.macaroon.issue(
                     payload,
                     exp=exp,
@@ -62,18 +57,8 @@ class AsyncJam(BaseAsyncJam):
                     jti=jti,
                 )
             case "jwt":
-                if self.jwt is None:
-                    raise JamConfigurationError(
-                        message="JWT module is not configured.",
-                        error_code="configuration.jwt.not_configured",
-                    )
                 return await self._issue_jwt(payload, exp, iss, aud, nbf, jti)
             case "paseto":
-                if self.paseto is None:
-                    raise JamConfigurationError(
-                        message="PASETO module is not configured.",
-                        error_code="configuration.paseto.not_configured",
-                    )
                 return self._issue_paseto(
                     payload,
                     exp,
@@ -83,24 +68,15 @@ class AsyncJam(BaseAsyncJam):
                     jti,
                 )
             case "saml":
-                if self.saml is None:
-                    raise JamConfigurationError(
-                        message="SAML module is not configured.",
-                        error_code="configuration.saml.not_configured",
-                    )
                 return self._issue_saml(payload, exp, iss, aud, nbf, jti)
             case "session":
-                if self.session is None:
-                    raise JamConfigurationError(
-                        message="Session module is not configured.",
-                        error_code="configuration.session.not_configured",
-                    )
+                session = self.session
                 session_key = (
                     (self.config or {})
                     .get("session", {})
                     .get("session_key", "auth")
                 )
-                return await self.session.create(session_key, payload)
+                return await session.create(session_key, payload)
             case _:
                 raise JamConfigurationError(
                     message=f"Unknown 'via' type: {via}. "
@@ -119,21 +95,11 @@ class AsyncJam(BaseAsyncJam):
         constraints = ()
         match via:
             case "macaroon":
-                if self.macaroon is None:
-                    raise JamConfigurationError(
-                        message="Macaroon module is not configured.",
-                        error_code="configuration.macaroon.not_configured",
-                    )
                 payload, constraints = self.macaroon.authenticate(
                     token,
                     discharges=() if discharges is None else discharges,
                 )
             case "jwt":
-                if self.jwt is None:
-                    raise JamConfigurationError(
-                        message="JWT module is not configured.",
-                        error_code="configuration.jwt.not_configured",
-                    )
                 if self._jwt_list is not None:
                     listed = await self._jwt_list.check(token)
                     if self._jwt_list.__list_type__ == "white" and not listed:
@@ -142,37 +108,23 @@ class AsyncJam(BaseAsyncJam):
                         raise JamJWTInBlackList
                 payload = self.jwt.decode(token, check_list=False)["payload"]
             case "jwe":
-                if self.jwt is None or self.jwt.jwe is None:
+                jwt = self.jwt
+                if jwt.jwe is None:
                     raise JamConfigurationError(
                         message="JWE module is not configured.",
                         error_code="configuration.jwe.not_configured",
                     )
-                decrypted = self.jwt.decrypt(token)
+                decrypted = jwt.decrypt(token)
                 if not isinstance(decrypted, dict):
                     raise JamJWSVerificationError(
                         message="JWE payload is not a serialized object.",
                     )
                 payload = decrypted
             case "paseto":
-                if self.paseto is None:
-                    raise JamConfigurationError(
-                        message="PASETO module is not configured.",
-                        error_code="configuration.paseto.not_configured",
-                    )
                 payload, _footer = self.paseto.decode(token)
             case "saml":
-                if self.saml is None:
-                    raise JamConfigurationError(
-                        message="SAML module is not configured.",
-                        error_code="configuration.saml.not_configured",
-                    )
                 payload = self._authenticate_saml(token)
             case "session":
-                if self.session is None:
-                    raise JamConfigurationError(
-                        message="Session module is not configured.",
-                        error_code="configuration.session.not_configured",
-                    )
                 data = await self.session.get(token)
                 if data is None:
                     raise JamSessionNotFound(details={"session_id": token})
@@ -219,9 +171,9 @@ class AsyncJam(BaseAsyncJam):
     async def aclose(self) -> None:
         """Close I/O clients owned by this instance."""
         modules = [
-            self.session,
+            self._session,
             self._jwt_list,
-            *((self.oauth2 or {}).values()),
+            *((self._oauth2 or {}).values()),
         ]
         for module in modules:
             close = getattr(module, "aclose", None)

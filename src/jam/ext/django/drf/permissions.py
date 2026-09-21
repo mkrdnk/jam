@@ -27,7 +27,13 @@ class JamPermission(BasePermission):
             token_type="django",
         )
 
-    def has_permission(self, request: Any, view: Any) -> bool:
+    # DRF's base defaults return literal True, but subclasses are explicitly
+    # expected to override these hooks with dynamic boolean checks.
+    def has_permission(  # type: ignore[bad-override]
+        self,
+        request: Any,
+        view: Any,
+    ) -> bool:
         """Check all configured request-level Jam permissions."""
         resolver = getattr(view, "get_jam_permissions", None)
         if resolver is None:
@@ -40,7 +46,7 @@ class JamPermission(BasePermission):
             for permission in permissions
         )
 
-    def has_object_permission(
+    def has_object_permission(  # type: ignore[bad-override]
         self,
         request: Any,
         view: Any,

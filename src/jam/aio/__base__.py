@@ -2,14 +2,25 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from jam.__core__ import JamAuthType, JamIssueType, _JamCore
 from jam.authz import AuthorizationContext, Principal
 from jam.subject import BaseSubject
 
 
-class BaseAsyncJam(_JamCore, ABC):
+if TYPE_CHECKING:
+    from jam.aio.oauth2.__base__ import BaseAsyncOAuth2Client
+    from jam.aio.sessions.__base__ import BaseAsyncSessionModule
+else:
+    BaseAsyncOAuth2Client = Any
+    BaseAsyncSessionModule = Any
+
+
+class BaseAsyncJam(
+    _JamCore[BaseAsyncSessionModule, BaseAsyncOAuth2Client],
+    ABC,
+):
     """Base asynchronous Jam instance.
 
     Only operations which can cross an I/O boundary are asynchronous.

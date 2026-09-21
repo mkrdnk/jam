@@ -48,4 +48,9 @@ class ObjectPermissionRequiredMixin(AccessMixin):
             if self.raise_exception or request.user.is_authenticated:
                 raise PermissionDenied(self.get_permission_denied_message())
             return self.handle_no_permission()
-        return super().dispatch(request, *args, **kwargs)
+        # This mixin precedes Django's View in the consumer's dynamic MRO.
+        return super().dispatch(  # type: ignore[missing-attribute]
+            request,
+            *args,
+            **kwargs,
+        )

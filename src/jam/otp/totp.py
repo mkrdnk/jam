@@ -78,5 +78,7 @@ class TOTP(BaseOTP):
                     look_ahead,
                 )
                 return True
-        logger.warning("TOTP verification failed with look_ahead=%d", look_ahead)
+        logger.warning(
+            "TOTP verification failed with look_ahead=%d", look_ahead
+        )
         return False

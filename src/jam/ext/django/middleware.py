@@ -156,9 +156,7 @@ class JamMiddleware:
         if principal is None:
             auser = getattr(request, "auser", None)
             user = (
-                await auser()
-                if auser is not None
-                else getattr(request, "user")
+                await auser() if auser is not None else getattr(request, "user")
             )
             principal = Principal(
                 subject=user,

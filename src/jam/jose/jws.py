@@ -160,9 +160,7 @@ class JWS(BaseJWS, metaclass=ConfigMeta):
             registered = {"alg", "typ", "kid", "x5u", "x5t", "cty", "crit"}
             unknown = [k for k in header["crit"] if k not in registered]
             if unknown:
-                logger.warning(
-                    "Rejected JWS with unsupported critical headers"
-                )
+                logger.warning("Rejected JWS with unsupported critical headers")
                 raise JamJWSVerificationError(
                     details={
                         "reason": "unknown_critical_header",

@@ -38,6 +38,11 @@ class JamAuthentication(BaseAuthentication):
             return None
         return principal.subject, principal
 
-    def authenticate_header(self, request: Any) -> str:
+    # DRF's base implementation returns None, but its documented extension
+    # contract allows authentication classes to return an HTTP scheme.
+    def authenticate_header(  # type: ignore[bad-override]
+        self,
+        request: Any,
+    ) -> str:
         """Advertise the Bearer scheme for unauthenticated DRF responses."""
         return self.keyword

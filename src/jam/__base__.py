@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from jam.__core__ import JamAuthType, JamIssueType, _JamCore
 from jam.authz import (
@@ -16,10 +16,18 @@ from jam.exceptions import JamConfigurationError
 from jam.subject import BaseSubject
 
 
+if TYPE_CHECKING:
+    from jam.oauth2.__base__ import BaseOAuth2Client
+    from jam.sessions.__base__ import BaseSessionModule
+else:
+    BaseOAuth2Client = Any
+    BaseSessionModule = Any
+
+
 logger = logging.getLogger(__name__)
 
 
-class BaseJam(_JamCore, ABC):
+class BaseJam(_JamCore[BaseSessionModule, BaseOAuth2Client], ABC):
     """Base synchronous Jam instance."""
 
     @abstractmethod

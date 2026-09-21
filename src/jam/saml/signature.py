@@ -226,7 +226,9 @@ def verify_assertion_signature(
         or sig_value_elem is None
         or sig_value_elem.text is None
     ):
-        logger.warning("Rejected SAML assertion with invalid signature structure")
+        logger.warning(
+            "Rejected SAML assertion with invalid signature structure"
+        )
         raise JamSAMLValidationError(
             message="Invalid signature structure.",
         )
@@ -240,7 +242,9 @@ def verify_assertion_signature(
         or digest_value_elem is None
         or digest_value_elem.text is None
     ):
-        logger.warning("Rejected SAML assertion with invalid signature reference")
+        logger.warning(
+            "Rejected SAML assertion with invalid signature reference"
+        )
         raise JamSAMLValidationError(
             message="Invalid signature reference structure.",
         )

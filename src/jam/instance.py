@@ -82,11 +82,6 @@ class Jam(BaseJam):
         )
         match via:
             case "macaroon":
-                if self.macaroon is None:
-                    raise JamConfigurationError(
-                        message="Macaroon module is not configured.",
-                        error_code="configuration.macaroon.not_configured",
-                    )
                 return self.macaroon.issue(
                     payload,
                     exp=exp,
@@ -96,11 +91,6 @@ class Jam(BaseJam):
                     jti=jti,
                 )
             case "jwt":
-                if self.jwt is None:
-                    raise JamConfigurationError(
-                        message="JWT module is not configured.",
-                        error_code="configuration.jwt.not_configured",
-                    )
                 credential = self.jwt.encode(
                     payload=payload,
                     exp=exp,
@@ -112,37 +102,23 @@ class Jam(BaseJam):
                 logger.info("Issued credential via=jwt")
                 return credential
             case "paseto":
-                if self.paseto is None:
-                    raise JamConfigurationError(
-                        message="PASETO module is not configured.",
-                        error_code="configuration.paseto.not_configured",
-                    )
                 credential = self._issue_paseto(
                     payload, exp, iss, aud, nbf, jti
                 )
                 logger.info("Issued credential via=paseto")
                 return credential
             case "saml":
-                if self.saml is None:
-                    raise JamConfigurationError(
-                        message="SAML module is not configured.",
-                        error_code="configuration.saml.not_configured",
-                    )
                 credential = self._issue_saml(payload, exp, iss, aud, nbf, jti)
                 logger.info("Issued credential via=saml")
                 return credential
             case "session":
-                if self.session is None:
-                    raise JamConfigurationError(
-                        message="Session module is not configured.",
-                        error_code="configuration.session.not_configured",
-                    )
+                session = self.session
                 session_key = (
                     (self.config or {})
                     .get("session", {})
                     .get("session_key", "auth")
                 )
-                credential = self.session.create(session_key, payload)
+                credential = session.create(session_key, payload)
                 logger.info("Issued credential via=session")
                 return credential
             case _:
@@ -181,54 +157,30 @@ class Jam(BaseJam):
         constraints = ()
         match via:
             case "macaroon":
-                if self.macaroon is None:
-                    raise JamConfigurationError(
-                        message="Macaroon module is not configured.",
-                        error_code="configuration.macaroon.not_configured",
-                    )
                 payload, constraints = self.macaroon.authenticate(
                     token,
                     discharges=() if discharges is None else discharges,
                 )
             case "jwt":
-                if self.jwt is None:
-                    raise JamConfigurationError(
-                        message="JWT module is not configured.",
-                        error_code="configuration.jwt.not_configured",
-                    )
                 payload = self.jwt.decode(token)["payload"]
             case "jwe":
-                if self.jwt is None or self.jwt.jwe is None:
+                jwt = self.jwt
+                if jwt.jwe is None:
                     raise JamConfigurationError(
                         message="JWE module is not configured.",
                         error_code="configuration.jwe.not_configured",
                     )
-                decrypted = self.jwt.decrypt(token)
+                decrypted = jwt.decrypt(token)
                 if not isinstance(decrypted, dict):
                     raise JamJWSVerificationError(
                         message="JWE payload is not a serialized object.",
                     )
                 payload = decrypted
             case "paseto":
-                if self.paseto is None:
-                    raise JamConfigurationError(
-                        message="PASETO module is not configured.",
-                        error_code="configuration.paseto.not_configured",
-                    )
                 payload, _footer = self.paseto.decode(token)
             case "saml":
-                if self.saml is None:
-                    raise JamConfigurationError(
-                        message="SAML module is not configured.",
-                        error_code="configuration.saml.not_configured",
-                    )
                 payload = self._authenticate_saml(token)
             case "session":
-                if self.session is None:
-                    raise JamConfigurationError(
-                        message="Session module is not configured.",
-                        error_code="configuration.session.not_configured",
-                    )
                 data = self.session.get(token)
                 if data is None:
                     logger.warning(

@@ -8,9 +8,11 @@ from dataclasses import replace
 from http import HTTPStatus
 from typing import Any
 
-from dmr.errors import ErrorType, format_error
-from dmr.response import APIError
-from dmr.security import AuthenticatedHttpRequest
+from dmr.errors import ErrorType, format_error  # type: ignore[missing-import]
+from dmr.response import APIError  # type: ignore[missing-import]
+from dmr.security import (  # type: ignore[missing-import]
+    AuthenticatedHttpRequest,
+)
 
 from jam.authz import AuthorizationContext, Principal
 from jam.ext.django.context import authorization_context, principal_context

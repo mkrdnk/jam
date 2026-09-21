@@ -405,15 +405,11 @@ class Macaroon:
                     raise SerializationError("Invalid verification identifier")
                 location = _location(fields.get(1, b""))
                 if (
-                    len(payload)
-                    + len(location.encode())
-                    + len(fields[4])
+                    len(payload) + len(location.encode()) + len(fields[4])
                     > limits.caveat_payload_size
                 ):
                     raise SerializationError("Caveat is too large")
-                caveats.append(
-                    ThirdPartyCaveat(payload, location, fields[4])
-                )
+                caveats.append(ThirdPartyCaveat(payload, location, fields[4]))
         final = reader.section()
         if (
             set(final) != {6}

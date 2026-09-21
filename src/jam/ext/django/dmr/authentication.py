@@ -11,11 +11,17 @@ from typing import TYPE_CHECKING, Any, Literal
 from django.core.exceptions import ImproperlyConfigured
 from django.middleware.csrf import CsrfViewMiddleware
 from django.views.decorators.debug import sensitive_variables
-from dmr.exceptions import NotAuthenticatedError
-from dmr.metadata import EndpointMetadata, ResponseSpec
-from dmr.openapi.objects import SecurityRequirement, SecurityScheme
-from dmr.response import APIError
-from dmr.security import AsyncAuth, SyncAuth
+from dmr.exceptions import NotAuthenticatedError  # type: ignore[missing-import]
+from dmr.metadata import (  # type: ignore[missing-import]
+    EndpointMetadata,
+    ResponseSpec,
+)
+from dmr.openapi.objects import (  # type: ignore[missing-import]
+    SecurityRequirement,
+    SecurityScheme,
+)
+from dmr.response import APIError  # type: ignore[missing-import]
+from dmr.security import AsyncAuth, SyncAuth  # type: ignore[missing-import]
 
 from jam.ext import CredentialSource
 from jam.ext.django._authentication import (
@@ -28,9 +34,10 @@ from jam.ext.django._authentication import (
 
 
 if TYPE_CHECKING:
-    from dmr.controller import Controller
-    from dmr.endpoint import Endpoint
-    from dmr.serializer import BaseSerializer
+    # DMR is available only on Python 3.11+, while Jam supports Python 3.10.
+    from dmr.controller import Controller  # type: ignore[missing-import]
+    from dmr.endpoint import Endpoint  # type: ignore[missing-import]
+    from dmr.serializer import BaseSerializer  # type: ignore[missing-import]
 
 
 _Mode = Literal["all", "bearer", "session"]
