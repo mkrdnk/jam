@@ -53,9 +53,9 @@ class BaseMacaroon(ABC):
     @abstractmethod
     def verify(
         self,
-        token: bytes | str | Macaroon,
+        token: bytes | str,
         root_key: bytes | str,
-        discharges: Iterable[bytes | str | Macaroon] = (),
+        discharges: Iterable[bytes | str] = (),
         *,
         structured_satisfiers: Mapping[str, Callable[[Any], bool]]
         | None = None,
@@ -64,9 +64,9 @@ class BaseMacaroon(ABC):
         """Verify signatures and predicates across the discharge graph.
 
         Args:
-            token (bytes | str | Macaroon): Primary token or decoded model.
+            token (bytes | str): Serialized primary token.
             root_key (bytes | str): Explicit secret root key.
-            discharges (Iterable[bytes | str | Macaroon]): Bound discharges.
+            discharges (Iterable[bytes | str]): Serialized bound discharges.
             structured_satisfiers (Mapping | None): Callbacks keyed by caveat
                 name, accepting its value and returning exactly True.
             collect_structured (bool): Collect unknown structured caveats for

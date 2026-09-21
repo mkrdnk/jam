@@ -13,7 +13,6 @@ from jam.exceptions import (
     JamJWTNotInWhiteList,
     JamSessionNotFound,
 )
-from jam.macaroons import Macaroon
 from jam.subject import BaseSubject
 
 
@@ -107,7 +106,7 @@ class AsyncJam(BaseAsyncJam):
         token: str,
         via: JamAuthType,
         *,
-        discharges: Sequence[str | bytes | Macaroon] | None = None,
+        discharges: Sequence[str | bytes] | None = None,
     ) -> Principal[Any]:
         """Authenticate a token or session and return its principal."""
         constraints = ()

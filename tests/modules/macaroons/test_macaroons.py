@@ -4,9 +4,9 @@ from jam.macaroons import (
     Caveat,
     Limits,
     Macaroon,
+    MacaroonModule,
     SerializationError,
     VerificationError,
-    Verifier,
 )
 
 
@@ -40,8 +40,8 @@ def test_round_trip_attenuation_and_tampering() -> None:
     assert original.caveats == ()
     decoded = Macaroon.decode(attenuated.encode())
     assert decoded == attenuated
-    assert Verifier().verify(
-        decoded, "secret", collect_structured=True
+    assert MacaroonModule().verify(
+        decoded.encode(), "secret", collect_structured=True
     ).caveats == (Caveat("role", "reader"),)
 
     tampered = decoded.__class__(
@@ -51,7 +51,7 @@ def test_round_trip_attenuation_and_tampering() -> None:
         bytes([decoded.signature[0] ^ 1]) + decoded.signature[1:],
     )
     with pytest.raises(VerificationError):
-        Verifier().verify(tampered, "secret")
+        MacaroonModule().verify(tampered.encode(), "secret")
 
 
 def test_raw_exact_and_general_satisfiers() -> None:
@@ -60,12 +60,13 @@ def test_raw_exact_and_general_satisfiers() -> None:
         .add_caveat(b"account = 7")
         .add_caveat(b"time < tomorrow")
     )
-    verifier = Verifier().satisfy_exact("account = 7")
+    verifier = MacaroonModule()
+    verifier.satisfy_exact("account = 7")
     verifier.satisfy_general(lambda value: value.startswith(b"time <"))
 
-    assert verifier.verify(macaroon, b"root").caveats == ()
+    assert verifier.verify(macaroon.encode(), b"root").caveats == ()
     with pytest.raises(VerificationError):
-        Verifier().verify(macaroon, b"root")
+        MacaroonModule().verify(macaroon.encode(), b"root")
 
 
 def test_third_party_discharge_and_wrong_binding() -> None:
@@ -77,19 +78,28 @@ def test_third_party_discharge_and_wrong_binding() -> None:
     ).add_caveat(Caveat("group", "staff"))
     bound = discharge.bind(primary)
 
-    result = Verifier().verify(
-        primary, b"root", [bound], collect_structured=True
+    result = MacaroonModule().verify(
+        primary.encode(),
+        b"root",
+        [bound.encode()],
+        collect_structured=True,
     )
     assert result.caveats == (Caveat("group", "staff"),)
     with pytest.raises(VerificationError):
-        Verifier().verify(primary, b"root")
+        MacaroonModule().verify(primary.encode(), b"root")
     with pytest.raises(VerificationError):
-        Verifier().verify(primary, b"root", [discharge])
+        MacaroonModule().verify(
+            primary.encode(), b"root", [discharge.encode()]
+        )
     with pytest.raises(VerificationError):
-        Verifier().verify(
-            primary,
+        MacaroonModule().verify(
+            primary.encode(),
             b"root",
-            [discharge.bind(Macaroon.create(b"other", b"other"))],
+            [
+                discharge.bind(
+                    Macaroon.create(b"other", b"other")
+                ).encode()
+            ],
         )
 
 
@@ -104,16 +114,18 @@ def test_wrong_discharge_key_and_nested_discharge() -> None:
         Caveat("tenant", 42)
     )
 
-    result = Verifier().verify(
-        primary,
+    result = MacaroonModule().verify(
+        primary.encode(),
         b"root",
-        [outer.bind(primary), inner.bind(primary)],
+        [outer.bind(primary).encode(), inner.bind(primary).encode()],
         collect_structured=True,
     )
     assert result.caveats == (Caveat("tenant", 42),)
     wrong = Macaroon.create_discharge(b"wrong", b"outer").bind(primary)
     with pytest.raises(VerificationError):
-        Verifier().verify(primary, b"root", [wrong])
+        MacaroonModule().verify(
+            primary.encode(), b"root", [wrong.encode()]
+        )
 
 
 def test_limits_are_enforced() -> None:
@@ -130,12 +142,12 @@ def test_limits_are_enforced() -> None:
     primary = Macaroon.create(b"root", b"p").add_third_party_caveat(b"k", b"d")
     discharge = Macaroon.create_discharge(b"k", b"d").bind(primary)
     with pytest.raises(VerificationError):
-        Verifier(Limits(discharge_count=0)).verify(
-            primary, b"root", [discharge]
+        MacaroonModule(limits=Limits(discharge_count=0)).verify(
+            primary.encode(), b"root", [discharge.encode()]
         )
     with pytest.raises(VerificationError):
-        Verifier(Limits(discharge_depth=0)).verify(
-            primary, b"root", [discharge]
+        MacaroonModule(limits=Limits(discharge_depth=0)).verify(
+            primary.encode(), b"root", [discharge.encode()]
         )
 
 
@@ -145,10 +157,25 @@ def test_decode_rejects_noncanonical_transport() -> None:
         Macaroon.decode(token + "=")
 
 
+def test_decode_applies_third_party_payload_limit_to_all_fields() -> None:
+    token = Macaroon.create("root", "id").add_third_party_caveat(
+        "third-party-key",
+        "c",
+        "location",
+    )
+    with pytest.raises(SerializationError):
+        Macaroon.decode(token.encode(), Limits(caveat_payload_size=80))
+
+
+def test_invalid_unicode_is_reported_as_serialization_error() -> None:
+    with pytest.raises(SerializationError):
+        Caveat("value", "\ud800").encode()
+
+
 def test_unknown_structured_fails_closed() -> None:
     token = Macaroon.create("root", "id").add_caveat(Caveat("unknown", 1))
     with pytest.raises(VerificationError):
-        Verifier().verify(token, "root")
+        MacaroonModule().verify(token.encode(), "root")
 
 
 def test_callbacks_run_only_after_all_signatures() -> None:
@@ -156,9 +183,12 @@ def test_callbacks_run_only_after_all_signatures() -> None:
 
     called = []
     token = Macaroon.create("root", "id").add_caveat(b"predicate")
-    verifier = Verifier().satisfy_general(lambda value: called.append(value))
+    verifier = MacaroonModule()
+    verifier.satisfy_general(lambda value: called.append(value))
     with pytest.raises(VerificationError):
-        verifier.verify(replace(token, signature=bytes(32)), "root")
+        verifier.verify(
+            replace(token, signature=bytes(32)).encode(), "root"
+        )
     assert called == []
 
 
@@ -169,10 +199,12 @@ def test_discharge_generator_is_bounded() -> None:
     def discharges():
         while True:
             consumed.append(1)
-            yield token
+            yield token.encode()
 
     with pytest.raises(VerificationError):
-        Verifier(Limits(discharge_count=2)).verify(token, "root", discharges())
+        MacaroonModule(limits=Limits(discharge_count=2)).verify(
+            token.encode(), "root", discharges()
+        )
     assert len(consumed) == 3
 
 
@@ -205,11 +237,11 @@ def test_standard_cross_implementation() -> None:
     )
     bound = reference.prepare_for_request(discharge_ref)
     assert (
-        Verifier()
+        MacaroonModule()
         .verify(
-            Macaroon.decode(reference.serialize()),
+            reference.serialize(),
             "root",
-            [Macaroon.decode(bound.serialize())],
+            [bound.serialize()],
         )
         .caveats
         == ()

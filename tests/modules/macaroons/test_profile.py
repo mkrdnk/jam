@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -10,7 +10,7 @@ from jam.exceptions import (
     JamKeyChainError,
     JamValidationError,
 )
-from jam.macaroons import Caveat, Macaroon
+from jam.macaroons import Caveat, Macaroon, MacaroonModule
 
 
 def configured(facade=Jam):
@@ -58,7 +58,7 @@ def test_sync_issue_attenuate_and_standalone_discharge():
         jam.authenticate(
             primary.encode(),
             "macaroon",
-            discharges=[discharge],
+            discharges=[discharge.encode()],
         )
     principal = jam.authenticate(
         primary.encode(),
@@ -107,7 +107,7 @@ async def test_async_sync_interoperation_and_discharge():
         sync.authenticate(
             primary.encode(),
             "macaroon",
-            discharges=[discharge],
+            discharges=[discharge.encode()],
         ).claims
         == principal.claims
     )
@@ -125,6 +125,64 @@ def test_rotation_retains_old_credentials_and_revocation_denies():
     assert jam.authenticate(new, "macaroon").subject["id"] == "alice"
 
 
+def test_configured_issuer_and_audience_are_issued_and_verified():
+    jam = Jam(
+        {
+            "keychains": {"root": {"type": "Memory"}},
+            "macaroon": {
+                "keychain": "root",
+                "issuer": "https://issuer",
+                "audience": "api",
+            },
+        }
+    )
+    jam.keychains["root"].rotate("first")
+    token = jam.issue({"id": "alice"}, "macaroon", permissions=["read"])
+    principal = jam.authenticate(token, "macaroon")
+    assert principal.claims["iss"] == "https://issuer"
+    assert principal.claims["aud"] == "api"
+
+    foreign = MacaroonModule(jam.keychains["root"]).issue(
+        {"id": "alice", "permissions": ["read"]},
+        iss="https://other",
+        aud="other-api",
+    )
+    with pytest.raises(JamValidationError):
+        jam.authenticate(foreign, "macaroon")
+    with pytest.raises(JamConfigurationError):
+        jam.issue({"id": "alice"}, "macaroon", iss="https://other")
+
+
+def test_float_leeway_applies_during_authentication_and_authorization():
+    jam = Jam(
+        {
+            "keychains": {"root": {"type": "Memory"}},
+            "macaroon": {"keychain": "root", "leeway": 60.5},
+        }
+    )
+    jam.keychains["root"].rotate("first")
+    now = datetime.now(timezone.utc)
+    token = jam.macaroon.decode(
+        jam.issue({"id": "alice"}, "macaroon", permissions=["read"])
+    )
+    token = token.add_caveat(
+        Caveat("expires_at", now.isoformat())
+    ).add_caveat(
+        Caveat("not_before", now.isoformat())
+    )
+    principal = jam.authenticate(token.encode(), "macaroon")
+    assert jam.authorize(
+        principal,
+        "read",
+        AuthorizationContext(now=now),
+    )
+    assert not jam.authorize(
+        principal,
+        "read",
+        AuthorizationContext(now=now + timedelta(seconds=61)),
+    )
+
+
 @pytest.mark.parametrize(
     "caveat",
     [
@@ -137,8 +195,6 @@ def test_rotation_retains_old_credentials_and_revocation_denies():
                 "value": "@subject.id",
             },
         ),
-        Caveat("expires_at", "2000-01-01T00:00:00Z"),
-        Caveat("not_before", "2100-01-01T00:00:00Z"),
     ],
 )
 @pytest.mark.parametrize("facade", [Jam, AsyncJam])
@@ -193,5 +249,16 @@ def test_wrong_keychain_algorithm_is_rejected():
             {
                 "keychains": {"root": {"type": "Memory", "algorithm": "HS256"}},
                 "macaroon": {"keychain": "root"},
+            }
+        )
+
+
+@pytest.mark.parametrize("leeway", [-1, True, float("inf"), float("nan")])
+def test_invalid_leeway_is_rejected(leeway):
+    with pytest.raises(JamConfigurationError):
+        Jam(
+            {
+                "keychains": {"root": {"type": "Memory"}},
+                "macaroon": {"keychain": "root", "leeway": leeway},
             }
         )

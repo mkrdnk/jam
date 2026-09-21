@@ -13,7 +13,6 @@ from jam.authz import (
     Principal,
 )
 from jam.exceptions import JamConfigurationError
-from jam.macaroons import Macaroon
 from jam.subject import BaseSubject
 
 
@@ -80,7 +79,7 @@ class BaseJam(_JamCore, ABC):
         token: str,
         via: JamAuthType,
         *,
-        discharges: Sequence[str | bytes | Macaroon] | None = None,
+        discharges: Sequence[str | bytes] | None = None,
     ) -> Principal[Any]:
         """Authenticate a token or session and return a subject.
 

@@ -18,7 +18,6 @@ from jam.macaroons import (
     MacaroonModule,
     SerializationError,
     VerificationError,
-    Verifier,
 )
 
 
@@ -73,24 +72,18 @@ def test_acceptance_flow_and_permission_intersection(jam):
 
 
 @pytest.mark.parametrize(
-    "name,operator",
+    ("name", "boundary"),
     [
-        ("expires_at", "lt"),
-        ("not_before", "gte"),
+        ("expires_at", datetime(2020, 1, 1, tzinfo=timezone.utc)),
+        ("not_before", datetime(2100, 1, 1, tzinfo=timezone.utc)),
     ],
 )
-def test_time_boundaries_are_authorization_not_authentication(
-    jam, name, operator
-):
-    boundary = datetime(2020, 1, 1, tzinfo=timezone.utc)
+def test_invalid_time_boundaries_fail_authentication(jam, name, boundary):
     token = jam.macaroon.decode(
         jam.issue(User("42"), "macaroon", permissions=["read"])
     ).add_caveat(Caveat(name, boundary.isoformat()))
-    principal = jam.authenticate(token.encode(), "macaroon")
-    before = AuthorizationContext(now=boundary - timedelta(microseconds=1))
-    at = AuthorizationContext(now=boundary)
-    assert jam.authorize(principal, "read", before) is (operator == "lt")
-    assert jam.authorize(principal, "read", at) is (operator == "gte")
+    with pytest.raises(VerificationError):
+        jam.authenticate(token.encode(), "macaroon")
 
 
 def test_relative_issue_time_is_only_stored_in_caveats(jam):
@@ -132,8 +125,10 @@ def test_malformed_caveats_fail_during_authentication(jam, caveat):
 
 def test_unknown_jam_version_cannot_be_accepted_by_raw_satisfier():
     token = Macaroon.create("key", "id").add_caveat(b"jam:v2:opaque")
+    module = MacaroonModule()
+    module.satisfy_general(lambda _: True)
     with pytest.raises(InvalidCaveatError):
-        Verifier().satisfy_general(lambda _: True).verify(token, "key")
+        module.verify(token.encode(), "key")
 
 
 def test_structured_caveat_rejects_noncanonical_inner_base64():
@@ -142,14 +137,45 @@ def test_structured_caveat_rejects_noncanonical_inner_base64():
         Caveat.decode(raw + b"==")
 
 
+def test_invalid_claim_unicode_is_a_serialization_error(jam):
+    with pytest.raises(SerializationError):
+        jam.macaroon.issue({"bad": "\ud800"})
+
+
 def test_satisfier_errors_become_verification_errors():
     token = Macaroon.create("key", "id").add_caveat(b"bad")
 
     def broken(value):
         raise RuntimeError("callback failed")
 
+    module = MacaroonModule()
+    module.satisfy_general(broken)
     with pytest.raises(VerificationError):
-        Verifier().satisfy_general(broken).verify(token, "key")
+        module.verify(token.encode(), "key")
+
+
+def test_structured_satisfiers_receive_immutable_values():
+    token = Macaroon.create("key", "id").add_caveat(
+        Caveat("custom", {"nested": [1, 2]})
+    )
+    received = []
+
+    def check(value):
+        received.append(value)
+        with pytest.raises(TypeError):
+            value["changed"] = True
+        with pytest.raises(AttributeError):
+            value["nested"].append(3)
+        return True
+
+    result = MacaroonModule().verify(
+        token.encode(),
+        "key",
+        structured_satisfiers={"custom": check},
+    )
+    assert result.caveats[0].value is received[0]
+    with pytest.raises(TypeError):
+        result.caveats[0].value["changed"] = True
 
 
 def test_runtime_dunder_is_not_executed(jam):
@@ -206,19 +232,20 @@ def test_custom_registry_and_opaque_verifier(jam):
 def test_attenuation_cannot_remove_replace_or_modify_root():
     original = Macaroon.create("secret", "root-authority")
     delegated = original.add_caveat(b"read").add_caveat(b"tenant")
-    verifier = Verifier().satisfy_general(lambda _: True)
+    verifier = MacaroonModule()
+    verifier.satisfy_general(lambda _: True)
     for forged in (
         replace(delegated, caveats=delegated.caveats[:-1]),
         replace(delegated, caveats=(FirstPartyCaveat(b"write"),)),
         replace(delegated, identifier=b"wider-root-authority"),
     ):
         with pytest.raises(VerificationError):
-            verifier.verify(forged, "secret")
+            verifier.verify(forged.encode(), "secret")
     with pytest.raises(VerificationError):
-        verifier.verify(original, "wrong-key")
+        verifier.verify(original.encode(), "wrong-key")
     assert original.signature != delegated.signature
-    verifier.verify(original, "secret")
-    verifier.verify(delegated, "secret")
+    verifier.verify(original.encode(), "secret")
+    verifier.verify(delegated.encode(), "secret")
 
 
 def test_nested_discharge_caveats_count_towards_total_limit():
@@ -226,9 +253,11 @@ def test_nested_discharge_caveats_count_towards_total_limit():
     discharge = (
         Macaroon.create_discharge("other", "d").add_caveat(b"ok").bind(primary)
     )
+    module = MacaroonModule(limits=Limits(caveat_count=1))
+    module.satisfy_exact(b"ok")
     with pytest.raises(VerificationError):
-        Verifier(Limits(caveat_count=1)).satisfy_exact(b"ok").verify(
-            primary, "key", [discharge]
+        module.verify(
+            primary.encode(), "key", [discharge.encode()]
         )
 
 

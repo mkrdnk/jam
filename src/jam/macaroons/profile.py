@@ -6,6 +6,7 @@ from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime, timedelta, timezone
 from itertools import islice
 import json
+import math
 from typing import Any
 
 from jam.authz import (
@@ -28,8 +29,11 @@ from .core import (
     Limits,
     Macaroon,
     VerificationResult,
-    Verifier,
+    _bytes,
     _canonical,
+)
+from .core import (
+    _verify as _verify_decoded,
 )
 
 
@@ -47,6 +51,25 @@ def _timestamp(value: Any) -> datetime:
         raise InvalidCaveatError(
             "Invalid time boundary or missing timezone"
         ) from error
+
+
+def _adjusted_timestamp(
+    value: Any, leeway: timedelta, *, expires: bool
+) -> datetime:
+    """Apply clock tolerance while preserving validation errors."""
+    try:
+        return _timestamp(value) + (leeway if expires else -leeway)
+    except OverflowError as error:
+        raise InvalidCaveatError("Time boundary is out of range") from error
+
+
+def _thaw_json(value: Any) -> Any:
+    """Copy an immutable verified JSON value into built-in containers."""
+    if isinstance(value, Mapping):
+        return {key: _thaw_json(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_thaw_json(item) for item in value]
+    return value
 
 
 class CaveatRegistry:
@@ -70,7 +93,9 @@ class CaveatRegistry:
         self._custom[name] = compiler
         return self
 
-    def compile(self, caveat: Caveat) -> AuthorizationConstraint:
+    def compile(
+        self, caveat: Caveat, *, leeway: float = 0.0
+    ) -> AuthorizationConstraint:
         """Validate the caveat shape and compile a constraint."""
         try:
             name, value = caveat.name, caveat.value
@@ -80,7 +105,7 @@ class CaveatRegistry:
                 return PermissionConstraint(value)
             if name == "condition":
                 if (
-                    not isinstance(value, dict)
+                    not isinstance(value, Mapping)
                     or not {"field"} <= value.keys()
                     or value.keys() - {"field", "operator", "value", "timezone"}
                     or not isinstance(value["field"], str)
@@ -96,12 +121,17 @@ class CaveatRegistry:
                     )
                 ):
                     raise ValueError
-                return ConditionConstraint(**value)
+                return ConditionConstraint(**_thaw_json(value))
             if name in {"expires_at", "not_before"}:
+                boundary = _adjusted_timestamp(
+                    value,
+                    timedelta(seconds=leeway),
+                    expires=name == "expires_at",
+                )
                 return ConditionConstraint(
                     field="context.now",
                     operator="lt" if name == "expires_at" else "gte",
-                    value=_timestamp(value),
+                    value=boundary,
                 )
             compiler = self._custom.get(name)
             if compiler is None:
@@ -126,6 +156,9 @@ class MacaroonModule(BaseMacaroon):
         location: str = "",
         limits: Limits = DEFAULT_LIMITS,
         registry: CaveatRegistry | None = None,
+        issuer: str | None = None,
+        audience: str | None = None,
+        leeway: float = 0.0,
     ) -> None:
         """Configure limits and optional Jam profile keys and registry."""
         if (
@@ -150,11 +183,35 @@ class MacaroonModule(BaseMacaroon):
             ) from error
         if registry is not None and not isinstance(registry, CaveatRegistry):
             raise JamConfigurationError("Invalid caveat registry")
+        if issuer is not None and (not isinstance(issuer, str) or not issuer):
+            raise JamConfigurationError("Issuer must be a non-empty string")
+        if audience is not None and (
+            not isinstance(audience, str) or not audience
+        ):
+            raise JamConfigurationError("Audience must be a non-empty string")
+        if (
+            isinstance(leeway, bool)
+            or not isinstance(leeway, (int, float))
+            or not math.isfinite(leeway)
+            or leeway < 0
+        ):
+            raise JamConfigurationError(
+                "Leeway must be a finite non-negative number"
+            )
+        try:
+            leeway_delta = timedelta(seconds=leeway)
+        except OverflowError as error:
+            raise JamConfigurationError("Leeway is out of range") from error
         self.keychain = keychain
         self.location = location
         self.limits = limits
         self.registry = registry if registry is not None else CaveatRegistry()
-        self.verifier = Verifier(limits)
+        self.issuer = issuer
+        self.audience = audience
+        self.leeway = float(leeway)
+        self._leeway_delta = leeway_delta
+        self._exact_satisfiers: set[bytes] = set()
+        self._general_satisfiers: list[Callable[[bytes], bool]] = []
 
     def encode(
         self,
@@ -170,27 +227,46 @@ class MacaroonModule(BaseMacaroon):
 
     def verify(
         self,
-        token: bytes | str | Macaroon,
+        token: bytes | str,
         root_key: bytes | str,
-        discharges: Iterable[bytes | str | Macaroon] = (),
+        discharges: Iterable[bytes | str] = (),
         *,
         structured_satisfiers: Mapping[str, Callable[[Any], bool]]
         | None = None,
         collect_structured: bool = False,
     ) -> VerificationResult:
         """Verify a protocol token without interpreting Jam profile claims."""
-        primary = token if isinstance(token, Macaroon) else self.decode(token)
+        primary = self.decode(token)
         supplied = tuple(islice(discharges, self.limits.discharge_count + 1))
         if len(supplied) > self.limits.discharge_count:
             raise VerificationError("Too many discharges")
-        decoded = tuple(
-            item if isinstance(item, Macaroon) else self.decode(item)
-            for item in supplied
-        )
-        return self.verifier.verify(
+        decoded = tuple(self.decode(item) for item in supplied)
+        return self._verify(
             primary,
             root_key,
             decoded,
+            structured_satisfiers=structured_satisfiers,
+            collect_structured=collect_structured,
+        )
+
+    def _verify(
+        self,
+        primary: Macaroon,
+        root_key: bytes | str,
+        discharges: Iterable[Macaroon],
+        *,
+        structured_satisfiers: Mapping[str, Callable[[Any], bool]]
+        | None = None,
+        collect_structured: bool = False,
+    ) -> VerificationResult:
+        """Verify already-decoded models behind the serialized public API."""
+        return _verify_decoded(
+            primary,
+            root_key,
+            discharges,
+            limits=self.limits,
+            exact_satisfiers=self._exact_satisfiers,
+            general_satisfiers=self._general_satisfiers,
             structured_satisfiers=structured_satisfiers,
             collect_structured=collect_structured,
         )
@@ -206,11 +282,13 @@ class MacaroonModule(BaseMacaroon):
 
     def satisfy_exact(self, caveat: str | bytes) -> None:
         """Register an accepted opaque predicate."""
-        self.verifier.satisfy_exact(caveat)
+        self._exact_satisfiers.add(_bytes(caveat, "caveat"))
 
     def satisfy_general(self, satisfier: Callable[[bytes], bool]) -> None:
         """Register an opaque predicate callback."""
-        self.verifier.satisfy_general(satisfier)
+        if not callable(satisfier):
+            raise TypeError("Caveat satisfier must be callable")
+        self._general_satisfiers.append(satisfier)
 
     def issue(
         self,
@@ -229,6 +307,18 @@ class MacaroonModule(BaseMacaroon):
             raise JamConfigurationError(
                 "exp and nbf must be separate arguments, not root claims"
             )
+        if self.issuer is not None:
+            if iss is not None and iss != self.issuer:
+                raise JamConfigurationError(
+                    "Issuer does not match the configured issuer"
+                )
+            iss = self.issuer
+        if self.audience is not None:
+            if aud is not None and aud != self.audience:
+                raise JamConfigurationError(
+                    "Audience does not match the configured audience"
+                )
+            aud = self.audience
         now = datetime.now(timezone.utc)
         boundaries: list[Caveat] = []
         for seconds, name in ((exp, "expires_at"), (nbf, "not_before")):
@@ -256,7 +346,7 @@ class MacaroonModule(BaseMacaroon):
             identifier = _canonical(
                 {"version": 1, "kid": kid, "claims": values}
             )
-        except (TypeError, ValueError) as exc:
+        except (UnicodeError, TypeError, ValueError, RecursionError) as exc:
             raise SerializationError("Claims must be JSON") from exc
         token = Macaroon.create(key, identifier, self.location)
         for caveat in boundaries:
@@ -269,14 +359,12 @@ class MacaroonModule(BaseMacaroon):
 
     def authenticate(
         self,
-        token: str | bytes | Macaroon,
-        discharges: Iterable[str | bytes | Macaroon] = (),
+        token: str | bytes,
+        discharges: Iterable[str | bytes] = (),
     ) -> tuple[dict[str, Any], tuple[AuthorizationConstraint, ...]]:
         """Verify the entire graph before interpreting Jam profile caveats."""
         keychain = self._profile_keychain()
-        primary = (
-            self.decode(token) if not isinstance(token, Macaroon) else token
-        )
+        primary = self.decode(token)
         if len(primary.identifier) > self.limits.serialized_size:
             raise VerificationError("Root identifier is too large")
         # Use the header only for key selection; claims remain untrusted.
@@ -297,18 +385,38 @@ class MacaroonModule(BaseMacaroon):
         supplied = tuple(islice(discharges, self.limits.discharge_count + 1))
         if len(supplied) > self.limits.discharge_count:
             raise VerificationError("Too many discharges")
-        decoded = tuple(
-            item if isinstance(item, Macaroon) else self.decode(item)
-            for item in supplied
-        )
-        result = self.verifier.verify(
+        decoded = tuple(self.decode(item) for item in supplied)
+        result = self._verify(
             primary,
             keychain._material_for_verify(root["kid"]),
             decoded,
             collect_structured=True,
         )
-        constraints: list[AuthorizationConstraint] = []
+        if self.issuer is not None and root["claims"].get("iss") != self.issuer:
+            raise VerificationError("Invalid issuer")
+        if (
+            self.audience is not None
+            and root["claims"].get("aud") != self.audience
+        ):
+            raise VerificationError("Invalid audience")
+        now = datetime.now(timezone.utc)
         for caveat in result.caveats:
-            constraint = self.registry.compile(caveat)
-            constraints.append(constraint)
+            if caveat.name == "expires_at":
+                if now >= _adjusted_timestamp(
+                    caveat.value,
+                    self._leeway_delta,
+                    expires=True,
+                ):
+                    raise VerificationError("Macaroon has expired")
+            elif caveat.name == "not_before":
+                if now < _adjusted_timestamp(
+                    caveat.value,
+                    self._leeway_delta,
+                    expires=False,
+                ):
+                    raise VerificationError("Macaroon is not active")
+        constraints = [
+            self.registry.compile(caveat, leeway=self.leeway)
+            for caveat in result.caveats
+        ]
         return root["claims"], tuple(constraints)

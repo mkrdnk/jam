@@ -8,6 +8,7 @@ from dataclasses import dataclass, replace
 import hmac
 from itertools import islice
 import json
+from types import MappingProxyType
 from typing import Any
 
 from cryptography.exceptions import InvalidTag
@@ -178,7 +179,7 @@ class Caveat:
                 _PREFIX
                 + _b64(_canonical({"name": self.name, "value": self.value}))
             ).encode()
-        except (ValueError, TypeError, RecursionError) as exc:
+        except (UnicodeError, ValueError, TypeError, RecursionError) as exc:
             raise SerializationError("Invalid JSON caveat") from exc
 
     @classmethod
@@ -395,17 +396,23 @@ class Macaroon:
             if set(fields) not in ({2}, {2, 4}, {1, 2, 4}):
                 raise SerializationError("Invalid v2 caveat")
             payload = fields[2]
-            if len(payload) > limits.caveat_payload_size:
-                raise SerializationError("Caveat is too large")
             if 4 not in fields:
+                if len(payload) > limits.caveat_payload_size:
+                    raise SerializationError("Caveat is too large")
                 caveats.append(FirstPartyCaveat(payload))
             else:
                 if not payload or len(fields[4]) != 72:
                     raise SerializationError("Invalid verification identifier")
+                location = _location(fields.get(1, b""))
+                if (
+                    len(payload)
+                    + len(location.encode())
+                    + len(fields[4])
+                    > limits.caveat_payload_size
+                ):
+                    raise SerializationError("Caveat is too large")
                 caveats.append(
-                    ThirdPartyCaveat(
-                        payload, _location(fields.get(1, b"")), fields[4]
-                    )
+                    ThirdPartyCaveat(payload, location, fields[4])
                 )
         final = reader.section()
         if (
@@ -439,152 +446,148 @@ class VerificationResult:
 OpaqueSatisfier = Callable[[bytes], bool]
 
 
-class Verifier:
-    """Verify signatures, first-party predicates, and discharge graphs."""
+def _freeze_json(value: Any) -> Any:
+    """Return an immutable snapshot of a decoded JSON value."""
+    if isinstance(value, dict):
+        return MappingProxyType(
+            {key: _freeze_json(item) for key, item in value.items()}
+        )
+    if isinstance(value, list):
+        return tuple(_freeze_json(item) for item in value)
+    return value
 
-    def __init__(self, limits: Limits = DEFAULT_LIMITS) -> None:
-        """Create an empty verifier with resource limits."""
-        self.limits = limits
-        self._exact: set[bytes] = set()
-        self._general: list[OpaqueSatisfier] = []
 
-    def satisfy_exact(self, caveat: bytes | str) -> Verifier:
-        """Register an exact opaque predicate."""
-        self._exact.add(_bytes(caveat, "caveat"))
-        return self
+def _satisfied(check: Callable[[Any], bool], value: Any) -> bool:
+    try:
+        return check(value) is True
+    except Exception as error:
+        raise VerificationError("Caveat satisfier failed") from error
 
-    def satisfy_general(self, satisfier: OpaqueSatisfier) -> Verifier:
-        """Register a general opaque predicate callback."""
-        if not callable(satisfier):
-            raise TypeError("Caveat satisfier must be callable")
-        self._general.append(satisfier)
-        return self
 
-    def verify(
-        self,
-        macaroon: Macaroon,
-        root_key: bytes | str,
-        discharges: Iterable[Macaroon] = (),
-        *,
-        structured_satisfiers: Mapping[str, Callable[[Any], bool]]
-        | None = None,
-        collect_structured: bool = False,
-    ) -> VerificationResult:
-        """Validate a macaroon and its supplied discharge graph."""
-        supplied = tuple(islice(discharges, self.limits.discharge_count + 1))
-        if len(supplied) > self.limits.discharge_count:
-            raise VerificationError("too many discharges")
-        by_id: dict[bytes, list[Macaroon]] = {}
-        for discharge in supplied:
-            by_id.setdefault(discharge.identifier, []).append(discharge)
-        used: set[int] = set()
-        pending: list[bytes] = []
-        self._verify_one(
-            macaroon,
-            _derived(_bytes(root_key, "root_key")),
-            macaroon.signature,
+def _verify(
+    macaroon: Macaroon,
+    root_key: bytes | str,
+    discharges: Iterable[Macaroon] = (),
+    *,
+    limits: Limits = DEFAULT_LIMITS,
+    exact_satisfiers: set[bytes] | frozenset[bytes] = frozenset(),
+    general_satisfiers: Iterable[OpaqueSatisfier] = (),
+    structured_satisfiers: Mapping[str, Callable[[Any], bool]] | None = None,
+    collect_structured: bool = False,
+) -> VerificationResult:
+    """Privately validate a decoded macaroon and its discharge graph."""
+    supplied = tuple(islice(discharges, limits.discharge_count + 1))
+    if len(supplied) > limits.discharge_count:
+        raise VerificationError("too many discharges")
+    by_id: dict[bytes, list[Macaroon]] = {}
+    for discharge in supplied:
+        by_id.setdefault(discharge.identifier, []).append(discharge)
+    used: set[int] = set()
+    pending: list[bytes] = []
+    _verify_one(
+        macaroon,
+        _derived(_bytes(root_key, "root_key")),
+        macaroon.signature,
+        by_id,
+        pending,
+        used,
+        frozenset(),
+        0,
+        [0],
+        limits,
+    )
+    collected: list[Caveat] = []
+    checks = tuple(general_satisfiers)
+    for payload in pending:
+        if payload.startswith(_PREFIX.encode()):
+            try:
+                parsed = Caveat.decode(payload)
+            except SerializationError as exc:
+                raise InvalidCaveatError("Invalid caveat") from exc
+            parsed = Caveat(parsed.name, _freeze_json(parsed.value))
+            check = (structured_satisfiers or {}).get(parsed.name)
+            if check is None:
+                if not collect_structured:
+                    raise InvalidCaveatError("Unknown caveat")
+            elif not _satisfied(check, parsed.value):
+                raise VerificationError("Caveat is not satisfied")
+            collected.append(parsed)
+        elif payload.startswith(b"jam:"):
+            raise InvalidCaveatError("Unsupported caveat version")
+        elif payload not in exact_satisfiers and not any(
+            _satisfied(check, payload) for check in checks
+        ):
+            raise VerificationError("Opaque caveat is not satisfied")
+    return VerificationResult(tuple(collected))
+
+
+def _verify_one(
+    macaroon: Macaroon,
+    root_key: bytes,
+    primary_signature: bytes,
+    by_id: Mapping[bytes, list[Macaroon]],
+    pending: list[bytes],
+    used: set[int],
+    path: frozenset[int],
+    depth: int,
+    caveat_count: list[int],
+    limits: Limits,
+) -> None:
+    if depth > limits.discharge_depth:
+        raise VerificationError("maximum discharge depth exceeded")
+    identity = id(macaroon)
+    if identity in used or identity in path:
+        raise VerificationError("Discharge reuse")
+    used.add(identity)
+    caveat_count[0] += len(macaroon.caveats)
+    if caveat_count[0] > limits.caveat_count:
+        raise VerificationError("too many caveats")
+    if (
+        not macaroon.identifier
+        or len(macaroon.identifier) > limits.serialized_size
+        or len(macaroon.signature) != 32
+    ):
+        raise VerificationError("Invalid macaroon")
+    path = path | {identity}
+    signature = _hmac(root_key, macaroon.identifier)
+    for item in macaroon.caveats:
+        if isinstance(item, FirstPartyCaveat):
+            if len(item.payload) > limits.caveat_payload_size:
+                raise VerificationError("caveat payload is too large")
+            pending.append(item.payload)
+            signature = _hmac(signature, item.payload)
+            continue
+        if len(item.verification_id) != 72:
+            raise VerificationError("invalid verification id")
+        if (
+            len(item.identifier)
+            + len(item.location.encode())
+            + len(item.verification_id)
+            > limits.caveat_payload_size
+        ):
+            raise VerificationError("caveat payload is too large")
+        try:
+            caveat_key = decrypt_secretbox(signature, item.verification_id)
+        except (InvalidTag, ValueError) as exc:
+            raise VerificationError("cannot decrypt caveat key") from exc
+        matches = by_id.get(item.identifier, ())
+        if len(matches) != 1:
+            raise VerificationError("missing or ambiguous discharge")
+        _verify_one(
+            matches[0],
+            caveat_key,
+            primary_signature,
             by_id,
             pending,
             used,
-            frozenset(),
-            0,
-            [0],
+            path,
+            depth + 1,
+            caveat_count,
+            limits,
         )
-        collected: list[Caveat] = []
-        for payload in pending:
-            if payload.startswith(_PREFIX.encode()):
-                try:
-                    parsed = Caveat.decode(payload)
-                except SerializationError as exc:
-                    raise InvalidCaveatError("Invalid caveat") from exc
-                check = (structured_satisfiers or {}).get(parsed.name)
-                if check is None:
-                    if not collect_structured:
-                        raise InvalidCaveatError("Unknown caveat")
-                elif not self._satisfied(check, parsed.value):
-                    raise VerificationError("Caveat is not satisfied")
-                collected.append(parsed)
-            elif payload.startswith(b"jam:"):
-                raise InvalidCaveatError("Unsupported caveat version")
-            elif payload not in self._exact and not any(
-                self._satisfied(check, payload) for check in self._general
-            ):
-                raise VerificationError("Opaque caveat is not satisfied")
-        return VerificationResult(tuple(collected))
-
-    @staticmethod
-    def _satisfied(check: Callable[[Any], bool], value: Any) -> bool:
-        try:
-            return check(value) is True
-        except Exception as error:
-            raise VerificationError("Caveat satisfier failed") from error
-
-    def _verify_one(
-        self,
-        macaroon: Macaroon,
-        root_key: bytes,
-        primary_signature: bytes,
-        by_id: Mapping[bytes, list[Macaroon]],
-        pending: list[bytes],
-        used: set[int],
-        path: frozenset[int],
-        depth: int,
-        caveat_count: list[int],
-    ) -> None:
-        if depth > self.limits.discharge_depth:
-            raise VerificationError("maximum discharge depth exceeded")
-        identity = id(macaroon)
-        if identity in used or identity in path:
-            raise VerificationError("Discharge reuse")
-        used.add(identity)
-        caveat_count[0] += len(macaroon.caveats)
-        if caveat_count[0] > self.limits.caveat_count:
-            raise VerificationError("too many caveats")
-        if (
-            not macaroon.identifier
-            or len(macaroon.identifier) > self.limits.serialized_size
-            or len(macaroon.signature) != 32
-        ):
-            raise VerificationError("Invalid macaroon")
-        path = path | {identity}
-        signature = _hmac(root_key, macaroon.identifier)
-        for item in macaroon.caveats:
-            if isinstance(item, FirstPartyCaveat):
-                if len(item.payload) > self.limits.caveat_payload_size:
-                    raise VerificationError("caveat payload is too large")
-                pending.append(item.payload)
-                signature = _hmac(signature, item.payload)
-                continue
-            if len(item.verification_id) != 72:
-                raise VerificationError("invalid verification id")
-            if (
-                len(item.identifier)
-                + len(item.location.encode())
-                + len(item.verification_id)
-                > self.limits.caveat_payload_size
-            ):
-                raise VerificationError("caveat payload is too large")
-            try:
-                caveat_key = decrypt_secretbox(signature, item.verification_id)
-            except (InvalidTag, ValueError) as exc:
-                raise VerificationError("cannot decrypt caveat key") from exc
-            matches = by_id.get(item.identifier, ())
-            if len(matches) != 1:
-                raise VerificationError("missing or ambiguous discharge")
-            self._verify_one(
-                matches[0],
-                caveat_key,
-                primary_signature,
-                by_id,
-                pending,
-                used,
-                path,
-                depth + 1,
-                caveat_count,
-            )
-            signature = _hash2(signature, item.verification_id, item.identifier)
-        expected = signature
-        if depth:
-            expected = _bind(primary_signature, expected)
-        if not hmac.compare_digest(expected, macaroon.signature):
-            raise VerificationError("invalid macaroon signature")
+        signature = _hash2(signature, item.verification_id, item.identifier)
+    expected = signature
+    if depth:
+        expected = _bind(primary_signature, expected)
+    if not hmac.compare_digest(expected, macaroon.signature):
+        raise VerificationError("invalid macaroon signature")

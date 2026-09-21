@@ -20,10 +20,20 @@ def create_instance(
     try:
         if not isinstance(config, Mapping):
             raise ValueError
-        if set(config) - {"keychain", "location", "limits"}:
+        if set(config) - {
+            "keychain",
+            "location",
+            "limits",
+            "issuer",
+            "audience",
+            "leeway",
+        }:
             raise ValueError
         keychain = config.get("keychain")
         location = config.get("location", "")
+        issuer = config.get("issuer")
+        audience = config.get("audience")
+        leeway = config.get("leeway", 0.0)
         if not isinstance(keychain, str) or not keychain:
             raise ValueError
         if not isinstance(location, str):
@@ -42,6 +52,9 @@ def create_instance(
             location=location,
             limits=limits,
             registry=registry,
+            issuer=issuer,
+            audience=audience,
+            leeway=leeway,
         )
     except (ValueError, TypeError, KeyError) as exc:
         raise JamConfigurationError(

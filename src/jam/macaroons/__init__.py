@@ -18,7 +18,6 @@ from .core import (
     Macaroon,
     ThirdPartyCaveat,
     VerificationResult,
-    Verifier,
 )
 from .profile import CaveatRegistry, MacaroonModule
 
@@ -26,5 +25,5 @@ __all__ = [
     "BaseMacaroon", "Caveat", "CaveatRegistry", "FirstPartyCaveat",
     "InvalidCaveatError", "Limits", "Macaroon", "MacaroonError",
     "MacaroonModule", "SerializationError", "ThirdPartyCaveat",
-    "VerificationError", "VerificationResult", "Verifier", "create_instance",
+    "VerificationError", "VerificationResult", "create_instance",
 ]

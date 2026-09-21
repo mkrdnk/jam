@@ -16,7 +16,6 @@ from jam.macaroons import (
     SerializationError,
     VerificationError,
     VerificationResult,
-    Verifier,
 )
 
 
@@ -29,7 +28,7 @@ def test_explicit_keys_round_trip(identifier, key):
     assert decoded.identifier == b"opaque-id"
     assert decoded.location == "issuer"
     assert module.verify(token, key) == VerificationResult(())
-    assert module.verify(decoded, key) == VerificationResult(())
+    assert module.verify(decoded.encode(), key) == VerificationResult(())
     with pytest.raises(VerificationError):
         module.verify(token, "wrong-key")
 
@@ -39,57 +38,68 @@ def test_unknown_predicates_fail_closed():
     root = module.decode(module.encode("id", "key"))
     opaque = root.add_caveat(b"opaque")
     with pytest.raises(VerificationError):
-        module.verify(opaque, "key", collect_structured=True)
+        module.verify(opaque.encode(), "key", collect_structured=True)
     module.satisfy_exact("opaque")
-    assert module.verify(opaque, "key") == VerificationResult(())
+    assert module.verify(opaque.encode(), "key") == VerificationResult(())
     module.satisfy_general(lambda value: value == b"custom")
     assert module.verify(
-        root.add_caveat(b"custom"), "key"
+        root.add_caveat(b"custom").encode(), "key"
     ) == VerificationResult(())
     structured = root.add_caveat(Caveat("custom", "allowed"))
     with pytest.raises(InvalidCaveatError):
-        module.verify(structured, "key")
+        module.verify(structured.encode(), "key")
     result = module.verify(
-        structured,
+        structured.encode(),
         "key",
         structured_satisfiers={"custom": lambda value: value == "allowed"},
     )
     assert result.caveats == (Caveat("custom", "allowed"),)
-    assert module.verify(structured, "key", collect_structured=True) == result
+    assert (
+        module.verify(
+            structured.encode(), "key", collect_structured=True
+        )
+        == result
+    )
     with pytest.raises(VerificationError):
         module.verify(
-            structured,
+            structured.encode(),
             "key",
             structured_satisfiers={"custom": lambda value: False},
             collect_structured=True,
         )
     with pytest.raises(InvalidCaveatError):
         module.verify(
-            root.add_caveat(b"jam:v99:unknown"),
+            root.add_caveat(b"jam:v99:unknown").encode(),
             "key",
             collect_structured=True,
         )
 
 
-def test_discharge_graph_accepts_models_and_encoded_tokens():
+def test_discharge_graph_accepts_encoded_tokens_only():
     module = MacaroonModule()
     primary = module.decode(module.encode("id", "key"))
     primary = primary.add_third_party_caveat("third-party", "discharge")
     discharge = Macaroon.create_discharge("third-party", "discharge")
     with pytest.raises(VerificationError):
-        module.verify(primary, "key")
+        module.verify(primary.encode(), "key")
     with pytest.raises(VerificationError):
-        module.verify(primary, "key", [discharge])
+        module.verify(primary.encode(), "key", [discharge.encode()])
     bound = discharge.bind(primary)
-    for token in (bound, bound.encode(), bound.encode().encode()):
+    for token in (bound.encode(), bound.encode().encode()):
         assert module.verify(
             primary.encode(), "key", iter([token])
         ) == VerificationResult(())
+    with pytest.raises(TypeError):
+        module.verify(primary, "key")
+    with pytest.raises(TypeError):
+        module.verify(primary.encode(), "key", [bound])
     restricted = discharge.add_caveat(b"unknown").bind(primary)
     with pytest.raises(VerificationError):
-        module.verify(primary, "key", [restricted])
+        module.verify(primary.encode(), "key", [restricted.encode()])
     module.satisfy_exact(b"unknown")
-    assert module.verify(primary, "key", [restricted]) == VerificationResult(())
+    assert module.verify(
+        primary.encode(), "key", [restricted.encode()]
+    ) == VerificationResult(())
 
 
 def test_discharge_limit_applies_before_decoding():
@@ -112,7 +122,7 @@ class IndependentModule(BaseMacaroon):
     """Minimal protocol implementation using no Jam profile interfaces."""
 
     def __init__(self) -> None:
-        self.verifier = Verifier()
+        self.module = MacaroonModule()
 
     def encode(
         self,
@@ -128,30 +138,27 @@ class IndependentModule(BaseMacaroon):
 
     def verify(
         self,
-        token: bytes | str | Macaroon,
+        token: bytes | str,
         root_key: bytes | str,
-        discharges: Iterable[bytes | str | Macaroon] = (),
+        discharges: Iterable[bytes | str] = (),
         *,
         structured_satisfiers: Mapping[str, Callable[[Any], bool]]
         | None = None,
         collect_structured: bool = False,
     ) -> VerificationResult:
-        return self.verifier.verify(
-            token if isinstance(token, Macaroon) else self.decode(token),
+        return self.module.verify(
+            token,
             root_key,
-            (
-                item if isinstance(item, Macaroon) else self.decode(item)
-                for item in discharges
-            ),
+            discharges,
             structured_satisfiers=structured_satisfiers,
             collect_structured=collect_structured,
         )
 
     def satisfy_exact(self, caveat: bytes | str) -> None:
-        self.verifier.satisfy_exact(caveat)
+        self.module.satisfy_exact(caveat)
 
     def satisfy_general(self, satisfier: Callable[[bytes], bool]) -> None:
-        self.verifier.satisfy_general(satisfier)
+        self.module.satisfy_general(satisfier)
 
 
 def test_custom_protocol_implementation_has_no_profile_requirements():
