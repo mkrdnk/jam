@@ -28,6 +28,12 @@ Args:
 * `keychain`: `str` - Name of the KeyChain. Required.
 * `location`: `str = ""` - Unsigned location hint. Jam does not make an HTTP
   request to this address.
+* `issuer`: `str | None = None` - Expected issuer. Issued credentials receive
+  this value and authentication requires an exact match.
+* `audience`: `str | None = None` - Expected audience. Issued credentials
+  receive this value and authentication requires an exact match.
+* `leeway`: `float = 0` - Non-negative clock tolerance in seconds for
+  `expires_at` and `not_before`.
 * `limits`: `dict[str, int] | None` - Parser and verifier resource limits.
 
 Limit args:
@@ -57,6 +63,9 @@ algorithm = "MACAROON-HMAC-SHA256"
 [jam.macaroon]
 keychain = "macaroons"
 location = "https://api.example"
+issuer = "https://api.example"
+audience = "documents-api"
+leeway = 0
 
 [jam.macaroon.limits]
 serialized_size = 65536
@@ -119,8 +128,12 @@ token = jam.issue(
 )
 ```
 
-`exp` and `nbf` are caveats, not root claims. They are compiled during
-authentication and evaluated later by authorization.
+`exp` and `nbf` are caveats, not root claims. Authentication rejects a
+credential outside either time boundary. The compiled constraints are retained
+and evaluated again during authorization.
+
+Macaroons provide integrity, not confidentiality. Root claims are visible in
+the serialized identifier; do not include secrets or sensitive plaintext.
 
 #### Attenuate a Macaroon
 
@@ -155,7 +168,7 @@ Method: `jam.authenticate` with `via="macaroon"`
 Args:
 
 * `token`: `str` - Primary serialized Macaroon.
-* `discharges`: `Sequence[str | bytes | Macaroon] | None` - Bound discharge
+* `discharges`: `Sequence[str | bytes] | None` - Serialized bound discharge
   Macaroons required by third-party caveats.
 
 Returns:
@@ -171,7 +184,8 @@ print(principal.subject["id"])
 
 Authentication verifies the complete signature and discharge graph before
 parsing structured caveats or calling satisfiers. Request- and resource-based
-conditions are not evaluated yet.
+conditions are not evaluated yet. Time boundaries and configured issuer and
+audience are enforced during authentication.
 
 #### Authorize a principal
 
@@ -279,10 +293,11 @@ Caveat("expires_at", "2026-06-01T12:00:00Z")
 Caveat("not_before", "2026-06-01T11:00:00+00:00")
 ```
 
-`expires_at` requires `context.now < value`; `not_before` requires
-`context.now >= value`. Malformed or timezone-naive values raise
-`InvalidCaveatError` during authentication. A valid but unsatisfied boundary
-returns `False` during authorization.
+`expires_at` requires `context.now < value + leeway`; `not_before` requires
+`context.now >= value - leeway`. Malformed or timezone-naive values raise
+`InvalidCaveatError`. An unsatisfied boundary fails authentication. The same
+boundary remains attached to the principal and is checked again during
+authorization.
 
 ## Custom caveats
 
@@ -368,7 +383,8 @@ principal = jam.authenticate(macaroon.encode(), via="macaroon")
 Use `satisfy_general(callback)` for application predicates. An opaque caveat
 without a matching exact or general satisfier fails closed. Signature
 verification completes before callbacks run; callback failures become
-verification failures.
+verification failures. Structured callbacks receive deeply immutable JSON
+snapshots; objects are read-only mappings and arrays are tuples.
 
 Structured caveats use deterministic `jam:v1:<base64url>` payloads containing
 exactly `name` and `value`. This is the caveat namespace, not the complete token
@@ -389,6 +405,9 @@ Args:
   argument.
 * `limits`: `Limits = DEFAULT_LIMITS` - Resource bounds.
 * `registry`: `CaveatRegistry | None = None` - Jam structured-caveat registry.
+* `issuer`: `str | None = None` - Expected Jam profile issuer.
+* `audience`: `str | None = None` - Expected Jam profile audience.
+* `leeway`: `float = 0` - Time-boundary tolerance in seconds.
 
 Returns:
 
@@ -448,9 +467,9 @@ Method: `macaroon.verify`
 
 Args:
 
-* `token`: `bytes | str | Macaroon` - Primary credential.
+* `token`: `bytes | str` - Serialized primary credential.
 * `root_key`: `bytes | str` - Explicit root secret.
-* `discharges`: `Iterable[bytes | str | Macaroon] = ()` - Bound discharges.
+* `discharges`: `Iterable[bytes | str] = ()` - Serialized bound discharges.
 * `structured_satisfiers`: `Mapping[str, Callable[[Any], bool]] | None` -
   Structured caveat callbacks.
 * `collect_structured`: `bool = False` - Collect unknown structured caveats
@@ -462,7 +481,7 @@ Returns:
 
 ```python
 macaroon.satisfy_exact(b"account = 42")
-result = macaroon.verify(delegated, root_key)
+result = macaroon.verify(delegated.encode(), root_key)
 ```
 
 Unknown caveats fail closed by default. `collect_structured=True` deliberately

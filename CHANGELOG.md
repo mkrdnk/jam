@@ -54,6 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failing constraint or widen a Macaroon's root permissions.
 - Optional authentication modules are imported only when configured, allowing
   a Macaroon-only Jam instance to run without unrelated extras.
+- Macaroon verification now accepts serialized primary and discharge tokens
+  only. The decoded `Macaroon` model remains available for attenuation and must
+  be serialized again before verification.
 
 ### Deprecated
 
@@ -69,6 +72,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   expressions, unsupported caveats, invalid timestamps, and runtime comparison
   mismatches now fail closed for credential constraints.
 - Django principal adaptation now preserves credential constraints.
+- Macaroon time boundaries now fail during authentication and remain mandatory
+  authorization constraints. Configurable issuer, audience, and floating-point
+  clock leeway checks are available in the Macaroon profile.
 
 ### Security
 
@@ -76,6 +82,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   structured caveats or application satisfiers are invoked.
 - Added strict canonical parsing and configurable limits for serialized size,
   caveat payloads, total caveat count, discharge count, and discharge depth.
+- Structured Macaroon satisfiers receive deeply immutable JSON values, so
+  callbacks cannot change the signed caveat represented by verification
+  results.
 - Added an internal NaCl-compatible XSalsa20-Poly1305 SecretBox implementation
   for third-party caveat keys without an additional runtime dependency.
   Poly1305 tags are verified before plaintext is returned. The Salsa20
