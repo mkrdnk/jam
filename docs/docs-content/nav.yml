@@ -67,10 +67,26 @@ nav:
             file: integrations/django/drf.md
           - label: Django Modern REST
             file: integrations/django/dmr.md
+  - block: Examples
+    pages:
+      - label: FastAPI application with JWT
+        file: examples/fastapi_example_app.md
+      - label: Session authentication
+        file: examples/session_authentication.md
+      - label: OAuth2 login
+        file: examples/oauth2_login.md
+      - label: Key rotation
+        file: examples/key_rotation.md
+      - label: SAML SSO
+        file: examples/saml_sso.md
+      - label: Production deployment
+        file: examples/production_deploy.md
   - block: Developer tools
     pages:
       - label: Logging
         file: dev/logging.md
+      - label: Exceptions
+        file: dev/exceptions.md
       - label: Serialization
         file: dev/serializers.md
       - label: CLI

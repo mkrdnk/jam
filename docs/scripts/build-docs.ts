@@ -48,16 +48,6 @@ function slugFromRelative(relPath: string): string {
   return relPath.replace(/\.md$/, "").replace(/\//g, "--").replace(/\\/g, "--");
 }
 
-function titleFromFile(filePath: string, fallback: string): string {
-  if (!fs.existsSync(filePath)) return fallback;
-  const raw = fs.readFileSync(filePath, "utf-8");
-  const { data, content } = matter(raw);
-  if (data.title) return data.title;
-  const m = content.match(/^#\s+(.+)$/m);
-  if (m) return m[1];
-  return fallback;
-}
-
 function escapeForTs(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$/g, "\\$");
 }
@@ -81,7 +71,7 @@ function buildNavFromYml(ymlRoot: YmlBlock[], versionDir: string): NavItem[] {
       const full = path.join(versionDir, rel);
       if (!fs.existsSync(full)) return [];
       const slug = slugFromRelative(rel);
-      return [{ id: slug, title: titleFromFile(full, page.label), slug }];
+      return [{ id: slug, title: page.label, slug }];
     });
 
   return ymlRoot.flatMap((block) => {

@@ -21,7 +21,7 @@
             },
             {
               "id": "gettingstarted--quickstart",
-              "title": "Quickstart",
+              "title": "Quick start",
               "slug": "gettingstarted--quickstart"
             },
             {
@@ -31,7 +31,7 @@
             },
             {
               "id": "gettingstarted--jam",
-              "title": "Jam instance",
+              "title": "Jam",
               "slug": "gettingstarted--jam"
             }
           ]
@@ -72,7 +72,7 @@
               "children": [
                 {
                   "id": "authx--jose--index",
-                  "title": "JOSE",
+                  "title": "Overview",
                   "slug": "authx--jose--index"
                 },
                 {
@@ -102,7 +102,7 @@
                 },
                 {
                   "id": "authx--jose--lists",
-                  "title": "Lists",
+                  "title": "Algorithm lists",
                   "slug": "authx--jose--lists"
                 }
               ]
@@ -119,7 +119,7 @@
             },
             {
               "id": "authx--sessions",
-              "title": "Server side sessions",
+              "title": "Sessions",
               "slug": "authx--sessions"
             },
             {
@@ -129,7 +129,7 @@
             },
             {
               "id": "authx--otp",
-              "title": "OTP",
+              "title": "OTP / TOTP",
               "slug": "authx--otp"
             },
             {
@@ -155,7 +155,7 @@
             },
             {
               "id": "integrations--litestar",
-              "title": "Litestar",
+              "title": "Litestart",
               "slug": "integrations--litestar"
             },
             {
@@ -174,7 +174,7 @@
                 },
                 {
                   "id": "integrations--django--drf",
-                  "title": "Django REST Framework",
+                  "title": "DRF",
                   "slug": "integrations--django--drf"
                 },
                 {
@@ -183,6 +183,42 @@
                   "slug": "integrations--django--dmr"
                 }
               ]
+            }
+          ]
+        },
+        {
+          "id": "group:Examples",
+          "title": "Examples",
+          "children": [
+            {
+              "id": "examples--fastapi_example_app",
+              "title": "FastAPI application with JWT",
+              "slug": "examples--fastapi_example_app"
+            },
+            {
+              "id": "examples--session_authentication",
+              "title": "Session authentication",
+              "slug": "examples--session_authentication"
+            },
+            {
+              "id": "examples--oauth2_login",
+              "title": "OAuth2 login",
+              "slug": "examples--oauth2_login"
+            },
+            {
+              "id": "examples--key_rotation",
+              "title": "Key rotation",
+              "slug": "examples--key_rotation"
+            },
+            {
+              "id": "examples--saml_sso",
+              "title": "SAML SSO",
+              "slug": "examples--saml_sso"
+            },
+            {
+              "id": "examples--production_deploy",
+              "title": "Production deployment",
+              "slug": "examples--production_deploy"
             }
           ]
         },
@@ -196,8 +232,13 @@
               "slug": "dev--logging"
             },
             {
+              "id": "dev--exceptions",
+              "title": "Exceptions",
+              "slug": "dev--exceptions"
+            },
+            {
               "id": "dev--serializers",
-              "title": "JSON serialization",
+              "title": "Serialization",
               "slug": "dev--serializers"
             },
             {
@@ -207,7 +248,7 @@
             },
             {
               "id": "dev--testing",
-              "title": "Test client",
+              "title": "Testing",
               "slug": "dev--testing"
             },
             {
@@ -227,7 +268,7 @@
             },
             {
               "id": "dev--custom",
-              "title": "Custom modules",
+              "title": "Customization",
               "slug": "dev--custom"
             }
           ]
@@ -266,7 +307,7 @@
         },
         {
           "slug": "gettingstarted--quickstart",
-          "title": "Quickstart"
+          "title": "Quick start"
         },
         {
           "slug": "gettingstarted--configuration",
@@ -274,7 +315,7 @@
         },
         {
           "slug": "gettingstarted--jam",
-          "title": "Jam instance"
+          "title": "Jam"
         },
         {
           "slug": "authz--subject",
@@ -294,7 +335,7 @@
         },
         {
           "slug": "authx--jose--index",
-          "title": "JOSE"
+          "title": "Overview"
         },
         {
           "slug": "authx--jose--jwt",
@@ -318,7 +359,7 @@
         },
         {
           "slug": "authx--jose--lists",
-          "title": "Lists"
+          "title": "Algorithm lists"
         },
         {
           "slug": "authx--paseto",
@@ -330,7 +371,7 @@
         },
         {
           "slug": "authx--sessions",
-          "title": "Server side sessions"
+          "title": "Sessions"
         },
         {
           "slug": "authx--saml",
@@ -338,7 +379,7 @@
         },
         {
           "slug": "authx--otp",
-          "title": "OTP"
+          "title": "OTP / TOTP"
         },
         {
           "slug": "authx--oauth2",
@@ -354,7 +395,7 @@
         },
         {
           "slug": "integrations--litestar",
-          "title": "Litestar"
+          "title": "Litestart"
         },
         {
           "slug": "integrations--flask",
@@ -366,19 +407,47 @@
         },
         {
           "slug": "integrations--django--drf",
-          "title": "Django REST Framework"
+          "title": "DRF"
         },
         {
           "slug": "integrations--django--dmr",
           "title": "Django Modern REST"
         },
         {
+          "slug": "examples--fastapi_example_app",
+          "title": "FastAPI application with JWT"
+        },
+        {
+          "slug": "examples--session_authentication",
+          "title": "Session authentication"
+        },
+        {
+          "slug": "examples--oauth2_login",
+          "title": "OAuth2 login"
+        },
+        {
+          "slug": "examples--key_rotation",
+          "title": "Key rotation"
+        },
+        {
+          "slug": "examples--saml_sso",
+          "title": "SAML SSO"
+        },
+        {
+          "slug": "examples--production_deploy",
+          "title": "Production deployment"
+        },
+        {
           "slug": "dev--logging",
           "title": "Logging"
         },
         {
+          "slug": "dev--exceptions",
+          "title": "Exceptions"
+        },
+        {
           "slug": "dev--serializers",
-          "title": "JSON serialization"
+          "title": "Serialization"
         },
         {
           "slug": "dev--cli",
@@ -386,7 +455,7 @@
         },
         {
           "slug": "dev--testing",
-          "title": "Test client"
+          "title": "Testing"
         },
         {
           "slug": "dev--utils",
@@ -402,7 +471,7 @@
         },
         {
           "slug": "dev--custom",
-          "title": "Custom modules"
+          "title": "Customization"
         },
         {
           "slug": "api--index",
@@ -579,7 +648,7 @@
             },
             {
               "id": "gettingstarted--quickstart",
-              "title": "Quickstart",
+              "title": "Quick start",
               "slug": "gettingstarted--quickstart"
             },
             {
@@ -589,7 +658,7 @@
             },
             {
               "id": "gettingstarted--jam",
-              "title": "Jam instance",
+              "title": "Jam",
               "slug": "gettingstarted--jam"
             }
           ]
@@ -630,7 +699,7 @@
               "children": [
                 {
                   "id": "authx--jose--index",
-                  "title": "JOSE",
+                  "title": "Overview",
                   "slug": "authx--jose--index"
                 },
                 {
@@ -660,7 +729,7 @@
                 },
                 {
                   "id": "authx--jose--lists",
-                  "title": "Lists",
+                  "title": "Algorithm lists",
                   "slug": "authx--jose--lists"
                 }
               ]
@@ -672,7 +741,7 @@
             },
             {
               "id": "authx--sessions",
-              "title": "Server side sessions",
+              "title": "Sessions",
               "slug": "authx--sessions"
             },
             {
@@ -682,7 +751,7 @@
             },
             {
               "id": "authx--otp",
-              "title": "OTP",
+              "title": "OTP / TOTP",
               "slug": "authx--otp"
             },
             {
@@ -708,7 +777,7 @@
             },
             {
               "id": "integrations--litestar",
-              "title": "Litestar",
+              "title": "Litestart",
               "slug": "integrations--litestar"
             },
             {
@@ -727,7 +796,7 @@
                 },
                 {
                   "id": "integrations--django--drf",
-                  "title": "Django REST Framework",
+                  "title": "DRF",
                   "slug": "integrations--django--drf"
                 },
                 {
@@ -750,7 +819,7 @@
             },
             {
               "id": "dev--serializers",
-              "title": "JSON serialization",
+              "title": "Serialization",
               "slug": "dev--serializers"
             },
             {
@@ -760,7 +829,7 @@
             },
             {
               "id": "dev--testing",
-              "title": "Test client",
+              "title": "Testing",
               "slug": "dev--testing"
             },
             {
@@ -780,7 +849,7 @@
             },
             {
               "id": "dev--custom",
-              "title": "Custom modules",
+              "title": "Customization",
               "slug": "dev--custom"
             }
           ]
@@ -819,7 +888,7 @@
         },
         {
           "slug": "gettingstarted--quickstart",
-          "title": "Quickstart"
+          "title": "Quick start"
         },
         {
           "slug": "gettingstarted--configuration",
@@ -827,7 +896,7 @@
         },
         {
           "slug": "gettingstarted--jam",
-          "title": "Jam instance"
+          "title": "Jam"
         },
         {
           "slug": "authz--subject",
@@ -847,7 +916,7 @@
         },
         {
           "slug": "authx--jose--index",
-          "title": "JOSE"
+          "title": "Overview"
         },
         {
           "slug": "authx--jose--jwt",
@@ -871,7 +940,7 @@
         },
         {
           "slug": "authx--jose--lists",
-          "title": "Lists"
+          "title": "Algorithm lists"
         },
         {
           "slug": "authx--paseto",
@@ -879,7 +948,7 @@
         },
         {
           "slug": "authx--sessions",
-          "title": "Server side sessions"
+          "title": "Sessions"
         },
         {
           "slug": "authx--saml",
@@ -887,7 +956,7 @@
         },
         {
           "slug": "authx--otp",
-          "title": "OTP"
+          "title": "OTP / TOTP"
         },
         {
           "slug": "authx--oauth2",
@@ -903,7 +972,7 @@
         },
         {
           "slug": "integrations--litestar",
-          "title": "Litestar"
+          "title": "Litestart"
         },
         {
           "slug": "integrations--flask",
@@ -915,7 +984,7 @@
         },
         {
           "slug": "integrations--django--drf",
-          "title": "Django REST Framework"
+          "title": "DRF"
         },
         {
           "slug": "integrations--django--dmr",
@@ -927,7 +996,7 @@
         },
         {
           "slug": "dev--serializers",
-          "title": "JSON serialization"
+          "title": "Serialization"
         },
         {
           "slug": "dev--cli",
@@ -935,7 +1004,7 @@
         },
         {
           "slug": "dev--testing",
-          "title": "Test client"
+          "title": "Testing"
         },
         {
           "slug": "dev--utils",
@@ -951,7 +1020,7 @@
         },
         {
           "slug": "dev--custom",
-          "title": "Custom modules"
+          "title": "Customization"
         },
         {
           "slug": "api--index",
@@ -1114,7 +1183,7 @@
             },
             {
               "id": "gettingstarted--quickstart",
-              "title": "Quickstart",
+              "title": "Quick start",
               "slug": "gettingstarted--quickstart"
             },
             {
@@ -1124,7 +1193,7 @@
             },
             {
               "id": "gettingstarted--jam",
-              "title": "Jam instance",
+              "title": "Jam",
               "slug": "gettingstarted--jam"
             }
           ]
@@ -1165,7 +1234,7 @@
               "children": [
                 {
                   "id": "authx--jose--index",
-                  "title": "JOSE",
+                  "title": "Overview",
                   "slug": "authx--jose--index"
                 },
                 {
@@ -1195,7 +1264,7 @@
                 },
                 {
                   "id": "authx--jose--lists",
-                  "title": "Lists",
+                  "title": "Algorithm lists",
                   "slug": "authx--jose--lists"
                 }
               ]
@@ -1207,7 +1276,7 @@
             },
             {
               "id": "authx--sessions",
-              "title": "Server side sessions",
+              "title": "Sessions",
               "slug": "authx--sessions"
             },
             {
@@ -1217,7 +1286,7 @@
             },
             {
               "id": "authx--otp",
-              "title": "OTP",
+              "title": "OTP / TOTP",
               "slug": "authx--otp"
             },
             {
@@ -1243,7 +1312,7 @@
             },
             {
               "id": "integrations--litestar",
-              "title": "Litestar",
+              "title": "Litestart",
               "slug": "integrations--litestar"
             },
             {
@@ -1262,7 +1331,7 @@
                 },
                 {
                   "id": "integrations--django--drf",
-                  "title": "Django REST Framework",
+                  "title": "DRF",
                   "slug": "integrations--django--drf"
                 },
                 {
@@ -1285,7 +1354,7 @@
             },
             {
               "id": "dev--serializers",
-              "title": "JSON serialization",
+              "title": "Serialization",
               "slug": "dev--serializers"
             },
             {
@@ -1295,7 +1364,7 @@
             },
             {
               "id": "dev--testing",
-              "title": "Test client",
+              "title": "Testing",
               "slug": "dev--testing"
             },
             {
@@ -1315,7 +1384,7 @@
             },
             {
               "id": "dev--custom",
-              "title": "Custom modules",
+              "title": "Customization",
               "slug": "dev--custom"
             }
           ]
@@ -1349,7 +1418,7 @@
         },
         {
           "slug": "gettingstarted--quickstart",
-          "title": "Quickstart"
+          "title": "Quick start"
         },
         {
           "slug": "gettingstarted--configuration",
@@ -1357,7 +1426,7 @@
         },
         {
           "slug": "gettingstarted--jam",
-          "title": "Jam instance"
+          "title": "Jam"
         },
         {
           "slug": "authz--subject",
@@ -1377,7 +1446,7 @@
         },
         {
           "slug": "authx--jose--index",
-          "title": "JOSE"
+          "title": "Overview"
         },
         {
           "slug": "authx--jose--jwt",
@@ -1401,7 +1470,7 @@
         },
         {
           "slug": "authx--jose--lists",
-          "title": "Lists"
+          "title": "Algorithm lists"
         },
         {
           "slug": "authx--paseto",
@@ -1409,7 +1478,7 @@
         },
         {
           "slug": "authx--sessions",
-          "title": "Server side sessions"
+          "title": "Sessions"
         },
         {
           "slug": "authx--saml",
@@ -1417,7 +1486,7 @@
         },
         {
           "slug": "authx--otp",
-          "title": "OTP"
+          "title": "OTP / TOTP"
         },
         {
           "slug": "authx--oauth2",
@@ -1433,7 +1502,7 @@
         },
         {
           "slug": "integrations--litestar",
-          "title": "Litestar"
+          "title": "Litestart"
         },
         {
           "slug": "integrations--flask",
@@ -1445,7 +1514,7 @@
         },
         {
           "slug": "integrations--django--drf",
-          "title": "Django REST Framework"
+          "title": "DRF"
         },
         {
           "slug": "integrations--django--dmr",
@@ -1457,7 +1526,7 @@
         },
         {
           "slug": "dev--serializers",
-          "title": "JSON serialization"
+          "title": "Serialization"
         },
         {
           "slug": "dev--cli",
@@ -1465,7 +1534,7 @@
         },
         {
           "slug": "dev--testing",
-          "title": "Test client"
+          "title": "Testing"
         },
         {
           "slug": "dev--utils",
@@ -1481,7 +1550,7 @@
         },
         {
           "slug": "dev--custom",
-          "title": "Custom modules"
+          "title": "Customization"
         }
       ],
       "apiModules": []
@@ -1499,7 +1568,7 @@
             },
             {
               "id": "gettingstarted--quickstart",
-              "title": "Quickstart",
+              "title": "Quick start",
               "slug": "gettingstarted--quickstart"
             },
             {
@@ -1509,7 +1578,7 @@
             },
             {
               "id": "gettingstarted--jam",
-              "title": "Jam instance",
+              "title": "Jam",
               "slug": "gettingstarted--jam"
             }
           ]
@@ -1550,7 +1619,7 @@
               "children": [
                 {
                   "id": "authx--jose--index",
-                  "title": "JOSE",
+                  "title": "Overview",
                   "slug": "authx--jose--index"
                 },
                 {
@@ -1580,7 +1649,7 @@
                 },
                 {
                   "id": "authx--jose--lists",
-                  "title": "Lists",
+                  "title": "Algorithm lists",
                   "slug": "authx--jose--lists"
                 }
               ]
@@ -1592,7 +1661,7 @@
             },
             {
               "id": "authx--sessions",
-              "title": "Server side sessions",
+              "title": "Sessions",
               "slug": "authx--sessions"
             },
             {
@@ -1602,7 +1671,7 @@
             },
             {
               "id": "authx--otp",
-              "title": "OTP",
+              "title": "OTP / TOTP",
               "slug": "authx--otp"
             },
             {
@@ -1628,7 +1697,7 @@
             },
             {
               "id": "integrations--litestar",
-              "title": "Litestar",
+              "title": "Litestart",
               "slug": "integrations--litestar"
             },
             {
@@ -1647,7 +1716,7 @@
                 },
                 {
                   "id": "integrations--django--drf",
-                  "title": "Django REST Framework",
+                  "title": "DRF",
                   "slug": "integrations--django--drf"
                 },
                 {
@@ -1670,7 +1739,7 @@
             },
             {
               "id": "dev--serializers",
-              "title": "JSON serialization",
+              "title": "Serialization",
               "slug": "dev--serializers"
             },
             {
@@ -1680,7 +1749,7 @@
             },
             {
               "id": "dev--testing",
-              "title": "Test client",
+              "title": "Testing",
               "slug": "dev--testing"
             },
             {
@@ -1700,7 +1769,7 @@
             },
             {
               "id": "dev--custom",
-              "title": "Custom modules",
+              "title": "Customization",
               "slug": "dev--custom"
             }
           ]
@@ -1734,7 +1803,7 @@
         },
         {
           "slug": "gettingstarted--quickstart",
-          "title": "Quickstart"
+          "title": "Quick start"
         },
         {
           "slug": "gettingstarted--configuration",
@@ -1742,7 +1811,7 @@
         },
         {
           "slug": "gettingstarted--jam",
-          "title": "Jam instance"
+          "title": "Jam"
         },
         {
           "slug": "authz--subject",
@@ -1762,7 +1831,7 @@
         },
         {
           "slug": "authx--jose--index",
-          "title": "JOSE"
+          "title": "Overview"
         },
         {
           "slug": "authx--jose--jwt",
@@ -1786,7 +1855,7 @@
         },
         {
           "slug": "authx--jose--lists",
-          "title": "Lists"
+          "title": "Algorithm lists"
         },
         {
           "slug": "authx--paseto",
@@ -1794,7 +1863,7 @@
         },
         {
           "slug": "authx--sessions",
-          "title": "Server side sessions"
+          "title": "Sessions"
         },
         {
           "slug": "authx--saml",
@@ -1802,7 +1871,7 @@
         },
         {
           "slug": "authx--otp",
-          "title": "OTP"
+          "title": "OTP / TOTP"
         },
         {
           "slug": "authx--oauth2",
@@ -1818,7 +1887,7 @@
         },
         {
           "slug": "integrations--litestar",
-          "title": "Litestar"
+          "title": "Litestart"
         },
         {
           "slug": "integrations--flask",
@@ -1830,7 +1899,7 @@
         },
         {
           "slug": "integrations--django--drf",
-          "title": "Django REST Framework"
+          "title": "DRF"
         },
         {
           "slug": "integrations--django--dmr",
@@ -1842,7 +1911,7 @@
         },
         {
           "slug": "dev--serializers",
-          "title": "JSON serialization"
+          "title": "Serialization"
         },
         {
           "slug": "dev--cli",
@@ -1850,7 +1919,7 @@
         },
         {
           "slug": "dev--testing",
-          "title": "Test client"
+          "title": "Testing"
         },
         {
           "slug": "dev--utils",
@@ -1866,7 +1935,7 @@
         },
         {
           "slug": "dev--custom",
-          "title": "Custom modules"
+          "title": "Customization"
         }
       ],
       "apiModules": []
@@ -1884,7 +1953,7 @@
             },
             {
               "id": "gettingstarted--quickstart",
-              "title": "Quickstart",
+              "title": "Quick start",
               "slug": "gettingstarted--quickstart"
             },
             {
@@ -1894,7 +1963,7 @@
             },
             {
               "id": "gettingstarted--jam",
-              "title": "Jam instance",
+              "title": "Jam",
               "slug": "gettingstarted--jam"
             }
           ]
@@ -1935,7 +2004,7 @@
               "children": [
                 {
                   "id": "authx--jose--index",
-                  "title": "JOSE",
+                  "title": "Overview",
                   "slug": "authx--jose--index"
                 },
                 {
@@ -1965,7 +2034,7 @@
                 },
                 {
                   "id": "authx--jose--lists",
-                  "title": "Lists",
+                  "title": "Algorithm lists",
                   "slug": "authx--jose--lists"
                 }
               ]
@@ -1977,7 +2046,7 @@
             },
             {
               "id": "authx--sessions",
-              "title": "Server side sessions",
+              "title": "Sessions",
               "slug": "authx--sessions"
             },
             {
@@ -1987,7 +2056,7 @@
             },
             {
               "id": "authx--otp",
-              "title": "OTP",
+              "title": "OTP / TOTP",
               "slug": "authx--otp"
             },
             {
@@ -2013,7 +2082,7 @@
             },
             {
               "id": "integrations--litestar",
-              "title": "Litestar",
+              "title": "Litestart",
               "slug": "integrations--litestar"
             },
             {
@@ -2032,7 +2101,7 @@
                 },
                 {
                   "id": "integrations--django--drf",
-                  "title": "Django REST Framework",
+                  "title": "DRF",
                   "slug": "integrations--django--drf"
                 },
                 {
@@ -2055,7 +2124,7 @@
             },
             {
               "id": "dev--serializers",
-              "title": "JSON serialization",
+              "title": "Serialization",
               "slug": "dev--serializers"
             },
             {
@@ -2065,7 +2134,7 @@
             },
             {
               "id": "dev--testing",
-              "title": "Test client",
+              "title": "Testing",
               "slug": "dev--testing"
             },
             {
@@ -2085,7 +2154,7 @@
             },
             {
               "id": "dev--custom",
-              "title": "Custom modules",
+              "title": "Customization",
               "slug": "dev--custom"
             }
           ]
@@ -2119,7 +2188,7 @@
         },
         {
           "slug": "gettingstarted--quickstart",
-          "title": "Quickstart"
+          "title": "Quick start"
         },
         {
           "slug": "gettingstarted--configuration",
@@ -2127,7 +2196,7 @@
         },
         {
           "slug": "gettingstarted--jam",
-          "title": "Jam instance"
+          "title": "Jam"
         },
         {
           "slug": "authz--subject",
@@ -2147,7 +2216,7 @@
         },
         {
           "slug": "authx--jose--index",
-          "title": "JOSE"
+          "title": "Overview"
         },
         {
           "slug": "authx--jose--jwt",
@@ -2171,7 +2240,7 @@
         },
         {
           "slug": "authx--jose--lists",
-          "title": "Lists"
+          "title": "Algorithm lists"
         },
         {
           "slug": "authx--paseto",
@@ -2179,7 +2248,7 @@
         },
         {
           "slug": "authx--sessions",
-          "title": "Server side sessions"
+          "title": "Sessions"
         },
         {
           "slug": "authx--saml",
@@ -2187,7 +2256,7 @@
         },
         {
           "slug": "authx--otp",
-          "title": "OTP"
+          "title": "OTP / TOTP"
         },
         {
           "slug": "authx--oauth2",
@@ -2203,7 +2272,7 @@
         },
         {
           "slug": "integrations--litestar",
-          "title": "Litestar"
+          "title": "Litestart"
         },
         {
           "slug": "integrations--flask",
@@ -2215,7 +2284,7 @@
         },
         {
           "slug": "integrations--django--drf",
-          "title": "Django REST Framework"
+          "title": "DRF"
         },
         {
           "slug": "integrations--django--dmr",
@@ -2227,7 +2296,7 @@
         },
         {
           "slug": "dev--serializers",
-          "title": "JSON serialization"
+          "title": "Serialization"
         },
         {
           "slug": "dev--cli",
@@ -2235,7 +2304,7 @@
         },
         {
           "slug": "dev--testing",
-          "title": "Test client"
+          "title": "Testing"
         },
         {
           "slug": "dev--utils",
@@ -2251,7 +2320,7 @@
         },
         {
           "slug": "dev--custom",
-          "title": "Custom modules"
+          "title": "Customization"
         }
       ],
       "apiModules": []
@@ -2269,7 +2338,7 @@
             },
             {
               "id": "gettingstarted--quickstart",
-              "title": "Quickstart",
+              "title": "Quick start",
               "slug": "gettingstarted--quickstart"
             },
             {
@@ -2279,7 +2348,7 @@
             },
             {
               "id": "gettingstarted--jam",
-              "title": "Jam instance",
+              "title": "Jam",
               "slug": "gettingstarted--jam"
             }
           ]
@@ -2320,7 +2389,7 @@
               "children": [
                 {
                   "id": "authx--jose--index",
-                  "title": "JOSE",
+                  "title": "Overview",
                   "slug": "authx--jose--index"
                 },
                 {
@@ -2350,7 +2419,7 @@
                 },
                 {
                   "id": "authx--jose--lists",
-                  "title": "Lists",
+                  "title": "Algorithm lists",
                   "slug": "authx--jose--lists"
                 }
               ]
@@ -2362,7 +2431,7 @@
             },
             {
               "id": "authx--sessions",
-              "title": "Server side sessions",
+              "title": "Sessions",
               "slug": "authx--sessions"
             },
             {
@@ -2372,7 +2441,7 @@
             },
             {
               "id": "authx--otp",
-              "title": "OTP",
+              "title": "OTP / TOTP",
               "slug": "authx--otp"
             },
             {
@@ -2398,7 +2467,7 @@
             },
             {
               "id": "integrations--litestar",
-              "title": "Litestar",
+              "title": "Litestart",
               "slug": "integrations--litestar"
             },
             {
@@ -2419,7 +2488,7 @@
             },
             {
               "id": "dev--serializers",
-              "title": "JSON serialization",
+              "title": "Serialization",
               "slug": "dev--serializers"
             },
             {
@@ -2429,7 +2498,7 @@
             },
             {
               "id": "dev--testing",
-              "title": "Test client",
+              "title": "Testing",
               "slug": "dev--testing"
             },
             {
@@ -2444,7 +2513,7 @@
             },
             {
               "id": "dev--custom",
-              "title": "Custom modules",
+              "title": "Customization",
               "slug": "dev--custom"
             }
           ]
@@ -2478,7 +2547,7 @@
         },
         {
           "slug": "gettingstarted--quickstart",
-          "title": "Quickstart"
+          "title": "Quick start"
         },
         {
           "slug": "gettingstarted--configuration",
@@ -2486,7 +2555,7 @@
         },
         {
           "slug": "gettingstarted--jam",
-          "title": "Jam instance"
+          "title": "Jam"
         },
         {
           "slug": "authz--subject",
@@ -2506,7 +2575,7 @@
         },
         {
           "slug": "authx--jose--index",
-          "title": "JOSE"
+          "title": "Overview"
         },
         {
           "slug": "authx--jose--jwt",
@@ -2530,7 +2599,7 @@
         },
         {
           "slug": "authx--jose--lists",
-          "title": "Lists"
+          "title": "Algorithm lists"
         },
         {
           "slug": "authx--paseto",
@@ -2538,7 +2607,7 @@
         },
         {
           "slug": "authx--sessions",
-          "title": "Server side sessions"
+          "title": "Sessions"
         },
         {
           "slug": "authx--saml",
@@ -2546,7 +2615,7 @@
         },
         {
           "slug": "authx--otp",
-          "title": "OTP"
+          "title": "OTP / TOTP"
         },
         {
           "slug": "authx--oauth2",
@@ -2562,7 +2631,7 @@
         },
         {
           "slug": "integrations--litestar",
-          "title": "Litestar"
+          "title": "Litestart"
         },
         {
           "slug": "integrations--flask",
@@ -2574,7 +2643,7 @@
         },
         {
           "slug": "dev--serializers",
-          "title": "JSON serialization"
+          "title": "Serialization"
         },
         {
           "slug": "dev--cli",
@@ -2582,7 +2651,7 @@
         },
         {
           "slug": "dev--testing",
-          "title": "Test client"
+          "title": "Testing"
         },
         {
           "slug": "dev--utils",
@@ -2594,7 +2663,7 @@
         },
         {
           "slug": "dev--custom",
-          "title": "Custom modules"
+          "title": "Customization"
         }
       ],
       "apiModules": []
