@@ -27,8 +27,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-JamIssueType = Literal["jwt", "paseto", "session", "macaroon"]
-JamAuthType = Literal["jwt", "jwe", "paseto", "session", "macaroon"]
+JamIssueType = Literal["jwt", "paseto", "session", "macaroon", "saml"]
+JamAuthType = Literal["jwt", "jwe", "paseto", "session", "macaroon", "saml"]
 
 
 class _JamCore:
@@ -47,6 +47,7 @@ class _JamCore:
     oauth2: dict[str, Any] | None = None
     otp: Any = None
     paseto: Any = None
+    saml: Any = None
     macaroon: MacaroonModule | None = None
     keychains: dict[str, Any]
     _jwt_list: Any = None
@@ -94,6 +95,7 @@ class _JamCore:
         self.oauth2: dict[str, Any] | None = None
         self.otp = None
         self.paseto = None
+        self.saml = None
         self.macaroon = None
         self.keychains = {}
         self._jwt_list = None
@@ -107,7 +109,8 @@ class _JamCore:
         self.__build_instance(config)
         logger.debug(
             "BaseJam initialization complete. Modules loaded:\n"
-            " jwt=%s, jws=%s, jwe=%s, session=%s, oauth2=%s, paseto=%s, otp=%s",
+            " jwt=%s, jws=%s, jwe=%s, session=%s, oauth2=%s, paseto=%s, "
+            "otp=%s, saml=%s",
             self.jwt is not None,
             self.jws is not None,
             self.jwe is not None,
@@ -115,6 +118,7 @@ class _JamCore:
             self.oauth2 is not None,
             self.paseto is not None,
             self.otp is not None,
+            self.saml is not None,
         )
 
     def _authorize(
@@ -359,6 +363,27 @@ class _JamCore:
                 ),
             )
 
+        saml_cfg = config.get("saml")
+        if isinstance(saml_cfg, dict):
+            from jam.saml import SAML, BaseSAML
+
+            cfg = saml_cfg.copy()
+            cfg.pop("audience", None)
+            cfg.pop("expected_issuer", None)
+            chain_name = cfg.pop("keychain", None)
+            custom_module = cfg.pop("custom_module", None)
+            module_cls = (
+                __module_loader__(custom_module) if custom_module else SAML
+            )
+            if chain_name is not None:
+                cfg["keychain"] = get_keychain(chain_name, "RS256")
+            self.saml = module_cls(**cfg)
+            if not isinstance(self.saml, BaseSAML):
+                raise JamConfigurationError(
+                    message="Configured SAML module must implement BaseSAML.",
+                    error_code="configuration.saml.invalid_module",
+                )
+
         for chain_name, chain_config in keychain_cfg.items():
             if (
                 isinstance(chain_config, dict)
@@ -470,3 +495,95 @@ class _JamCore:
         if jti is not None:
             data["jti"] = jti
         return self.paseto.encode(payload=data)
+
+    def _issue_saml(
+        self,
+        payload: dict[str, Any],
+        exp: int | None,
+        iss: str | None,
+        aud: str | None,
+        nbf: int | None,
+        jti: str | None,
+    ) -> str:
+        """Build a Base64-encoded SAML response for HTTP-POST binding."""
+        from jam.saml.binding import encode_post
+
+        saml_config = (self.config or {}).get("saml") or {}
+        issuer = iss or saml_config.get("entity_id")
+        audience = aud or saml_config.get("audience")
+        if not issuer:
+            raise JamConfigurationError(
+                message="SAML issuance requires 'iss' or 'saml.entity_id'.",
+                error_code="configuration.saml.missing_issuer",
+            )
+        if not audience:
+            raise JamConfigurationError(
+                message="SAML issuance requires 'aud' or 'saml.audience'.",
+                error_code="configuration.saml.missing_audience",
+            )
+
+        attributes = dict(payload)
+        subject = attributes.pop("sub", None)
+        if subject is None:
+            raise JamConfigurationError(
+                message="SAML issuance requires a subject with an 'id'.",
+                error_code="configuration.saml.missing_subject",
+            )
+        response = self.saml.build_response(
+            subject=str(subject),
+            attributes=attributes,
+            issuer=issuer,
+            audience=audience,
+            expires_in=exp,
+            not_before=nbf,
+            assertion_id=jti,
+        )
+        return encode_post(response)
+
+    def _authenticate_saml(self, token: str) -> dict[str, Any]:
+        """Validate a SAML response and convert its assertion to claims."""
+        from jam.exceptions import JamSAMLValidationError
+        from jam.saml.xml import STATUS_SUCCESS
+
+        saml_config = (self.config or {}).get("saml") or {}
+        response = self.saml.parse_response(
+            token,
+            binding="post",
+            audience=saml_config.get("audience")
+            or saml_config.get("entity_id"),
+            issuer=saml_config.get("expected_issuer"),
+        )
+        assertion = response.assertion
+        if (
+            response.status_code != STATUS_SUCCESS
+            or assertion is None
+            or assertion.subject is None
+            or not assertion.subject.name_id
+        ):
+            raise JamSAMLValidationError(
+                message="SAML response has no successful subject assertion."
+            )
+
+        claims = dict(assertion.attributes)
+        permissions = claims.get("permissions")
+        if isinstance(permissions, str):
+            claims["permissions"] = [permissions]
+        claims.update(
+            {
+                "sub": assertion.subject.name_id,
+                "iss": assertion.issuer,
+                "jti": assertion.id,
+            }
+        )
+        conditions = assertion.conditions
+        if conditions is not None:
+            audiences = conditions.audience_restriction
+            if audiences:
+                claims["aud"] = (
+                    audiences[0] if len(audiences) == 1 else list(audiences)
+                )
+            if conditions.not_before is not None:
+                claims["nbf"] = int(conditions.not_before.timestamp())
+            if conditions.not_on_or_after is not None:
+                claims["exp"] = int(conditions.not_on_or_after.timestamp())
+        return claims

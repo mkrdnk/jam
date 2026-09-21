@@ -51,6 +51,15 @@ class TestSignAssertion:
         result = verify_assertion_signature(unsigned_assertion, pub)
         assert result is True
 
+    def test_load_public_key_from_private_key(self, private_key_pem):
+        private_key = load_private_key(private_key_pem)
+        public_key = load_public_key(private_key_pem)
+
+        assert (
+            public_key.public_numbers()
+            == private_key.public_key().public_numbers()
+        )
+
     def test_sign_with_cert_in_keyinfo(
         self, unsigned_assertion, private_key_pem, cert_pem
     ):

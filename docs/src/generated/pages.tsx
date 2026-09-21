@@ -4303,18 +4303,18 @@ new_session_id = session.rework(
   "4.2.0/authx--saml": () => (
     <MarkdownRenderer content={`# SAML
 
-SAML 2.0 (Security Assertion Markup Language) support.
+SAML 2.0 (Security Assertion Markup Language) support is available through
+the \`Jam\` and \`AsyncJam\` authentication facades and as the lower-level
+\`jam.saml.SAML\` protocol module.
 
 The module implements both roles:
 
 * **Service Provider (SP)** - accepts logins from external IdPs.
 * **Identity Provider (IdP)** - issues SAML assertions.
 
-!!! warning
-    The SAML module is not implemented in \`jam.Jam\` / \`jam.aio.Jam\`. This will be implemented at a later date.
-
 Supported features:
 
+* Authentication and assertion issuance through \`Jam\` and \`AsyncJam\`.
 * HTTP-POST, HTTP-Redirect and HTTP-Artifact bindings.
 * XML-DSig signatures (RSA-SHA256) with embedded certificates.
 * Assertion encryption (AES-256-GCM + RSA-OAEP) via \`EncryptedAssertion\`.
@@ -4323,15 +4323,190 @@ Supported features:
 * NameID Management.
 * Metadata generation and parsing.
 * Replay protection and clock skew tolerance.
+* Config-driven construction and key rotation through Jam KeyChains.
 
 Works with zero extra dependencies (\`xml.etree\` + \`cryptography\`).
 
-## Setup
+## Use in instance
+
+### Config
+
+Args:
+
+* \`role\`: \`str = "sp"\` - \`"sp"\` / \`"idp"\`.
+* \`entity_id\`: \`str | None\` - Entity ID of this party. Used as the default
+  issuer by \`issue\` and the expected audience by \`authenticate\`.
+* \`audience\`: \`str | None\` - Default audience for issued assertions.
+* \`expected_issuer\`: \`str | None\` - Required assertion issuer during
+  authentication.
+* \`private_key\`: \`str | None\` - PEM string or path used for signing and
+  decryption.
+* \`public_key\`: \`str | None\` - PEM public key or certificate used to verify
+  incoming protocol messages.
+* \`certificate\`: \`str | None\` - PEM certificate embedded in metadata and
+  signatures.
+* \`idp_public_key\`: \`str | None\` - IdP public key or certificate used by an
+  SP to verify assertions.
+* \`sp_public_key\`: \`str | None\` - SP public key or certificate used by an
+  IdP to verify protocol messages.
+* \`encryption_key\`: \`str | None\` - SP public key used by an IdP to encrypt
+  assertions.
+* \`acs_url\`: \`str | None\` - SP Assertion Consumer Service URL.
+* \`sso_url\`: \`str | None\` - IdP Single Sign-On URL.
+* \`default_exp\`: \`int = 300\` - Default assertion lifetime in seconds.
+* \`allowed_clock_skew\`: \`int = 120\` - Clock skew tolerance in seconds.
+* \`want_assertions_signed\`: \`bool = True\` - Require signed assertions.
+* \`replay_ttl\`: \`int = 300\` - Retention period for consumed message IDs.
+* \`keychain\`: \`str | None\` - Name of a KeyChain used instead of a fixed
+  signing or verification key.
+
+IdP config:
+
+\`\`\`toml
+[jam.saml]
+role = "idp"
+entity_id = "https://idp.example.com"
+audience = "https://sp.example.com"
+private_key = "path/to/idp_private_key.pem"
+certificate = "path/to/idp_cert.pem"
+\`\`\`
+
+SP config:
+
+\`\`\`toml
+[jam.saml]
+role = "sp"
+entity_id = "https://sp.example.com"
+expected_issuer = "https://idp.example.com"
+acs_url = "https://sp.example.com/acs"
+idp_public_key = "path/to/idp_cert.pem"
+\`\`\`
+
+### Usage
+
+\`\`\`python
+from jam import Jam
+
+idp = Jam(config="idp.toml")
+sp = Jam(config="sp.toml")
+\`\`\`
+
+#### Issue a SAML response
+
+Method: \`jam.issue\` with \`via="saml"\`
+
+Args:
+
+* \`subject\`: \`BaseSubject | dict[str, Any]\` - Assertion subject. Its \`id\`
+  becomes \`NameID\`; other fields become SAML attributes.
+* \`permissions\`: \`list[str] | None\` - Permissions attribute.
+* \`exp\`: \`int | None\` - Assertion lifetime in seconds.
+* \`nbf\`: \`int | None\` - Not-before offset in seconds.
+* \`iss\`: \`str | None\` - Issuer override.
+* \`aud\`: \`str | None\` - Audience override.
+* \`jti\`: \`str | None\` - Assertion ID.
+* \`**claims\`: \`Any\` - Additional assertion attributes.
+
+Returns:
+
+\`str\`: Base64-encoded \`SAMLResponse\` for HTTP-POST binding.
+
+\`\`\`python
+token = idp.issue(
+    {"id": "user-123", "email": "user@example.com", "role": "admin"},
+    via="saml",
+    permissions=["documents:read"],
+    exp=300,
+)
+\`\`\`
+
+#### Authenticate a SAML response
+
+Method: \`jam.authenticate\` with \`via="saml"\`
+
+Args:
+
+* \`token\`: \`str\` - Base64-encoded HTTP-POST \`SAMLResponse\`.
+
+Returns:
+
+\`Principal\`: Authenticated subject, assertion claims and token type.
+
+\`\`\`python
+principal = sp.authenticate(token, via="saml")
+print(principal.subject["id"])
+>>> user-123
+print(principal.claims["email"])
+>>> user@example.com
+\`\`\`
+
+Authentication validates the response status, signature, configured issuer,
+audience and recipient, time conditions, and replay protection. Claims
+include \`sub\`, \`iss\`, \`aud\`, \`jti\`, \`nbf\`, \`exp\`, permissions and assertion
+attributes.
+
+#### Use the async facade
+
+\`\`\`python
+from jam.aio import AsyncJam
+
+idp = AsyncJam(config="idp.toml")
+sp = AsyncJam(config="sp.toml")
+
+token = await idp.issue({"id": "user-123"}, via="saml")
+principal = await sp.authenticate(token, via="saml")
+\`\`\`
+
+#### Use a KeyChain
+
+KeyChain args:
+
+* \`type\`: \`str\` - \`Memory\` / \`FileStorage\`.
+* \`algorithm\`: \`str = "RS256"\` - SAML signing algorithm.
+* \`path\`: \`str\` - Required for \`FileStorage\`.
+
+\`\`\`toml
+[jam.keychains.saml]
+type = "FileStorage"
+path = "/var/lib/my-service/saml-keys"
+algorithm = "RS256"
+
+[jam.saml]
+role = "idp"
+entity_id = "https://idp.example.com"
+audience = "https://sp.example.com"
+keychain = "saml"
+\`\`\`
+
+Method: \`jam.keychains[name].rotate\`
+
+\`\`\`python
+idp.keychains["saml"].rotate("idp-2026-01")
+\`\`\`
+
+The issuer writes the active key ID to XML \`KeyInfo/KeyName\`. A verifier
+chain must contain the corresponding public key under the same ID. Retired
+keys continue verifying existing assertions; revoked keys fail closed.
+
+Use separate issuer and verifier stores across trust domains. The verifier
+does not need access to the IdP private key.
+
+#### Access the module directly
+
+\`jam.saml\` exposes the configured \`jam.saml.SAML\` instance:
+
+\`\`\`python
+metadata = sp.saml.generate_metadata(
+    entity_id="https://sp.example.com",
+    acs_url="https://sp.example.com/acs",
+)
+\`\`\`
+
+## Use out of instance
+
+### Built
 
 Module: \`jam.saml.SAML\`
-
-There is no \`Jam\` instance integration yet, so the module is used directly
-or through the \`jam.saml.create_instance\` factory.
 
 Args:
 
@@ -4350,6 +4525,9 @@ Args:
 * \`want_assertions_signed\`: \`bool = True\` - Require signed assertions (SP role).
 * \`id_store\`: \`dict | None\` - Dict for replay protection. Auto-created if \`None\`.
 * \`replay_ttl\`: \`int = 300\` - Seconds before a consumed ID is eligible for cleanup.
+* \`keychain\`: \`BaseKeyChain | None\` - Key lifecycle manager for signing and verification.
+* \`config\`: \`str | dict[str, Any] | None\` - Selected SAML config or config file path.
+* \`pointer\`: \`str | None\` - Config pointer; defaults to \`jam.saml\`.
 
 \`\`\`python
 from jam.saml import SAML
@@ -4371,9 +4549,40 @@ sp = SAML(
 )
 \`\`\`
 
-## Service Provider
+\`SAML\` can also be constructed from a selected configuration dictionary:
 
-### Init
+\`\`\`python
+saml = SAML(
+    config={
+        "role": "sp",
+        "entity_id": "https://sp.example.com",
+        "acs_url": "https://sp.example.com/acs",
+        "idp_public_key": "path/to/idp_cert.pem",
+    }
+)
+\`\`\`
+
+Or from the default \`jam.saml\` section of a TOML file:
+
+\`\`\`toml
+[jam.saml]
+role = "sp"
+entity_id = "https://sp.example.com"
+acs_url = "https://sp.example.com/acs"
+idp_public_key = "path/to/idp_cert.pem"
+\`\`\`
+
+\`\`\`python
+saml = SAML(config="settings.toml")
+\`\`\`
+
+An explicit constructor argument takes precedence over the corresponding
+configuration value. Named keychain references are resolved by the \`Jam\`
+facade; direct construction accepts a \`BaseKeyChain\` instance.
+
+### Service Provider
+
+#### Init
 
 Module: \`jam.saml.SAML\` with \`role="sp"\`.
 
@@ -4388,7 +4597,7 @@ sp = SAML(
 )
 \`\`\`
 
-### Prepare AuthnRequest
+#### Prepare AuthnRequest
 
 Method: \`sp.prepare_authn_request\`
 
@@ -4425,7 +4634,7 @@ saml_request = sp.prepare_authn_request(
 )
 \`\`\`
 
-### Parse response
+#### Parse response
 
 Method: \`sp.parse_response\`
 
@@ -4473,9 +4682,9 @@ sp = SAML(
 result = sp.parse_response(encoded_response, binding="post")
 \`\`\`
 
-## Identity Provider
+### Identity Provider
 
-### Init
+#### Init
 
 Module: \`jam.saml.SAML\` with \`role="idp"\`.
 
@@ -4492,7 +4701,7 @@ idp = SAML(
 )
 \`\`\`
 
-### Parse AuthnRequest
+#### Parse AuthnRequest
 
 Method: \`idp.parse_authn_request\`
 
@@ -4519,7 +4728,7 @@ print(request.acs_url)
 >>> https://sp.example.com/acs
 \`\`\`
 
-### Build response
+#### Build response
 
 Method: \`idp.build_response\`
 
@@ -4535,6 +4744,9 @@ Args:
   * \`session_index\`: \`str\` - Session index.
   * \`destination\`: \`str\` - ACS URL (defaults to the instance \`acs_url\`).
   * \`encrypt\`: \`bool = False\` - Encrypt the assertion with \`encryption_key\`.
+  * \`expires_in\`: \`int\` - Assertion lifetime override in seconds.
+  * \`not_before\`: \`int\` - Offset in seconds before the assertion is valid.
+  * \`assertion_id\`: \`str\` - Explicit assertion ID.
 
 Returns:
 
@@ -4568,12 +4780,12 @@ xml_str = idp.build_response(
 )
 \`\`\`
 
-## Single Logout
+### Single Logout
 
 SLO is supported in both directions. Both \`build_*\` and \`parse_*\` methods
 accept \`binding="post"\` or \`binding="redirect"\`.
 
-### Build LogoutRequest
+#### Build LogoutRequest
 
 Method: \`saml.build_logout_request\`
 
@@ -4599,7 +4811,7 @@ result = sp.build_logout_request(
 )
 \`\`\`
 
-### Parse LogoutRequest
+#### Parse LogoutRequest
 
 Method: \`saml.parse_logout_request\`
 
@@ -4625,7 +4837,7 @@ print(logout_request.session_index)
 >>> _session_abc
 \`\`\`
 
-### Build LogoutResponse
+#### Build LogoutResponse
 
 Method: \`saml.build_logout_response\`
 
@@ -4650,7 +4862,7 @@ result = idp.build_logout_response(
 )
 \`\`\`
 
-### Parse LogoutResponse
+#### Parse LogoutResponse
 
 Method: \`saml.parse_logout_response\`
 
@@ -4674,11 +4886,11 @@ print(logout_response.status_code)
 >>> urn:oasis:names:tc:SAML:2.0:status:Success
 \`\`\`
 
-## Attribute Query
+### Attribute Query
 
 Lets an SP request specific user attributes from the IdP.
 
-### Build AttributeQuery
+#### Build AttributeQuery
 
 Method: \`sp.build_attribute_query\`
 
@@ -4704,7 +4916,7 @@ encoded = sp.build_attribute_query(
 )
 \`\`\`
 
-### Parse AttributeQuery
+#### Parse AttributeQuery
 
 Method: \`idp.parse_attribute_query\`
 
@@ -4726,7 +4938,7 @@ print(query.attribute_names)
 >>> ["email", "role"]
 \`\`\`
 
-### Build AttributeQueryResponse
+#### Build AttributeQueryResponse
 
 Method: \`idp.build_attribute_query_response\`
 
@@ -4752,7 +4964,7 @@ xml_str = idp.build_attribute_query_response(
 )
 \`\`\`
 
-### Parse AttributeQueryResponse
+#### Parse AttributeQueryResponse
 
 Method: \`sp.parse_attribute_query_response\`
 
@@ -4769,12 +4981,12 @@ print(result.assertion.attributes)
 >>> {"email": "user@example.com", "role": "admin"}
 \`\`\`
 
-## Artifact Binding
+### Artifact Binding
 
 The SP receives an artifact instead of the actual message, then resolves it
 through a direct SOAP back-channel request to the IdP.
 
-### Create an artifact
+#### Create an artifact
 
 Method: \`saml.build_artifact\`
 
@@ -4796,7 +5008,7 @@ print(artifact)
 >>> AQAAEAAA...
 \`\`\`
 
-### Build ArtifactResolve
+#### Build ArtifactResolve
 
 Method: \`sp.build_artifact_resolve\`
 
@@ -4820,7 +5032,7 @@ resolve_xml = sp.build_artifact_resolve(
 )
 \`\`\`
 
-### Parse ArtifactResolve
+#### Parse ArtifactResolve
 
 Method: \`idp.parse_artifact_resolve\`
 
@@ -4840,7 +5052,7 @@ print(resolve.artifact)
 >>> AQAAEAAA...
 \`\`\`
 
-### Build ArtifactResponse
+#### Build ArtifactResponse
 
 Method: \`idp.build_artifact_response\`
 
@@ -4866,7 +5078,7 @@ response_xml = idp.build_artifact_response(
 )
 \`\`\`
 
-### Parse ArtifactResponse
+#### Parse ArtifactResponse
 
 Method: \`sp.parse_artifact_response\`
 
@@ -4889,7 +5101,7 @@ print(artifact_response.original_message)
 >>> <samlp:Response ...>
 \`\`\`
 
-### Resolve artifact over HTTP
+#### Resolve artifact over HTTP
 
 Method: \`sp.resolve_artifact\`
 
@@ -4916,11 +5128,11 @@ original_message = sp.resolve_artifact(
 )
 \`\`\`
 
-## NameID Management
+### NameID Management
 
 Change or terminate a NameID with the other party.
 
-### Build ManageNameIDRequest
+#### Build ManageNameIDRequest
 
 Method: \`saml.build_manage_name_id_request\`
 
@@ -4959,7 +5171,7 @@ encoded = sp.build_manage_name_id_request(
 )
 \`\`\`
 
-### Parse ManageNameIDRequest
+#### Parse ManageNameIDRequest
 
 Method: \`idp.parse_manage_name_id_request\`
 
@@ -4981,7 +5193,7 @@ print(request.new_id)
 >>> newuser@example.com
 \`\`\`
 
-### Build ManageNameIDResponse
+#### Build ManageNameIDResponse
 
 Method: \`saml.build_manage_name_id_response\`
 
@@ -5006,7 +5218,7 @@ encoded = idp.build_manage_name_id_response(
 )
 \`\`\`
 
-### Parse ManageNameIDResponse
+#### Parse ManageNameIDResponse
 
 Method: \`sp.parse_manage_name_id_response\`
 
@@ -5026,9 +5238,9 @@ print(response.status_code)
 >>> urn:oasis:names:tc:SAML:2.0:status:Success
 \`\`\`
 
-## Metadata
+### Metadata
 
-### Generate metadata
+#### Generate metadata
 
 Method: \`saml.generate_metadata\`
 
@@ -5055,7 +5267,7 @@ sp_metadata = sp.generate_metadata(
 )
 \`\`\`
 
-### Parse metadata
+#### Parse metadata
 
 Method: \`saml.parse_metadata\`
 
@@ -5075,9 +5287,9 @@ print(metadata.sso_url)
 >>> https://idp.example.com/sso
 \`\`\`
 
-## Security
+### Security
 
-### Signature verification
+#### Signature verification
 
 Assertions and protocol messages are signed with RSA-SHA256 and an embedded
 certificate. The SP verifies assertions using the \`idp_public_key\`; the IdP
@@ -5094,12 +5306,12 @@ sp = SAML(
 )
 \`\`\`
 
-### Clock skew
+#### Clock skew
 
 Expired or not-yet-valid assertions are rejected. The \`allowed_clock_skew\`
 (default 120 seconds) tolerates small clock differences between the parties.
 
-### Replay protection
+#### Replay protection
 
 Every incoming message ID is checked against the \`id_store\` before being
 consumed, which raises \`JamSAMLReplayDetected\` on duplicate IDs. Pass your own
@@ -5112,12 +5324,12 @@ sp = SAML(
 )
 \`\`\`
 
-### XXE protection
+#### XXE protection
 
 Incoming XML is parsed with \`safe_fromstring\`, which rejects DTD/entity
 declarations, preventing XXE and entity-expansion attacks.
 
-## Exceptions
+### Exceptions
 
 | Exception | Description |
 |---|---|
@@ -7597,7 +7809,7 @@ Issue a token or session for a subject.
 Args:
     subject (BaseSubject | dict[str, Any]): Subject instance.
     via (JamIssueType): Token type: "jwt", "paseto", "session",
-        or "macaroon".
+        "macaroon", or "saml".
     exp (int | None): Expiration in seconds.
     iss (str | None): Issuer.
     aud (str | None): Audience.
@@ -7621,7 +7833,7 @@ Authenticate a token or session and return a subject.
 Args:
     token (str): Token or session ID.
     via (JamAuthType): Token type: "jwt", "jwe", "paseto",
-        "session", or "macaroon".
+        "session", "macaroon", or "saml".
     discharges: Bound discharges for third-party caveats.
 
 Returns:
@@ -10474,7 +10686,8 @@ Issue a token or session for a subject.
 
 Args:
     subject (BaseSubject): Subject instance or dict with an "id".
-    via (JamIssueType): Token type: "jwt", "paseto" or "session".
+    via (JamIssueType): Token type: "jwt", "paseto", "session",
+        "macaroon", or "saml".
     exp (int | None): Expiration in seconds.
     iss (str | None): Issuer.
     aud (str | None): Audience.
@@ -10499,8 +10712,8 @@ Authenticate a token or session and return a subject.
 
 Args:
     token (str): Token or session ID.
-    via (JamAuthType): Token type: "jwt", "jwe", "paseto" or
-        "session".
+    via (JamAuthType): Token type: "jwt", "jwe", "paseto",
+        "session", "macaroon", or "saml".
     discharges: Bound discharges for third-party caveats.
 
 Returns:
@@ -14484,7 +14697,7 @@ Source: \`src/jam/saml/saml.py\`
 ## \`SAML\`
 
 \`\`\`python
-class class SAML(BaseSAML)
+class class SAML(BaseSAML, metaclass=ConfigMeta)
 \`\`\`
 
 Concrete SAML 2.0 implementation.
@@ -14536,7 +14749,8 @@ Args:
     issuer: IdP entity ID.
     audience: SP entity ID.
     **kwargs: in_response_to, name_id_format, session_index,
-              destination, encrypt (bool, default False).
+              destination, encrypt (bool, default False),
+              expires_in, not_before, and assertion_id.
 
 Returns:
     Signed (and optionally encrypted) SAML Response XML string.
@@ -14937,10 +15151,10 @@ Raises:
 function def load_public_key(pem_str
 \`\`\`
 
-Load an RSA public key from a PEM string or X.509 certificate.
+Load an RSA public key from public, private, or certificate PEM.
 
 Args:
-    pem_str: PEM-encoded public key or certificate.
+    pem_str: PEM-encoded public key, private key, or certificate.
 
 Returns:
     RSAPublicKey.
@@ -14963,6 +15177,7 @@ Args:
     assertion: The Assertion Element to sign (must have an ID attribute).
     key: RSA private key for signing.
     cert_pem: Optional PEM certificate for X509Data in KeyInfo.
+    key_id: Optional KeyChain key identifier for KeyInfo/KeyName.
 
 Returns:
     The assertion Element with Signature child appended.
@@ -14989,6 +15204,14 @@ Returns:
 
 Raises:
     JamSAMLValidationError: If signature is missing, malformed, or invalid.
+
+## \`extract_key_id_from_keyinfo\`
+
+\`\`\`python
+function def extract_key_id_from_keyinfo(assertion
+\`\`\`
+
+Extract a KeyChain key identifier from an assertion signature.
 
 ## \`extract_public_key_from_keyinfo\`
 
