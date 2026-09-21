@@ -71,6 +71,8 @@ nav:
     pages:
       - label: FastAPI application with JWT
         file: examples/fastapi_example_app.md
+      - label: FastAPI application with PASETO and OTP
+        file: examples/paseto_and_otp_app.md
   - block: Developer tools
     pages:
       - label: Logging
