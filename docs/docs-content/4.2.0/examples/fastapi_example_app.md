@@ -30,7 +30,7 @@ source .venv/bin/activate
 Install Jam with its FastAPI integration and an ASGI server:
 
 ```bash
-pip install "jamlib[fastapi]" uvicorn
+pip install fastapi "jamlib[fastapi]" uvicorn
 ```
 
 ## Configure the signing secret

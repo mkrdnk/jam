@@ -6840,22 +6840,26 @@ sent through \`Authorization\`.
 `} />
   ),
   "4.2.0/examples--fastapi_example_app": () => (
-    <MarkdownRenderer content={`# FastAPI application with JWT
+    <MarkdownRenderer content={`# FastAPI application with JWT and authorization
 
-This example builds a small FastAPI application that:
+This example builds a small FastAPI application that demonstrates the main
+Jam authentication and authorization concepts together:
 
-1. accepts a username and password;
-2. issues a short-lived JWT;
-3. reads the JWT from the \`Authorization\` header;
-4. verifies the token before returning protected user data.
+- a typed \`Subject\` representing the user;
+- a signed JWT with standard and application-specific claims;
+- a \`Principal\` created from the authenticated JWT;
+- permissions carried by the credential;
+- server-side authorization rules;
+- request-specific \`AuthorizationContext\`;
+- required, optional, and permission-aware FastAPI dependencies.
 
-The application uses an in-memory user to keep the example focused on Jam.
-The final section explains what must change before using this pattern in
-production.
+The application uses in-memory users and posts so that the complete flow fits
+in one file. The final section explains what must change before using the
+pattern in production.
 
 ## Install the dependencies
 
-Create a new directory and virtual environment:
+Create a directory and virtual environment:
 
 \`\`\`bash
 mkdir fastapi-jwt-example
@@ -6868,29 +6872,81 @@ source .venv/bin/activate
 Install Jam with its FastAPI integration and an ASGI server:
 
 \`\`\`bash
-pip install fastapi "jamlib[fastapi]" uvicorn
+pip install "jamlib[fastapi]" uvicorn
 \`\`\`
 
 ## Configure the signing secret
 
-This example signs tokens with \`HS256\`. Both token creation and verification
-use the same secret. Generate a random secret and expose it through the
+This example signs tokens with \`HS256\`. Token creation and verification use
+the same secret. Generate a random secret and expose it through the
 environment:
 
 \`\`\`bash
 export JWT_SECRET_KEY="\$(python -c \\
-  'import secrets; print(secrets.token_urlsafe(32))')"
+  'from jam.utils import generate_symmetric_key; print(generate_symmetric_key())')"
 \`\`\`
 
-Or you can use [Jam CLI](/latest/dev/cli):
+Alternatively, install [Jam CLI](/latest/dev/cli) and generate the key in a
+file:
 
 \`\`\`bash
-jam keys symmetric
+pip install "jamlib[cli]"
+jam keys symmetric --bytes 32 --out jwt.key
+export JWT_SECRET_KEY="\$(cat jwt.key)"
 \`\`\`
 
 Keep the same secret between application restarts if existing tokens must
 remain valid. In production, load it from a secret manager instead of source
 control.
+
+## Create the configuration
+
+Create \`config.toml\` next to the application:
+
+\`\`\`toml
+[jam.jose.jwt]
+alg = "HS256"
+secret_key = "\$JWT_SECRET_KEY"
+
+[[jam.authz.rules]]
+effect = "allow"
+permissions = ["post:edit"]
+
+[jam.authz.rules.when]
+all = [
+  { field = "token.tenant", operator = "eq", value = "@context.attributes.tenant" },
+  { field = "context.resource.author_id", operator = "eq", value = "@subject.id" },
+]
+
+[[jam.authz.rules]]
+effect = "allow"
+permissions = ["post:edit"]
+
+[jam.authz.rules.when]
+all = [
+  { field = "token.tenant", operator = "eq", value = "@context.attributes.tenant" },
+  { field = "subject.role", operator = "eq", value = "admin" },
+]
+
+[[jam.authz.rules]]
+effect = "deny"
+permissions = ["post:edit"]
+
+[jam.authz.rules.when]
+field = "context.resource.locked"
+operator = "eq"
+value = true
+\`\`\`
+
+\`\$JWT_SECRET_KEY\` is replaced with the environment variable when Jam reads
+the file. Keeping secrets out of the file makes it safe to commit the
+non-secret configuration.
+
+!!! tip "Configuration is not limited to TOML"
+    \`Jam\` accepts a Python dictionary or a path to a TOML, YAML, or JSON file.
+    File-based configuration supports environment substitutions such as
+    \`\$JWT_SECRET_KEY\` and \`\${JWT_SECRET_KEY:-development-default}\`. TOML is
+    used here because it keeps the application code focused on behavior.
 
 ## Create the application
 
@@ -6898,14 +6954,15 @@ Create \`app.py\`:
 
 \`\`\`python
 import os
-from secrets import compare_digest
+from dataclasses import dataclass
+from secrets import compare_digest, token_urlsafe
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from pydantic import BaseModel
 
-from jam import Jam
-from jam.authz import Principal
+from jam import BaseSubject, Jam
+from jam.authz import AuthorizationContext, Principal
 from jam.ext.fastapi import JamAuth
 
 
@@ -6914,26 +6971,28 @@ if not JWT_SECRET_KEY:
     raise RuntimeError("JWT_SECRET_KEY must be set")
 
 
+@dataclass
+class User(BaseSubject):
+    id: str
+    username: str
+    role: str
+
+
 jam = Jam(
-    config={
-        "jose": {
-            "jwt": {
-                "alg": "HS256",
-                "secret_key": JWT_SECRET_KEY,
-            }
-        }
-    }
+    config="config.toml",
+    subject=User,
 )
 auth = JamAuth(jam, via="jwt")
-app = FastAPI(title="Jam JWT example")
+app = FastAPI(title="Jam JWT and authorization example")
 
 
-# This is only a demonstration. A real application loads the user from a
-# database and stores a password hash, never the plaintext password.
+# A real application loads users and password hashes from a database.
 DEMO_USER = {
     "id": "user-1",
     "username": "alice",
     "password": "change-me",
+    "role": "editor",
+    "tenant": "acme",
 }
 
 
@@ -6948,14 +7007,97 @@ class TokenResponse(BaseModel):
     expires_in: int
 
 
-class UserResponse(BaseModel):
+class PrincipalResponse(BaseModel):
+    subject: User
+    permissions: list[str]
+    token_type: str
+    tenant: str
+    jti: str | None
+
+
+class LandingResponse(BaseModel):
+    authenticated: bool
+    message: str
+
+
+class Post(BaseModel):
     id: str
-    username: str
+    title: str
+    author_id: str
+    tenant: str
+    locked: bool = False
+
+
+class PostUpdate(BaseModel):
+    title: str
+
+
+POSTS = {
+    "post-1": Post(
+        id="post-1",
+        title="Alice's editable post",
+        author_id="user-1",
+        tenant="acme",
+    ),
+    "post-2": Post(
+        id="post-2",
+        title="Another user's post",
+        author_id="user-2",
+        tenant="acme",
+    ),
+    "post-3": Post(
+        id="post-3",
+        title="Alice's locked post",
+        author_id="user-1",
+        tenant="acme",
+        locked=True,
+    ),
+}
+
+
+def get_post(post_id: str) -> Post:
+    post = POSTS.get(post_id)
+    if post is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found.",
+        )
+    return post
+
+
+def post_context(
+    request: Request,
+    principal: Principal[User],
+) -> AuthorizationContext:
+    post = get_post(request.path_params["post_id"])
+    return AuthorizationContext(
+        resource=post,
+        request={"method": request.method},
+        attributes={"tenant": post.tenant},
+    )
 
 
 @app.get("/")
 def index() -> dict[str, str]:
     return {"message": "This route is public."}
+
+
+@app.get("/landing", response_model=LandingResponse)
+def landing(
+    principal: Annotated[
+        Principal[User] | None,
+        Depends(auth.optional),
+    ],
+) -> LandingResponse:
+    if principal is None:
+        return LandingResponse(
+            authenticated=False,
+            message="Hello, guest.",
+        )
+    return LandingResponse(
+        authenticated=True,
+        message=f"Hello, {principal.subject.username}.",
+    )
 
 
 @app.post("/token", response_model=TokenResponse)
@@ -6975,14 +7117,23 @@ def create_token(credentials: LoginRequest) -> TokenResponse:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    user = User(
+        id=DEMO_USER["id"],
+        username=DEMO_USER["username"],
+        role=DEMO_USER["role"],
+    )
     expires_in = 15 * 60
     token = jam.issue(
-        {
-            "id": DEMO_USER["id"],
-            "username": DEMO_USER["username"],
-        },
+        subject=user,
         via="jwt",
         exp=expires_in,
+        jti=token_urlsafe(16),
+        permissions=[
+            "profile:read",
+            "post:read",
+            "post:edit",
+        ],
+        tenant=DEMO_USER["tenant"],
     )
     return TokenResponse(
         access_token=token,
@@ -6991,79 +7142,238 @@ def create_token(credentials: LoginRequest) -> TokenResponse:
     )
 
 
-@app.get("/me", response_model=UserResponse)
+@app.get("/me", response_model=PrincipalResponse)
 def read_current_user(
-    principal: Annotated[Principal, Depends(auth)],
-) -> UserResponse:
-    return UserResponse(
-        id=principal.subject["id"],
-        username=principal.subject["username"],
+    principal: Annotated[
+        Principal[User],
+        Depends(auth.require("profile:read")),
+    ],
+) -> PrincipalResponse:
+    return PrincipalResponse(
+        subject=principal.subject,
+        permissions=sorted(principal.permissions),
+        token_type=principal.token_type,
+        tenant=principal.claims["tenant"],
+        jti=principal.jti,
     )
+
+
+@app.get("/posts/{post_id}", response_model=Post)
+def read_post(
+    post_id: str,
+    principal: Annotated[
+        Principal[User],
+        Depends(auth.require("post:read")),
+    ],
+) -> Post:
+    return get_post(post_id)
+
+
+@app.patch("/posts/{post_id}", response_model=Post)
+def edit_post(
+    post_id: str,
+    update: PostUpdate,
+    principal: Annotated[
+        Principal[User],
+        Depends(auth.require("post:edit", context=post_context)),
+    ],
+) -> Post:
+    post = get_post(post_id)
+    post.title = update.title
+    return post
 \`\`\`
 
-## How it works
+## How the identity model works
 
-### Configure Jam
+### Subject: who can authenticate
 
 \`\`\`python
-jam = Jam(
-    config={
-        "jose": {
-            "jwt": {
-                "alg": "HS256",
-                "secret_key": JWT_SECRET_KEY,
-            }
-        }
-    }
-)
+@dataclass
+class User(BaseSubject):
+    id: str
+    username: str
+    role: str
 \`\`\`
 
-The \`jose.jwt\` section enables Jam's JWT module. \`HS256\` creates a signed JWT:
-clients can read its payload, but they cannot change it without invalidating
-the signature. A signed JWT is not encrypted, so never place passwords,
-secrets, or other sensitive data in its payload.
+A \`Subject\` is an application identity. Subject classes must be dataclasses,
+inherit from \`BaseSubject\`, and declare an \`id\`.
 
-### Issue a token
+Passing \`subject=User\` to \`Jam\` tells it to restore authenticated token data
+as a typed \`User\` rather than a dictionary:
+
+\`\`\`python
+jam = Jam(config="config.toml", subject=User)
+\`\`\`
+
+The password is deliberately not part of \`User\`. Subject fields are written
+to the JWT and a signed JWT is readable by its holder, even though it cannot
+be modified without invalidating the signature.
+
+### Principal: who did authenticate
+
+After the JWT is verified, Jam returns \`Principal[User]\`. It combines:
+
+| Property | Value in this example |
+| --- | --- |
+| \`subject\` | The typed \`User\` reconstructed from token data. |
+| \`claims\` | All JWT claims, including \`tenant\`, \`exp\`, and permissions. |
+| \`permissions\` | A normalized \`frozenset\` of credential grants. |
+| \`token_type\` | \`"jwt"\`. |
+| \`jti\` | The unique token ID supplied during issuance. |
+| \`constraints\` | Mandatory credential restrictions; empty for this JWT. |
+
+Route code should use this verified \`Principal\`, not decode the bearer token
+itself.
+
+## How token issuance works
 
 \`\`\`python
 token = jam.issue(
-    {"id": "user-1", "username": "alice"},
+    subject=user,
     via="jwt",
     exp=15 * 60,
+    jti=token_urlsafe(16),
+    permissions=[
+        "profile:read",
+        "post:read",
+        "post:edit",
+    ],
+    tenant="acme",
 )
 \`\`\`
 
-\`via="jwt"\` selects the configured JWT module. Jam stores the subject ID in
-the standard JWT \`sub\` claim and adds an \`exp\` claim 15 minutes in the future.
-The remaining subject fields become token payload fields.
+This call demonstrates several credential fields:
+
+- \`subject\` supplies identity data; Jam moves its \`id\` into the standard \`sub\`
+  claim;
+- \`via="jwt"\` selects the configured JWT module;
+- \`exp\` sets a lifetime in seconds;
+- \`jti\` assigns a unique identifier that can be used for auditing or token
+  revocation;
+- \`permissions\` declares the maximum authority granted to this credential;
+- \`tenant\` is an application-specific claim available from
+  \`principal.claims\`.
 
 Authentication and token issuance are separate operations. Jam creates and
-validates credentials, while your application remains responsible for
-checking the username and password.
+validates credentials, while the application remains responsible for checking
+the username and password.
 
-### Protect a route
+## Authentication dependencies
+
+### Optional authentication
 
 \`\`\`python
-auth = JamAuth(jam, via="jwt")
-
-
-@app.get("/me")
-def read_current_user(
-    principal: Annotated[Principal, Depends(auth)],
-):
-    return principal.subject
+principal: Annotated[
+    Principal[User] | None,
+    Depends(auth.optional),
+]
 \`\`\`
 
-\`JamAuth\` is a FastAPI dependency. For each request it:
+\`auth.optional\` returns a principal for a valid bearer token and \`None\` when
+no valid credential is available. This is useful for pages that work for both
+guests and signed-in users.
 
-1. looks for \`Authorization: Bearer <token>\`;
-2. asks Jam to verify the signature and registered claims such as \`exp\`;
-3. converts the verified payload into a \`Principal\`;
-4. returns HTTP \`401\` if the header is missing or the token is invalid.
+### Required authentication and permissions
 
-The \`Principal\` contains the authenticated \`subject\`, all token \`claims\`, and
-the credential \`token_type\`. Route code should use data from this verified
-object rather than decoding the bearer token itself.
+\`\`\`python
+principal: Annotated[
+    Principal[User],
+    Depends(auth.require("profile:read")),
+]
+\`\`\`
+
+\`auth.require("profile:read")\` performs authentication and authorization.
+FastAPI returns:
+
+- HTTP \`401\` when the bearer token is missing or invalid;
+- HTTP \`403\` when the token is valid but authorization is denied.
+
+The token must grant the requested permission. Exact names, namespace
+wildcards such as \`post:*\`, and the global \`*\` wildcard are supported.
+
+## Server-side authorization policy
+
+Credential permissions define what a token may request. Server-side policy
+can restrict those grants further:
+
+\`\`\`python
+{
+    "effect": "allow",
+    "permissions": ["post:edit"],
+    "when": {
+        "all": [
+            {
+                "field": "token.tenant",
+                "operator": "eq",
+                "value": "@context.attributes.tenant",
+            },
+            {
+                "field": "context.resource.author_id",
+                "operator": "eq",
+                "value": "@subject.id",
+            },
+        ]
+    },
+}
+\`\`\`
+
+The two allow rules in \`config.toml\` first require the token tenant to match
+the resource tenant. One then permits the resource owner and the other permits
+an administrator. Matching allow rules use OR semantics. Values beginning with
+\`@\` are field references:
+\`@subject.id\` reads the authenticated user's ID, while
+\`@context.attributes.tenant\` reads request-specific context.
+
+The second rule explicitly denies edits to locked posts:
+
+\`\`\`python
+{
+    "effect": "deny",
+    "permissions": ["post:edit"],
+    "when": {
+        "field": "context.resource.locked",
+        "operator": "eq",
+        "value": True,
+    },
+}
+\`\`\`
+
+Deny rules take precedence. Even an administrator with \`post:edit\` cannot edit
+a locked post under this policy.
+
+Policy cannot add authority absent from an explicit token permission. Both
+checks must therefore pass:
+
+1. the JWT grants \`post:edit\`;
+2. an allow rule matches and no deny rule matches.
+
+## Dynamic authorization context
+
+The policy needs the current post, which cannot be known when Jam starts.
+\`post_context\` builds an \`AuthorizationContext\` for each request:
+
+\`\`\`python
+def post_context(
+    request: Request,
+    principal: Principal[User],
+) -> AuthorizationContext:
+    post = get_post(request.path_params["post_id"])
+    return AuthorizationContext(
+        resource=post,
+        request={"method": request.method},
+        attributes={"tenant": post.tenant},
+    )
+\`\`\`
+
+The context can carry:
+
+- \`resource\`: the object being accessed;
+- \`request\`: selected request information;
+- \`attributes\`: other application-specific authorization inputs;
+- \`now\`: the current UTC time, added automatically.
+
+Passing a small request dictionary instead of the entire request keeps policy
+inputs explicit. Never place secrets in policy context.
 
 ## Run the application
 
@@ -7076,13 +7386,22 @@ uvicorn app:app --reload
 Open [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) to use FastAPI's
 interactive API documentation.
 
-The public route works without a token:
+### Try optional authentication
+
+Without a token, the landing route treats the caller as a guest:
 
 \`\`\`bash
-curl http://127.0.0.1:8000/
+curl http://127.0.0.1:8000/landing
 \`\`\`
 
-Request a token with the example credentials:
+\`\`\`json
+{
+  "authenticated": false,
+  "message": "Hello, guest."
+}
+\`\`\`
+
+### Request a token
 
 \`\`\`bash
 curl \\
@@ -7092,7 +7411,7 @@ curl \\
   http://127.0.0.1:8000/token
 \`\`\`
 
-The response contains a bearer token:
+The response contains a short-lived bearer token:
 
 \`\`\`json
 {
@@ -7102,41 +7421,1079 @@ The response contains a bearer token:
 }
 \`\`\`
 
-Copy \`access_token\` into the protected request:
+For the commands below, replace \`<access_token>\` with that value:
+
+\`\`\`bash
+export ACCESS_TOKEN="<access_token>"
+\`\`\`
+
+### Inspect the principal
 
 \`\`\`bash
 curl \\
-  --header "Authorization: Bearer <access_token>" \\
+  --header "Authorization: Bearer \$ACCESS_TOKEN" \\
   http://127.0.0.1:8000/me
 \`\`\`
 
-The verified user is returned:
+The response shows the typed subject and credential metadata:
 
 \`\`\`json
 {
-  "id": "user-1",
-  "username": "alice"
+  "subject": {
+    "id": "user-1",
+    "username": "alice",
+    "role": "editor"
+  },
+  "permissions": [
+    "post:edit",
+    "post:read",
+    "profile:read"
+  ],
+  "token_type": "jwt",
+  "tenant": "acme",
+  "jti": "a-unique-token-id"
 }
 \`\`\`
 
-A missing, expired, modified, or incorrectly signed token produces HTTP
-\`401 Unauthorized\`.
+The same token also personalizes the optional route:
+
+\`\`\`bash
+curl \\
+  --header "Authorization: Bearer \$ACCESS_TOKEN" \\
+  http://127.0.0.1:8000/landing
+\`\`\`
+
+### Exercise the policy
+
+Alice owns \`post-1\`, so this request succeeds:
+
+\`\`\`bash
+curl \\
+  --request PATCH \\
+  --header "Authorization: Bearer \$ACCESS_TOKEN" \\
+  --header "Content-Type: application/json" \\
+  --data '{"title":"Updated by Alice"}' \\
+  http://127.0.0.1:8000/posts/post-1
+\`\`\`
+
+Alice does not own \`post-2\`, so the same permission is denied with HTTP \`403\`:
+
+\`\`\`bash
+curl \\
+  --request PATCH \\
+  --header "Authorization: Bearer \$ACCESS_TOKEN" \\
+  --header "Content-Type: application/json" \\
+  --data '{"title":"Unauthorized update"}' \\
+  http://127.0.0.1:8000/posts/post-2
+\`\`\`
+
+Alice owns \`post-3\`, but the deny rule still prevents editing the locked post:
+
+\`\`\`bash
+curl \\
+  --request PATCH \\
+  --header "Authorization: Bearer \$ACCESS_TOKEN" \\
+  --header "Content-Type: application/json" \\
+  --data '{"title":"Cannot update a locked post"}' \\
+  http://127.0.0.1:8000/posts/post-3
+\`\`\`
+
+Both denied requests return:
+
+\`\`\`json
+{
+  "detail": "Permission denied."
+}
+\`\`\`
 
 ## Before using this in production
 
 The example intentionally leaves out application-specific infrastructure.
 For a production service:
 
-- load users from a database;
-- hash passwords with a password hashing algorithm such as Argon2id, and
-  compare password hashes instead of storing plaintext passwords;
+- load users and resources from a database;
+- hash passwords with Argon2id or another password hashing algorithm;
 - keep signing keys in a secret manager and define a rotation procedure;
 - use HTTPS so credentials and tokens are encrypted in transit;
 - choose a suitable token lifetime and implement revocation or refresh tokens
-  when your threat model requires them;
-- consider an asymmetric algorithm such as \`RS256\` when services should verify
-  tokens without receiving the private signing key;
-- restrict CORS origins and add rate limiting to the login endpoint.
+  when the threat model requires them;
+- use stable permission names and review grants at token issuance;
+- treat token claims as snapshots and avoid embedding rapidly changing
+  authorization state;
+- consider \`RS256\` when services should verify tokens without receiving the
+  private signing key;
+- restrict CORS origins and rate-limit the login endpoint;
+- log authorization decisions without logging raw credentials or secrets.
+`} />
+  ),
+  "4.2.0/examples--session_authentication": () => (
+    <MarkdownRenderer content={`# Session authentication with Litestar
+
+This Litestar example uses a server-side Jam session. The browser receives an
+opaque session ID in an HttpOnly cookie, while the authenticated subject and
+permissions remain in server-controlled storage.
+
+It demonstrates:
+
+- \`JamPlugin\` authentication middleware;
+- a cookie \`CredentialSource\`;
+- a typed subject and \`Principal\`;
+- a permission guard;
+- login and complete server-side logout.
+
+## Install and configure
+
+\`\`\`bash
+pip install "jamlib[litestar,json]" uvicorn
+export JAM_SESSION_AES_SECRET="\$(
+  python -c \\
+  'from jam.utils import generate_aes_key; print(generate_aes_key().decode())'
+)"
+\`\`\`
+
+Create \`config.toml\`:
+
+\`\`\`toml
+[jam.session]
+type = "json"
+json_path = "sessions.json"
+session_key = "users"
+is_session_crypt = true
+session_aes_secret = "\$JAM_SESSION_AES_SECRET"
+\`\`\`
+
+The JSON backend makes the example runnable without another service. Use the
+Redis backend for multiple application instances and server-enforced TTLs.
+
+!!! tip "Other configuration formats"
+    \`Jam\` also accepts a Python dictionary or a YAML or JSON file. File
+    configuration supports \`\$VAR\` and \`\${VAR:-default}\` substitutions.
+
+## Create the Litestar application
+
+Create \`app.py\`:
+
+\`\`\`python
+from dataclasses import dataclass
+from secrets import compare_digest
+
+from litestar import Litestar, Request, Response, get, post
+from litestar.datastructures import Cookie
+from litestar.exceptions import NotAuthorizedException
+from pydantic import BaseModel
+
+from jam import BaseSubject, Jam
+from jam.authz import Principal
+from jam.ext.litestar import (
+    CredentialSource,
+    JamPlugin,
+    permission_guard,
+)
+
+
+@dataclass
+class User(BaseSubject):
+    id: str
+    username: str
+    role: str
+
+
+jam = Jam(config="config.toml", subject=User)
+
+DEMO_USER = {
+    "id": "user-1",
+    "username": "alice",
+    "password": "change-me",
+    "role": "editor",
+}
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+@post("/login", sync_to_thread=True)
+def login(data: LoginRequest) -> Response[None]:
+    username_valid = compare_digest(
+        data.username.encode(),
+        DEMO_USER["username"].encode(),
+    )
+    password_valid = compare_digest(
+        data.password.encode(),
+        DEMO_USER["password"].encode(),
+    )
+    if not username_valid or not password_valid:
+        raise NotAuthorizedException("Invalid username or password.")
+
+    session_id = jam.issue(
+        User(
+            id=DEMO_USER["id"],
+            username=DEMO_USER["username"],
+            role=DEMO_USER["role"],
+        ),
+        via="session",
+        permissions=["profile:read"],
+    )
+    return Response(
+        content=None,
+        status_code=204,
+        cookies=[
+            Cookie(
+                key="session",
+                value=session_id,
+                max_age=3600,
+                httponly=True,
+                secure=False,  # Use True behind HTTPS.
+                samesite="lax",
+            )
+        ],
+    )
+
+
+@get(
+    "/me",
+    guards=[permission_guard(jam, "profile:read")],
+    sync_to_thread=False,
+)
+def me(request: Request) -> dict:
+    principal: Principal[User] = request.user
+    return {
+        "id": principal.subject.id,
+        "username": principal.subject.username,
+        "role": principal.subject.role,
+        "permissions": sorted(principal.permissions),
+    }
+
+
+@post(
+    "/logout",
+    guards=[permission_guard(jam, "profile:read")],
+    sync_to_thread=True,
+)
+def logout(request: Request) -> Response[None]:
+    session_id = request.auth.token
+    if session_id is not None:
+        jam.session.delete(session_id)
+
+    response = Response(content=None, status_code=204)
+    response.delete_cookie("session")
+    return response
+
+
+app = Litestar(
+    route_handlers=[login, me, logout],
+    plugins=[
+        JamPlugin(
+            jam,
+            via="session",
+            sources=[CredentialSource.cookie("session")],
+            exclude=["/login"],
+        )
+    ],
+)
+\`\`\`
+
+## How the integration works
+
+\`JamPlugin\` registers the configured \`Jam\` instance with Litestar dependency
+injection and installs authentication middleware. The middleware reads the
+\`session\` cookie, calls \`jam.authenticate(..., via="session")\`, and exposes:
+
+| Litestar value | Jam value |
+| --- | --- |
+| \`request.user\` | The authenticated \`Principal[User]\`, or \`None\`. |
+| \`request.auth\` | The complete authentication result, including the session ID. |
+| \`request.state.jam\` | The configured Jam instance. |
+| \`request.state.principal\` | The authenticated principal. |
+
+The login route is excluded from middleware because no credential exists yet.
+\`permission_guard()\` protects \`/me\` and \`/logout\`: missing authentication is
+rejected, and the session must grant \`profile:read\`.
+
+\`jam.issue(..., via="session")\` stores the subject and permissions on the
+server. Only the opaque ID is sent to the browser. Logout deletes both sides:
+the server record and the browser cookie.
+
+## Run the flow
+
+\`\`\`bash
+uvicorn app:app --reload
+
+curl -i -c cookies.txt \\
+  -H "Content-Type: application/json" \\
+  -d '{"username":"alice","password":"change-me"}' \\
+  http://127.0.0.1:8000/login
+
+curl -b cookies.txt http://127.0.0.1:8000/me
+
+curl -i -b cookies.txt -c cookies.txt \\
+  -X POST http://127.0.0.1:8000/logout
+\`\`\`
+
+For production, hash passwords, use \`Secure\` cookies over HTTPS, protect
+state-changing routes against CSRF, regenerate IDs after privilege changes,
+and use Redis or a custom persistent backend with an appropriate TTL.
+`} />
+  ),
+  "4.2.0/examples--oauth2_login": () => (
+    <MarkdownRenderer content={`# OAuth2 login
+
+This FastAPI example redirects a user to GitHub, exchanges the authorization
+code through Jam, reads the GitHub profile, and creates a short-lived local
+JWT. The provider access token never becomes the application's login cookie.
+
+## Register and configure the OAuth application
+
+Create a GitHub OAuth App with this callback URL:
+
+\`\`\`text
+http://127.0.0.1:8000/oauth/github/callback
+\`\`\`
+
+Install the dependencies and export the credentials:
+
+\`\`\`bash
+pip install "jamlib[fastapi]" httpx uvicorn
+
+export GITHUB_CLIENT_ID="..."
+export GITHUB_CLIENT_SECRET="..."
+export JWT_SECRET_KEY="\$(python -c \\
+  'from jam.utils import generate_symmetric_key; print(generate_symmetric_key())')"
+\`\`\`
+
+Create \`config.toml\`:
+
+\`\`\`toml
+[jam.oauth2.github]
+client_id = "\$GITHUB_CLIENT_ID"
+client_secret = "\$GITHUB_CLIENT_SECRET"
+redirect_url = "http://127.0.0.1:8000/oauth/github/callback"
+
+[jam.jose.jwt]
+alg = "HS256"
+secret_key = "\$JWT_SECRET_KEY"
+\`\`\`
+
+The name \`github\` selects Jam's built-in GitHub endpoints. A custom provider
+also supplies \`auth_url\` and \`token_url\`.
+
+!!! tip "Other configuration formats"
+    \`Jam\` accepts a Python dictionary or TOML, YAML, and JSON files. Keep
+    OAuth client secrets in environment variables or a secret manager.
+
+## Create the application
+
+Create \`app.py\`:
+
+\`\`\`python
+from dataclasses import dataclass
+from secrets import token_urlsafe
+from typing import Annotated
+
+import httpx
+from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
+
+from jam import BaseSubject, Jam
+from jam.authz import Principal
+from jam.ext.fastapi import CredentialSource, JamAuth
+
+
+@dataclass
+class User(BaseSubject):
+    id: str
+    username: str
+
+
+jam = Jam(config="config.toml", subject=User)
+github = jam.oauth2["github"]
+auth = JamAuth(
+    jam,
+    via="jwt",
+    sources=[CredentialSource.cookie("access_token")],
+)
+app = FastAPI(title="Jam OAuth2 login example")
+
+# Use a shared, expiring server-side store in production.
+PENDING_STATES: set[str] = set()
+
+
+class UserResponse(BaseModel):
+    id: str
+    username: str
+
+
+@app.get("/login/github")
+def start_github_login() -> RedirectResponse:
+    state = token_urlsafe(32)
+    PENDING_STATES.add(state)
+    authorization_url = github.get_authorization_url(
+        scope=["read:user"],
+        state=state,
+    )
+    return RedirectResponse(authorization_url)
+
+
+@app.get("/oauth/github/callback")
+def github_callback(code: str, state: str) -> RedirectResponse:
+    if state not in PENDING_STATES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OAuth state.",
+        )
+    PENDING_STATES.remove(state)
+
+    provider_tokens = github.fetch_token(code=code)
+    provider_access_token = provider_tokens.get("access_token")
+    if not isinstance(provider_access_token, str):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="OAuth provider returned no access token.",
+        )
+
+    profile_response = httpx.get(
+        "https://api.github.com/user",
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {provider_access_token}",
+        },
+        timeout=10,
+    )
+    profile_response.raise_for_status()
+    profile = profile_response.json()
+
+    local_token = jam.issue(
+        User(
+            id=str(profile["id"]),
+            username=profile["login"],
+        ),
+        via="jwt",
+        exp=15 * 60,
+        jti=token_urlsafe(16),
+        permissions=["profile:read"],
+        identity_provider="github",
+    )
+
+    response = RedirectResponse("/me", status_code=status.HTTP_303_SEE_OTHER)
+    response.set_cookie(
+        "access_token",
+        local_token,
+        max_age=15 * 60,
+        httponly=True,
+        secure=False,  # Use True behind HTTPS.
+        samesite="lax",
+    )
+    return response
+
+
+@app.get("/me", response_model=UserResponse)
+def me(
+    principal: Annotated[
+        Principal[User],
+        Depends(auth.require("profile:read")),
+    ],
+) -> UserResponse:
+    return UserResponse(
+        id=principal.subject.id,
+        username=principal.subject.username,
+    )
+\`\`\`
+
+## Understand the trust boundaries
+
+\`state\` binds the callback to a login initiated by this application and must
+be unpredictable, single-use, and short-lived. The in-memory set is suitable
+only for a one-process demonstration; use a shared server-side session store
+in production.
+
+The authorization code is exchanged by \`github.fetch_token()\`. The resulting
+GitHub access token authorizes GitHub API calls—it is not automatically proof
+of a local application identity. The application fetches a profile, maps the
+provider ID to a local user, and only then issues its own Jam credential.
+
+## Run the flow
+
+\`\`\`bash
+uvicorn app:app --reload
+\`\`\`
+
+Open [http://127.0.0.1:8000/login/github](http://127.0.0.1:8000/login/github).
+After GitHub authorization, the callback sets the local cookie and redirects
+to \`/me\`.
+
+In production, use HTTPS and \`Secure\` cookies, persist provider-to-user
+mappings, define account-linking rules, handle provider errors without leaking
+tokens, request the minimum scopes, and never log authorization codes, access
+tokens, refresh tokens, or client secrets.
+`} />
+  ),
+  "4.2.0/examples--key_rotation": () => (
+    <MarkdownRenderer content={`# Key rotation
+
+Jam KeyChains let new JWTs use a new key without immediately invalidating
+tokens signed by the previous key. This example uses persistent \`RS256\` keys
+and performs the full standby, current, retired, and revoked lifecycle.
+
+## Install and configure
+
+\`\`\`bash
+pip install "jamlib[cli]"
+mkdir -p jwt-keys
+chmod 700 jwt-keys
+\`\`\`
+
+Create \`config.toml\`:
+
+\`\`\`toml
+[jam.keychains.jwt]
+type = "FileStorage"
+path = "jwt-keys"
+algorithm = "RS256"
+
+[jam.jose.jwt]
+alg = "RS256"
+keychain = "jwt"
+\`\`\`
+
+!!! tip "Other configuration formats"
+    The same configuration can be supplied as a Python dictionary, YAML, or
+    JSON. TOML is convenient for sharing one configuration between the
+    application and \`jam keychain\`.
+
+Bootstrap the first key:
+
+\`\`\`bash
+jam keychain --config config.toml add jwt 2026-01
+jam keychain --config config.toml activate jwt 2026-01
+jam keychain --config config.toml current jwt
+\`\`\`
+
+## Observe a rotation
+
+Create \`rotate_demo.py\`:
+
+\`\`\`python
+from jam import Jam
+from jam.exceptions import JamError
+
+
+jam = Jam(config="config.toml")
+chain = jam.keychains["jwt"]
+
+old_token = jam.issue(
+    {"id": "user-1"},
+    via="jwt",
+    exp=3600,
+)
+old_key_id = chain.current().id
+
+chain.rotate("2026-02")
+new_token = jam.issue(
+    {"id": "user-1"},
+    via="jwt",
+    exp=3600,
+)
+
+assert jam.authenticate(old_token, via="jwt").subject["id"] == "user-1"
+assert jam.authenticate(new_token, via="jwt").subject["id"] == "user-1"
+
+chain.revoke(old_key_id)
+try:
+    jam.authenticate(old_token, via="jwt")
+except JamError as error:
+    print(error.error_code)
+
+assert jam.authenticate(new_token, via="jwt").subject["id"] == "user-1"
+\`\`\`
+
+Run it and inspect metadata:
+
+\`\`\`bash
+python rotate_demo.py
+jam keychain --config config.toml list jwt --include-revoked
+\`\`\`
+
+JWT places the active key ID in the protected \`kid\` header. After rotation,
+the previous key is \`retired\`: it no longer signs tokens but still verifies
+them. Revocation is different—it immediately rejects every token using that
+key.
+
+## Operational rotation
+
+For routine rotation:
+
+\`\`\`bash
+jam keychain --config config.toml rotate jwt --key-id 2026-03
+jam keychain --config config.toml list jwt
+\`\`\`
+
+Keep a retired key until every token it signed has expired. Use \`revoke\` only
+for compromise or another event requiring immediate invalidation, and remove
+a key only after it is no longer needed for verification:
+
+\`\`\`bash
+jam keychain --config config.toml revoke jwt 2026-02
+jam keychain --config config.toml remove jwt 2026-02 --yes
+\`\`\`
+
+Back up key storage, restrict it to the application user, perform rotation
+through one controlled operator, and distribute verifier public keys before
+activating a new asymmetric signing key.
+`} />
+  ),
+  "4.2.0/examples--saml_sso": () => (
+    <MarkdownRenderer content={`# SAML SSO with Django SP and IdP applications
+
+This example runs two Django projects:
+
+- a Service Provider (SP) on \`127.0.0.1:8000\`;
+- an Identity Provider (IdP) on \`127.0.0.1:8001\`.
+
+The SP creates a signed AuthnRequest. The IdP validates it and returns a signed
+SAMLResponse through an auto-submitted HTML form. The SP validates the
+assertion and turns it into a Jam \`Principal\`.
+
+## Create the projects and keys
+
+\`\`\`bash
+mkdir django-saml
+cd django-saml
+python -m venv .venv
+source .venv/bin/activate
+
+pip install "jamlib[django,cli]"
+
+mkdir sp_app idp_app
+django-admin startproject sp_project sp_app
+django-admin startproject idp_project idp_app
+
+jam keys rsa --private-out idp-private.pem --public-out idp-public.pem
+jam keys rsa --private-out sp-private.pem --public-out sp-public.pem
+chmod 600 idp-private.pem sp-private.pem
+\`\`\`
+
+In a real federation, exchange public keys or signed metadata through a
+trusted administrative channel. Never copy an IdP private key to an SP.
+
+## Configure both SAML parties
+
+Create \`idp.toml\` in the \`django-saml\` directory:
+
+\`\`\`toml
+[jam.saml]
+role = "idp"
+entity_id = "http://127.0.0.1:8001"
+sso_url = "http://127.0.0.1:8001/sso/"
+audience = "http://127.0.0.1:8000"
+private_key = "idp-private.pem"
+public_key = "sp-public.pem"
+default_exp = 300
+\`\`\`
+
+Create \`sp.toml\`:
+
+\`\`\`toml
+[jam.saml]
+role = "sp"
+entity_id = "http://127.0.0.1:8000"
+expected_issuer = "http://127.0.0.1:8001"
+acs_url = "http://127.0.0.1:8000/acs/"
+private_key = "sp-private.pem"
+idp_public_key = "idp-public.pem"
+want_assertions_signed = true
+\`\`\`
+
+!!! tip "Other configuration formats"
+    Both projects can use Python dictionaries, YAML, or JSON instead of TOML.
+    Keep entity IDs, endpoint URLs, and trusted keys consistent across both
+    parties.
+
+Add the local hosts to both generated settings files:
+
+\`\`\`python
+ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+\`\`\`
+
+Jam's SAML API is used directly by these Django views. The
+\`jam.ext.django.JamMiddleware\` integration is intended for Bearer credentials
+and Jam Session cookies and is not required for the SAML POST binding.
+
+## Create the Django Service Provider
+
+Create \`sp_app/sp_project/views.py\`:
+
+\`\`\`python
+from pathlib import Path
+
+from django.conf import settings
+from django.http import HttpRequest, HttpResponseRedirect, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET, require_POST
+
+from jam import Jam
+
+
+ROOT = Path(settings.BASE_DIR).parent
+sp = Jam(config=str(ROOT / "sp.toml"))
+
+
+@require_GET
+def login(request: HttpRequest) -> HttpResponseRedirect:
+    url = sp.saml.prepare_authn_request(
+        idp_sso_url="http://127.0.0.1:8001/sso/",
+        binding="redirect",
+        relay_state="/account/",
+    )
+    return HttpResponseRedirect(url)
+
+
+@csrf_exempt
+@require_POST
+def assertion_consumer_service(request: HttpRequest) -> JsonResponse:
+    relay_state = request.POST.get("RelayState")
+    if relay_state not in (None, "", "/account/"):
+        return JsonResponse(
+            {"error": "Invalid RelayState."},
+            status=400,
+        )
+
+    principal = sp.authenticate(
+        request.POST["SAMLResponse"],
+        via="saml",
+    )
+    return JsonResponse(
+        {
+            "subject": principal.subject,
+            "claims": principal.claims,
+            "next": relay_state or "/",
+        }
+    )
+\`\`\`
+
+Replace \`sp_app/sp_project/urls.py\`:
+
+\`\`\`python
+from django.urls import path
+
+from . import views
+
+
+urlpatterns = [
+    path("login/", views.login, name="saml-login"),
+    path("acs/", views.assertion_consumer_service, name="saml-acs"),
+]
+\`\`\`
+
+The ACS is exempt from Django's CSRF middleware because the cross-site POST is
+the SAML binding itself. This does not make it unauthenticated: Jam verifies
+the XML signature, issuer, audience, recipient, time conditions, and replay
+IDs. Do not apply \`csrf_exempt\` to unrelated views.
+
+## Create the Django Identity Provider
+
+Create \`idp_app/idp_project/views.py\`:
+
+\`\`\`python
+from html import escape
+from pathlib import Path
+
+from django.conf import settings
+from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.views.decorators.http import require_GET
+
+from jam import Jam
+from jam.saml.binding import encode_post
+
+
+ROOT = Path(settings.BASE_DIR).parent
+idp = Jam(config=str(ROOT / "idp.toml"))
+
+# The demo assumes this user already authenticated at the IdP.
+DEMO_USER = {
+    "id": "user-1",
+    "email": "alice@example.com",
+    "role": "editor",
+}
+
+
+@require_GET
+def single_sign_on(request: HttpRequest) -> HttpResponse:
+    authn_request = idp.saml.parse_authn_request(
+        request.GET.urlencode(),
+        binding="redirect",
+        issuer="http://127.0.0.1:8000",
+    )
+    if authn_request.acs_url != "http://127.0.0.1:8000/acs/":
+        return JsonResponse(
+            {"error": "Unregistered ACS URL."},
+            status=400,
+        )
+
+    xml_response = idp.saml.build_response(
+        subject=DEMO_USER["id"],
+        attributes={
+            "email": DEMO_USER["email"],
+            "role": DEMO_USER["role"],
+            "permissions": ["documents:read"],
+        },
+        issuer="http://127.0.0.1:8001",
+        audience="http://127.0.0.1:8000",
+        destination=authn_request.acs_url,
+        in_response_to=authn_request.id,
+        expires_in=300,
+    )
+    saml_response = encode_post(xml_response)
+    relay_state = request.GET.get("RelayState", "")
+
+    html = f"""
+    <!doctype html>
+    <html>
+      <body onload="document.forms[0].submit()">
+        <form method="post" action="{escape(authn_request.acs_url)}">
+          <input type="hidden" name="SAMLResponse"
+                 value="{escape(saml_response)}">
+          <input type="hidden" name="RelayState"
+                 value="{escape(relay_state)}">
+          <noscript><button type="submit">Continue</button></noscript>
+        </form>
+      </body>
+    </html>
+    """
+    return HttpResponse(html)
+\`\`\`
+
+Replace \`idp_app/idp_project/urls.py\`:
+
+\`\`\`python
+from django.urls import path
+
+from . import views
+
+
+urlpatterns = [
+    path("sso/", views.single_sign_on, name="saml-sso"),
+]
+\`\`\`
+
+The fixed \`DEMO_USER\` replaces the IdP's login screen only to keep the protocol
+flow visible. A real IdP must authenticate the browser before issuing an
+assertion and should require MFA according to its policy.
+
+## Run the SSO flow
+
+Run both development servers from the \`django-saml\` directory:
+
+\`\`\`bash
+python sp_app/manage.py runserver 127.0.0.1:8000
+python idp_app/manage.py runserver 127.0.0.1:8001
+\`\`\`
+
+Open [http://127.0.0.1:8000/login/](http://127.0.0.1:8000/login/). The browser
+follows:
+
+\`\`\`text
+Django SP /login/ -> Django IdP /sso/ -> Django SP /acs/
+\`\`\`
+
+The ACS response displays the authenticated subject and assertion claims. A
+production SP should map the SAML NameID to a local Django user and establish
+a normal Django login session.
+
+Use HTTPS, persistent shared replay storage, metadata-driven trust,
+certificate rotation, strict ACS allowlists, validated local \`RelayState\`
+targets, and short assertion lifetimes in production.
+`} />
+  ),
+  "4.2.0/examples--production_deploy": () => (
+    <MarkdownRenderer content={`# Production deployment
+
+This example packages a FastAPI service with a persistent Jam KeyChain,
+non-root container user, health checks, key bootstrap, and an explicit
+rotation procedure. Adapt the container orchestration details to your
+platform.
+
+## Application configuration
+
+Create \`config.toml\`:
+
+\`\`\`toml
+[jam.keychains.jwt]
+type = "FileStorage"
+path = "/var/lib/jam/jwt-keys"
+algorithm = "RS256"
+
+[jam.jose.jwt]
+alg = "RS256"
+keychain = "jwt"
+
+[[jam.authz.rules]]
+effect = "allow"
+permissions = ["profile:read"]
+\`\`\`
+
+No private key appears in the image or configuration. The KeyChain directory
+is mounted at runtime and must be owned by the process user.
+
+!!! tip "Other configuration formats"
+    Production configuration may also be a Python dictionary, YAML, or JSON.
+    File configuration supports environment substitution. Supply secrets
+    through the deployment platform rather than baking them into an image.
+
+Create \`app.py\`:
+
+\`\`\`python
+from typing import Annotated
+
+from fastapi import Depends, FastAPI, HTTPException, status
+
+from jam import Jam
+from jam.authz import Principal
+from jam.ext.fastapi import JamAuth
+
+
+jam = Jam(config="/app/config.toml")
+auth = JamAuth(jam, via="jwt")
+app = FastAPI(title="Jam production service")
+
+
+@app.get("/health/live")
+def liveness() -> dict[str, str]:
+    return {"status": "alive"}
+
+
+@app.get("/health/ready")
+def readiness() -> dict[str, str]:
+    if jam.keychains["jwt"].current() is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="JWT signing key is not initialized.",
+        )
+    return {"status": "ready"}
+
+
+@app.get("/me")
+def me(
+    principal: Annotated[
+        Principal,
+        Depends(auth.require("profile:read")),
+    ],
+):
+    return {"subject": principal.subject}
+\`\`\`
+
+Readiness checks dependencies required to serve traffic; liveness only shows
+that the process can answer. Do not put credentials, key material, or detailed
+internal failures in either response.
+
+## Build a non-root image
+
+Create \`requirements.txt\` and lock exact versions in your normal dependency
+workflow:
+
+\`\`\`text
+jamlib[fastapi,cli]>=4.2,<4.3
+uvicorn>=0.41,<1
+\`\`\`
+
+Create \`Dockerfile\`:
+
+\`\`\`dockerfile
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \\
+    PYTHONUNBUFFERED=1 \\
+    JAM_DEBUG=False
+
+RUN groupadd --gid 10001 app \\
+    && useradd --uid 10001 --gid app --create-home app
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir --requirement requirements.txt
+
+COPY app.py config.toml ./
+RUN mkdir -p /var/lib/jam/jwt-keys \\
+    && chown -R app:app /app /var/lib/jam \\
+    && chmod 700 /var/lib/jam/jwt-keys
+
+USER 10001:10001
+EXPOSE 8000
+
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+\`\`\`
+
+Run vulnerability scanning and produce an SBOM in CI. Prefer a lockfile with
+hashes over floating dependency ranges in the final build.
+
+## Mount and bootstrap key storage
+
+For a local container demonstration, prepare a bind mount with the same UID as
+the container:
+
+\`\`\`bash
+mkdir -p runtime/jwt-keys
+sudo chown 10001:10001 runtime/jwt-keys
+chmod 700 runtime/jwt-keys
+
+docker build -t jam-service .
+docker run --rm \\
+  -v "\$PWD/runtime/jwt-keys:/var/lib/jam/jwt-keys" \\
+  jam-service \\
+  jam keychain --config /app/config.toml add jwt initial
+
+docker run --rm \\
+  -v "\$PWD/runtime/jwt-keys:/var/lib/jam/jwt-keys" \\
+  jam-service \\
+  jam keychain --config /app/config.toml activate jwt initial
+\`\`\`
+
+Start the service:
+
+\`\`\`bash
+docker run --rm -p 8000:8000 \\
+  --read-only \\
+  --tmpfs /tmp \\
+  -v "\$PWD/runtime/jwt-keys:/var/lib/jam/jwt-keys" \\
+  jam-service
+\`\`\`
+
+The same persistent storage must be visible to every process that issues or
+verifies these JWTs. Confirm that the platform preserves owner-only
+permissions and filesystem locking semantics.
+
+## Rotate without downtime
+
+Run rotation as a controlled administrative job using the same configuration
+and key volume:
+
+\`\`\`bash
+docker run --rm \\
+  -v "\$PWD/runtime/jwt-keys:/var/lib/jam/jwt-keys" \\
+  jam-service \\
+  jam keychain --config /app/config.toml \\
+  rotate jwt --key-id 2026-04
+\`\`\`
+
+New tokens use \`2026-04\`; retired keys continue verifying existing tokens.
+Keep them for at least the maximum token lifetime. Revoke a key immediately
+only when credentials signed by it must stop working.
+
+## Deployment checklist
+
+- Terminate TLS at a trusted proxy and configure forwarded headers explicitly.
+- Run as a non-root user with a read-only root filesystem.
+- Back up key storage and test restoration without exposing private material.
+- Allow only one controlled rotation writer.
+- Keep credential lifetimes short and monitor authentication failures.
+- Leave Jam sensitive-data redaction enabled.
+- Rate-limit login and token issuance endpoints.
+- Use shared session, replay, and state stores when running multiple replicas.
+- Return generic authentication failures to clients and detailed safe metadata
+  to structured logs.
+- Test rotation, rollback, expired credentials, and compromised-key revocation
+  before the first production release.
 `} />
   ),
   "4.2.0/dev--logging": () => (

@@ -192,8 +192,33 @@
           "children": [
             {
               "id": "examples--fastapi_example_app",
-              "title": "FastAPI application with JWT",
+              "title": "FastAPI application with JWT and authorization",
               "slug": "examples--fastapi_example_app"
+            },
+            {
+              "id": "examples--session_authentication",
+              "title": "Session authentication with Litestar",
+              "slug": "examples--session_authentication"
+            },
+            {
+              "id": "examples--oauth2_login",
+              "title": "OAuth2 login",
+              "slug": "examples--oauth2_login"
+            },
+            {
+              "id": "examples--key_rotation",
+              "title": "Key rotation",
+              "slug": "examples--key_rotation"
+            },
+            {
+              "id": "examples--saml_sso",
+              "title": "SAML SSO with Django SP and IdP applications",
+              "slug": "examples--saml_sso"
+            },
+            {
+              "id": "examples--production_deploy",
+              "title": "Production deployment",
+              "slug": "examples--production_deploy"
             }
           ]
         },
@@ -390,7 +415,27 @@
         },
         {
           "slug": "examples--fastapi_example_app",
-          "title": "FastAPI application with JWT"
+          "title": "FastAPI application with JWT and authorization"
+        },
+        {
+          "slug": "examples--session_authentication",
+          "title": "Session authentication with Litestar"
+        },
+        {
+          "slug": "examples--oauth2_login",
+          "title": "OAuth2 login"
+        },
+        {
+          "slug": "examples--key_rotation",
+          "title": "Key rotation"
+        },
+        {
+          "slug": "examples--saml_sso",
+          "title": "SAML SSO with Django SP and IdP applications"
+        },
+        {
+          "slug": "examples--production_deploy",
+          "title": "Production deployment"
         },
         {
           "slug": "dev--logging",
