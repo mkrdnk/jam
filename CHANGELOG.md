@@ -43,6 +43,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Macaroon support to the Django credential adapters and documentation
   for configuration, attenuation, custom and opaque caveats, and discharge
   acquisition.
+- Added first-class SAML credentials to the synchronous and asynchronous
+  facades through `Jam.issue(..., via="saml")` and
+  `Jam.authenticate(..., via="saml")`. Facade authentication returns a
+  `Principal` containing the verified assertion subject, attributes, and
+  registered claims.
+- Added config-driven `SAML` construction and `[jam.saml]` facade assembly,
+  including issuer and audience defaults, expected-issuer validation, custom
+  modules, and direct `config` / `pointer` construction.
+- Added SAML KeyChain signing and verification with XML `KeyInfo/KeyName`,
+  historical-key lookup, rotation, revocation, `Memory`, and `FileStorage`
+  support.
 
 ### Changed
 
@@ -57,6 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Macaroon verification now accepts serialized primary and discharge tokens
   only. The decoded `Macaroon` model remains available for attenuation and must
   be serialized again before verification.
+- SAML response issuance now supports per-credential lifetime, not-before, and
+  assertion ID values through the facade's `exp`, `nbf`, and `jti` arguments.
 
 ### Deprecated
 
@@ -76,6 +89,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Macaroon time boundaries now fail during authentication and remain mandatory
   authorization constraints. Configurable issuer, audience, and floating-point
   clock leeway checks are available in the Macaroon profile.
+- SAML public-key loading now accepts RSA private PEM material and derives its
+  public key, allowing generated `FileStorage` KeyChains to verify assertions.
 
 ### Security
 
@@ -83,6 +98,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   structured caveats or application satisfiers are invoked.
 - Added strict canonical parsing and configurable limits for serialized size,
   caveat payloads, total caveat count, discharge count, and discharge depth.
+- SAML facade authentication fails closed for unsuccessful responses, missing
+  subject assertions, invalid signatures, issuer or audience mismatches,
+  expired or not-yet-valid assertions, replayed message IDs, and revoked keys.
 - Structured Macaroon satisfiers receive deeply immutable JSON values, so
   callbacks cannot change the signed caveat represented by verification
   results.
