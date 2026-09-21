@@ -6872,7 +6872,7 @@ source .venv/bin/activate
 Install Jam with its FastAPI integration and an ASGI server:
 
 \`\`\`bash
-pip install "jamlib[fastapi]" uvicorn
+pip install fastapi "jamlib[fastapi]" uvicorn
 \`\`\`
 
 ## Configure the signing secret
@@ -7544,7 +7544,7 @@ It demonstrates:
 ## Install and configure
 
 \`\`\`bash
-pip install "jamlib[litestar,json]" uvicorn
+pip install litestar "jamlib[litestar,json]" uvicorn
 export JAM_SESSION_AES_SECRET="\$(
   python -c \\
   'from jam.utils import generate_aes_key; print(generate_aes_key().decode())'
@@ -7754,7 +7754,7 @@ http://127.0.0.1:8000/oauth/github/callback
 Install the dependencies and export the credentials:
 
 \`\`\`bash
-pip install "jamlib[fastapi]" httpx uvicorn
+pip install fastapi "jamlib[fastapi]" httpx uvicorn
 
 export GITHUB_CLIENT_ID="..."
 export GITHUB_CLIENT_SECRET="..."
@@ -8063,7 +8063,7 @@ cd django-saml
 python -m venv .venv
 source .venv/bin/activate
 
-pip install "jamlib[django,cli]"
+pip install django "jamlib[django,cli]"
 
 mkdir sp_app idp_app
 django-admin startproject sp_project sp_app

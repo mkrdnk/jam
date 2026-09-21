@@ -71,13 +71,13 @@ nav:
     pages:
       - label: FastAPI application with JWT
         file: examples/fastapi_example_app.md
-      - label: Session authentication with Litestar
+      - label: Session authentication
         file: examples/session_authentication.md
       - label: OAuth2 login
         file: examples/oauth2_login.md
       - label: Key rotation
         file: examples/key_rotation.md
-      - label: SAML SSO with Django
+      - label: SAML SSO
         file: examples/saml_sso.md
       - label: Production deployment
         file: examples/production_deploy.md
