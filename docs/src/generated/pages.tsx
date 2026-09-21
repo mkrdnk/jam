@@ -3410,189 +3410,216 @@ print(footer)
   "4.2.0/authx--macaroons": () => (
     <MarkdownRenderer content={`# Macaroons
 
-A macaroon is a delegable bearer credential: its holder can add restrictions
-without knowing the root secret. Removing or changing already signed caveats,
-root claims, or permissions invalidates the signature.
+Macaroons are attenuable bearer credentials. A holder can append restrictions
+without knowing the root secret. Existing caveats and root claims cannot be
+removed or changed without invalidating the signature.
 
-> Jam deliberately keeps caveats simple. Each caveat represents one
-> restriction, and all caveats are combined with AND. Complex allow/deny logic
-> and Boolean expressions belong in server-side \`authz.rules\`.
+Jam combines authority as:
 
-In Jam's authorization profile, effective permissions are the intersection of
-root permissions, all credential restrictions, and server policy. Even a custom
-policy that always returns \`True\` cannot bypass Macaroon constraints.
+\`\`\`text
+root permissions
+AND every credential constraint
+AND server-side policy
+\`\`\`
 
-## Configuration
+> Jam deliberately keeps Macaroon caveats simple. Each caveat represents one
+> restriction, and all caveats are combined with AND. Complex Boolean and
+> allow/deny logic belongs in server-side \`authz.rules\`.
+
+## Use in instance
+
+### Config
+
+The Macaroon profile requires a dedicated KeyChain. It must use
+\`MACAROON-HMAC-SHA256\`; this is not the JOSE \`HS256\` algorithm.
+
+Args:
+
+* \`keychain\`: \`str\` - Name of the KeyChain. Required.
+* \`location\`: \`str = ""\` - Unsigned location hint. Jam does not make an HTTP
+  request to this address.
+* \`limits\`: \`dict[str, int] | None\` - Parser and verifier resource limits.
+
+Limit args:
+
+* \`serialized_size\`: \`int = 65536\` - Maximum serialized token size in bytes.
+* \`caveat_payload_size\`: \`int = 8192\` - Maximum data size of one caveat.
+* \`caveat_count\`: \`int = 64\` - Maximum caveats across the verified graph.
+* \`discharge_count\`: \`int = 32\` - Maximum supplied discharge Macaroons.
+* \`discharge_depth\`: \`int = 8\` - Maximum nested discharge depth. The primary
+  Macaroon has depth 0.
+
+All limit values must be non-negative integers, not \`bool\`.
+
+KeyChain args:
+
+* \`type\`: \`str\` - \`Memory\` / \`FileStorage\`.
+* \`algorithm\`: \`str = "MACAROON-HMAC-SHA256"\` - Macaroon root-key algorithm.
+* \`purpose\`: \`str | None = "local"\` - Key purpose metadata.
+* \`path\`: \`str\` - Required for \`FileStorage\`.
+
+\`\`\`toml
+[jam.keychains.macaroons]
+type = "FileStorage"
+path = "/var/lib/my-service/macaroon-keys"
+algorithm = "MACAROON-HMAC-SHA256"
+
+[jam.macaroon]
+keychain = "macaroons"
+location = "https://api.example"
+
+[jam.macaroon.limits]
+serialized_size = 65536
+caveat_payload_size = 8192
+caveat_count = 64
+discharge_count = 32
+discharge_depth = 8
+\`\`\`
+
+Keys must be provisioned explicitly. Newly issued credentials use the current
+key, retired keys continue verifying existing and attenuated credentials, and
+revoked keys no longer verify. The signed root identifier contains the \`kid\`
+used to resolve the historical key.
+
+### Usage
 
 \`\`\`python
 from jam import Jam
 
-jam = Jam(config={
-    "keychains": {
-        "access": {
-            "type": "Memory",
-            "algorithm": "MACAROON-HMAC-SHA256",
-        },
-    },
-    "macaroon": {
-        "keychain": "access",
-        "location": "https://api.example",
-    },
-})
-jam.keychains["access"].rotate("root-1")
+jam = Jam(config="config.toml")
 \`\`\`
 
-Keys must be created explicitly. \`Memory\` does not preserve them across
-restarts; use \`FileStorage\` for persistent storage.
+#### Provision a key
 
-### \`macaroon\` options
-
-| Option | Type | Default | Purpose |
-|---|---|---|---|
-| \`keychain\` | \`str\` | Required | Name of the chain in \`keychains\`. |
-| \`location\` | \`str\` | \`""\` | Unsigned service location hint, not an instruction to make an HTTP request. |
-| \`limits\` | object | See the next table | Credential parsing and verification limits. |
-
-### \`macaroon.limits\` options
-
-Values must be non-negative integers, not \`bool\`.
-
-| Option | Default | Purpose |
-|---|---:|---|
-| \`serialized_size\` | \`65536\` | Maximum size of a single serialized token in bytes. |
-| \`caveat_payload_size\` | \`8192\` | Maximum payload size of a single caveat. |
-| \`caveat_count\` | \`64\` | Maximum number of caveats in the chain being verified. |
-| \`discharge_count\` | \`32\` | Maximum number of supplied discharges. |
-| \`discharge_depth\` | \`8\` | Maximum nested discharge depth; the primary macaroon has depth 0. |
-
-### Associated \`keychains\` entry
-
-| Option | Type | Default / requirement |
-|---|---|---|
-| \`type\` | \`"Memory"\` or \`"FileStorage"\` | Required. |
-| \`algorithm\` | \`str\` | \`MACAROON-HMAC-SHA256\` when the Macaroon module creates the chain; other algorithms are not supported. |
-| \`purpose\` | \`str\` or \`None\` | Defaults to \`"local"\` when created through Macaroon. |
-| \`path\` | \`str\` | Required for \`FileStorage\`; not used by \`Memory\`. |
-
-The Macaroon algorithm is not JOSE \`HS256\`. Do not share a chain across
-protocols. Rotation retires the current key, which can still verify existing
-credentials. Revoking a key prevents verification of all its credentials,
-including attenuated copies. The signed root \`kid\` identifies the required key.
-
-## Standalone module
-
-\`MacaroonModule\` implements \`BaseMacaroon\` and does not require a \`Jam\` instance.
-The generic \`BaseMacaroon\` contract supports explicit-key encoding, decoding,
-verification, and satisfier registration. It does not require a KeyChain,
-claims, or Jam authorization constraints. \`Macaroon\` is the separate low-level
-cryptographic token model.
-
-### Explicit-key operations
+Method: \`jam.keychains[name].rotate\`
 
 \`\`\`python
-from secrets import token_bytes
-
-from jam.macaroons import BaseMacaroon, MacaroonModule
-
-root_key = token_bytes(32)
-module: BaseMacaroon = MacaroonModule()
-token = module.encode("credential-id", root_key, location="https://api.example")
-delegated = module.decode(token).add_caveat(b"account = 42")
-module.satisfy_exact(b"account = 42")
-result = module.verify(delegated.encode(), root_key)
+jam.keychains["macaroons"].rotate("root-2026-01")
 \`\`\`
 
-\`encode(identifier, root_key, *, location="")\` returns a serialized token.
-\`decode(token)\` returns a \`Macaroon\`; \`verify(token, root_key, discharges=(), ...)\`
-returns a \`VerificationResult\`. Use \`satisfy_exact()\` or \`satisfy_general()\` to
-register handlers for opaque caveats.
+#### Issue a Macaroon
 
-\`verify()\` also accepts keyword-only \`structured_satisfiers=None\` and
-\`collect_structured=False\`. Supply a mapping of caveat names to Boolean
-callbacks through \`structured_satisfiers\` to evaluate structured caveats.
-Unknown caveats fail closed by default. Setting \`collect_structured=True\`
-deliberately defers unknown structured caveats: the caller must enforce every
-collected caveat before granting access. Signature verification alone does not
-satisfy these deferred restrictions.
+Method: \`jam.issue\` with \`via="macaroon"\`
 
-### KeyChain-backed Jam profile
+Args:
 
-The concrete \`MacaroonModule\` also provides \`issue(claims, ...)\` and
-\`authenticate(token, discharges)\`. These profile extensions require a KeyChain;
-they are not abstract requirements of \`BaseMacaroon\`.
+* \`subject\`: \`BaseSubject | dict[str, Any]\` - Credential subject.
+* \`permissions\`: \`list[str] | None\` - Root permission grants.
+* \`exp\`: \`int | None\` - Lifetime in seconds, represented as an \`expires_at\`
+  caveat.
+* \`nbf\`: \`int | None\` - Offset in seconds, represented as a \`not_before\`
+  caveat.
+* \`iss\`: \`str | None\` - Immutable issuer claim.
+* \`aud\`: \`str | None\` - Immutable audience claim.
+* \`jti\`: \`str | None\` - Immutable credential identifier.
+* \`**claims\`: \`Any\` - Additional immutable root claims.
 
-\`\`\`python
-from jam.keychain import Memory
-from jam.macaroons import MacaroonModule
+Returns:
 
-chain = Memory("MACAROON-HMAC-SHA256")
-chain.rotate("root-1")
-module = MacaroonModule(keychain=chain)
-token = module.issue({"sub": "42", "permissions": ["documents:read"]})
-claims, constraints = module.authenticate(token)
-\`\`\`
-
-\`MacaroonModule\` arguments:
-
-| Argument | Type | Default |
-|---|---|---|
-| \`keychain\` | \`BaseKeyChain\` or \`None\` | \`None\`; required for the Jam profile's \`issue()\` and \`authenticate()\`. |
-| \`registry\` | \`CaveatRegistry\` or \`None\` | A new, empty registry of custom caveats. |
-| \`location\` | \`str\` | \`""\`. |
-| \`limits\` | \`Limits\` | \`Limits()\` with the values listed above. |
-
-\`decode()\` decodes a token for inspection or attenuation but **does not verify
-authenticity**. Use \`verify()\` for explicit-key verification or \`authenticate()\`
-for the KeyChain-backed Jam profile.
-\`create_instance()\` constructs the module from configuration and a supplied
-KeyChain resolver; the \`Jam\` facade does not contain Macaroon configuration
-rules.
-
-## Issuance and attenuation
+\`str\`: Standard base64url-encoded binary v2 Macaroon.
 
 \`\`\`python
-from jam import AuthorizationContext
-from jam.macaroons import Caveat
-
 token = jam.issue(
-    {"id": "42"},
+    {"id": "42", "tenant": "example"},
     via="macaroon",
     permissions=["documents:*"],
     exp=3600,
     iss="example",
     aud="api",
-    jti="request-credential",
-)
-delegated = jam.macaroon.decode(token).add_caveat(
-    Caveat("permission", "documents:read"),
-).add_caveat(
-    Caveat("condition", {
-        "field": "context.resource.owner_id",
-        "operator": "eq",
-        "value": "@subject.id",
-    }),
-)
-principal = jam.authenticate(delegated.encode(), via="macaroon")
-allowed = jam.authorize(
-    principal,
-    "documents:read",
-    AuthorizationContext(resource={"owner_id": "42"}),
 )
 \`\`\`
 
-Root claims contain the subject (\`sub\`), permissions, issuer, audience, jti, and
-additional application claims. They cannot be changed without invalidating the
-signature. \`exp\` and \`nbf\` are specified in seconds relative to issuance and
-become time caveats rather than root claims.
+\`exp\` and \`nbf\` are caveats, not root claims. They are compiled during
+authentication and evaluated later by authorization.
 
-\`add_caveat()\` returns a new copy; the original token is unchanged.
-\`authenticate()\` verifies the primary and discharge signatures, then validates
-the caveats and compiles \`Principal.constraints\`. Request and resource data
-are checked only in \`authorize()\`.
+#### Attenuate a Macaroon
+
+Method: \`jam.macaroon.decode\`, then \`macaroon.add_caveat\`
+
+\`\`\`python
+from jam.macaroons import Caveat
+
+macaroon = jam.macaroon.decode(token)
+delegated = macaroon.add_caveat(
+    Caveat("permission", "documents:read"),
+).add_caveat(
+    Caveat(
+        "condition",
+        {
+            "field": "context.resource.owner_id",
+            "operator": "eq",
+            "value": "@subject.id",
+        },
+    ),
+)
+delegated_token = delegated.encode()
+\`\`\`
+
+\`add_caveat()\` returns a new immutable copy. The original credential is not
+modified. \`decode()\` only parses a token; it does not authenticate it.
+
+#### Authenticate a Macaroon
+
+Method: \`jam.authenticate\` with \`via="macaroon"\`
+
+Args:
+
+* \`token\`: \`str\` - Primary serialized Macaroon.
+* \`discharges\`: \`Sequence[str | bytes | Macaroon] | None\` - Bound discharge
+  Macaroons required by third-party caveats.
+
+Returns:
+
+\`Principal\`: Authenticated subject, immutable root claims, token type, and
+compiled credential constraints.
+
+\`\`\`python
+principal = jam.authenticate(delegated_token, via="macaroon")
+print(principal.subject["id"])
+>>> 42
+\`\`\`
+
+Authentication verifies the complete signature and discharge graph before
+parsing structured caveats or calling satisfiers. Request- and resource-based
+conditions are not evaluated yet.
+
+#### Authorize a principal
+
+Method: \`jam.authorize\`
+
+\`\`\`python
+from jam import AuthorizationContext
+
+owned = AuthorizationContext(resource={"owner_id": "42"})
+other = AuthorizationContext(resource={"owner_id": "7"})
+
+assert jam.authorize(principal, "documents:read", owned)
+assert not jam.authorize(principal, "documents:write", owned)
+assert not jam.authorize(principal, "documents:read", other)
+\`\`\`
+
+Credential constraints are checked before the configured policy. A custom
+policy cannot bypass a failing constraint or broaden the root permissions.
+
+#### Access the module directly
+
+\`jam.macaroon\` exposes the configured \`MacaroonModule\`:
+
+\`\`\`python
+decoded = jam.macaroon.decode(token)
+claims, constraints = jam.macaroon.authenticate(token)
+\`\`\`
+
+The concrete module's \`issue()\` and \`authenticate()\` methods are KeyChain-backed
+Jam profile extensions. They are not requirements of \`BaseMacaroon\`.
 
 ## Built-in caveats
 
-### \`permission\`
+### Permission
+
+Name: \`permission\`
+
+Value: \`str\`
 
 \`\`\`python
 Caveat("permission", "documents:read")
@@ -3600,109 +3627,116 @@ Caveat("permission", "documents:*")
 Caveat("permission", "*")
 \`\`\`
 
-Restricts the requested \`permission\` argument. Multiple caveats intersect:
-a subsequent \`*\` cannot broaden an earlier \`documents:read\`.
+The caveat restricts the permission passed to \`authorize()\`. Multiple
+permission caveats intersect; a later wildcard cannot broaden an earlier
+restriction.
 
-### \`condition\`
+### Condition
 
-A single comparison rooted at \`subject.*\`, \`token.*\`, or \`context.*\`.
+Name: \`condition\`
+
+Value args:
+
+* \`field\`: \`str\` - Path rooted at \`subject.*\`, \`token.*\`, or \`context.*\`.
+* \`operator\`: \`str = "eq"\` - Comparison operator.
+* \`value\`: \`Any\` - Constant or \`@subject.*\`, \`@token.*\`, or \`@context.*\`
+  reference.
+* \`timezone\`: \`str | None\` - IANA timezone used for datetime evaluation.
 
 \`\`\`python
-Caveat("condition", {
-    "field": "context.request.ip",
-    "operator": "ip_in_network",
-    "value": "10.0.0.0/8",
-})
-Caveat("condition", {
-    "field": "token.tenant",
-    "operator": "eq",
-    "value": "@context.attributes.tenant",
-})
+Caveat(
+    "condition",
+    {
+        "field": "context.request.ip",
+        "operator": "ip_in_network",
+        "value": "10.0.0.0/8",
+    },
+)
 \`\`\`
 
-Operators: \`exists\`, \`truthy\`, \`eq\`, \`ne\`, \`in\`, \`not_in\`, \`contains\`,
-\`contains_any\`, \`contains_all\`, \`starts_with\`, \`ends_with\`, \`matches\`,
-\`ip_in_network\`, \`between\`, \`gt\`, \`gte\`, \`lt\`, \`lte\`. References to
-\`@subject.*\`, \`@token.*\`, and \`@context.*\` are supported, as is \`timezone\`
-for time comparisons. \`all\`, \`any\`, \`not\`, and nested Boolean expressions
-are prohibited.
+Operators:
 
-Unavailable runtime data, missing references, and incompatible types cause
-denial. Credential evaluation uses safe field access without invoking arbitrary
-properties and a restricted regular expression subset: an untrusted token must
-not trigger unsafe computation on the server. Server-side \`authz.rules\` retain
-their existing semantics.
+* \`exists\`, \`truthy\`
+* \`eq\`, \`ne\`
+* \`in\`, \`not_in\`
+* \`contains\`, \`contains_any\`, \`contains_all\`
+* \`starts_with\`, \`ends_with\`, \`matches\`
+* \`ip_in_network\`
+* \`between\`, \`gt\`, \`gte\`, \`lt\`, \`lte\`
 
-For \`matches\`, patterns may contain up to 256 characters and 16 flat
-alternatives (such as \`admin|owner\`), with at most one \`*\`, \`+\`, or \`?\`
-repetition per branch. Groups, backreferences, and brace quantifiers are
-prohibited; the input string is limited to 4096 characters. These limits also
-apply to patterns obtained through \`@\` references.
-A missing field always denies access, including with \`exists=False\`.
-Comparisons operate on plain built-in values, not objects with custom
-\`__eq__\`, \`__bool__\`, or other magic methods.
+\`all\`, \`any\`, \`not\`, and nested Boolean expressions are intentionally
+unsupported. Missing runtime data, missing references, and incompatible types
+deny authorization.
 
-### \`expires_at\` and \`not_before\`
+Credential-controlled regular expressions use a restricted subset: at most 256
+characters, 16 flat alternatives, and one \`*\`, \`+\`, or \`?\` repetition per
+branch. Groups, backreferences, and brace quantifiers are rejected; input is
+limited to 4096 characters. The same restrictions apply to patterns resolved
+through \`@\` references. Server-side \`authz.rules\` retain their existing regex
+semantics.
+
+Constraint evaluation reads stored values without invoking arbitrary
+properties or user-defined comparison magic methods.
+
+### Time boundaries
+
+Names: \`expires_at\`, \`not_before\`
+
+Value: timezone-aware ISO 8601 \`str\`
 
 \`\`\`python
 Caveat("expires_at", "2026-06-01T12:00:00Z")
 Caveat("not_before", "2026-06-01T11:00:00+00:00")
 \`\`\`
 
-The conditions are \`context.now < expires_at\` and \`context.now >= not_before\`.
-Values must be timezone-aware ISO 8601 timestamps; UTC is used internally.
-An invalid format or a missing timezone raises \`InvalidCaveatError\` during
-authentication. A valid but unsatisfied caveat yields \`False\` during
-authorization.
+\`expires_at\` requires \`context.now < value\`; \`not_before\` requires
+\`context.now >= value\`. Malformed or timezone-naive values raise
+\`InvalidCaveatError\` during authentication. A valid but unsatisfied boundary
+returns \`False\` during authorization.
 
 ## Custom caveats
 
+Module: \`jam.macaroons.CaveatRegistry\`
+
+Method: \`registry.register\`
+
+Args:
+
+* \`name\`: \`str\` - Nonempty custom caveat name.
+* \`compiler\`: \`Callable[[Any], AuthorizationConstraint]\` - Validates caveat
+  data and returns a generic authorization constraint.
+
+Returns:
+
+\`CaveatRegistry\`: The same registry instance.
+
 \`\`\`python
+from jam import Jam
 from jam.authz import ConditionConstraint
 from jam.macaroons import CaveatRegistry
 
 registry = CaveatRegistry()
-registry.register("tenant", lambda value: ConditionConstraint(
-    field="context.attributes.tenant",
-    value=value,
-))
-jam = Jam(config=config, caveat_registry=registry)
+registry.register(
+    "tenant",
+    lambda value: ConditionConstraint(
+        field="context.attributes.tenant",
+        value=value,
+    ),
+)
+jam = Jam(config="config.toml", caveat_registry=registry)
 \`\`\`
 
-The registry belongs to the instance. A compiler accepts and validates caveat
-data, then returns an \`AuthorizationConstraint\` with a pure \`check()\` method.
-Built-in names cannot be overridden. Unknown or malformed caveats are rejected
-with \`InvalidCaveatError\`. When needed, handlers can be registered directly in
-the standalone module's registry.
+Registries belong to the instance. Built-in names cannot be replaced. Unknown
+or malformed structured caveats fail authentication with
+\`InvalidCaveatError\`.
 
-## Opaque caveats
+## Third-party caveats
 
-The low-level model accepts arbitrary bytes or strings:
-
-\`\`\`python
-from jam.macaroons import Macaroon, Verifier
-
-credential = Macaroon.create(root_key, "credential-id")
-credential = credential.add_caveat(b"account = 42")
-verifier = Verifier()
-verifier.satisfy_exact(b"account = 42")
-verifier.satisfy_general(lambda data: data == b"application:approved")
-verifier.verify(credential, root_key)
-\`\`\`
-
-Without a matching satisfier, verification of an opaque caveat fails.
-Signatures are verified before handlers are invoked. For dynamic restrictions
-in Jam, use structured caveats compiled into principal constraints.
-
-Structured data uses the \`jam:v1:<base64url>\` format with compact,
-deterministic JSON \`{"name": ..., "value": ...}\`. This is a caveat namespace,
-**not the token format itself**. Unsupported versions are rejected.
-The complete credential uses the standard Macaroon v2 packet format.
-
-## Third-party caveats and discharges
+A third-party caveat requires a discharge Macaroon issued by another
+authority. \`location\` is a hint only; Jam never fetches a discharge.
 
 \`\`\`python
-from jam.macaroons import Macaroon
+from jam.macaroons import Caveat, Macaroon
 
 primary = jam.macaroon.decode(token).add_third_party_caveat(
     caveat_root_key,
@@ -3712,7 +3746,9 @@ primary = jam.macaroon.decode(token).add_third_party_caveat(
 discharge = Macaroon.create_discharge(
     caveat_root_key,
     "account-approved",
-).add_caveat(Caveat("permission", "documents:read"))
+).add_caveat(
+    Caveat("permission", "documents:read"),
+)
 bound = discharge.bind(primary)
 
 principal = jam.authenticate(
@@ -3722,41 +3758,186 @@ principal = jam.authenticate(
 )
 \`\`\`
 
-The application obtains discharges from the third-party service itself: Jam
-does not make HTTP requests to \`location\`. The caveat secret must be sent to
-the trusted party over a secure channel and is not disclosed to the primary
-macaroon's holder.
+The application is responsible for obtaining the discharge and transferring
+the caveat root key to its issuer over a trusted channel. Missing, tampered,
+incorrectly bound, or ambiguous discharges fail authentication. First-party
+caveats from every validated discharge become mandatory constraints. Nested
+discharges are supported within the configured limits, and every discharge is
+bound to the final primary Macaroon.
 
-Each discharge is bound to the final primary macaroon. If the primary changes,
-the binding must be repeated. A missing, modified, or incorrectly bound
-discharge, or an incorrect key, prevents authentication. Constraints from all
-verified discharges are added to the primary's constraints. Nested discharges
-are supported, subject to depth, count, and size limits.
+## Opaque caveats
 
-## Asynchronous facade
+Opaque bytes or strings are supported by the protocol-level API:
 
-\`AsyncJam\` uses the same standalone module. Calls to \`issue()\` and
-\`authenticate()\` are awaited; \`authorize()\` remains synchronous.
-Cryptographic operations and processing the supplied discharges perform no
-network I/O.
+\`\`\`python
+macaroon = jam.macaroon.decode(token).add_caveat(b"account = 42")
+jam.macaroon.satisfy_exact(b"account = 42")
+principal = jam.authenticate(macaroon.encode(), via="macaroon")
+\`\`\`
 
-## Dependencies
+Use \`satisfy_general(callback)\` for application predicates. An opaque caveat
+without a matching exact or general satisfier fails closed. Signature
+verification completes before callbacks run; callback failures become
+verification failures.
 
-Macaroons require only Jam's existing \`cryptography\` dependency. The internal
-SecretBox implementation uses standard HSalsa20/XSalsa20 with Poly1305 from
-\`cryptography\`, retaining the NaCl-compatible nonce, tag, and ciphertext format.
-It does not substitute AES-GCM or introduce a new Macaroon protocol.
+Structured caveats use deterministic \`jam:v1:<base64url>\` payloads containing
+exactly \`name\` and \`value\`. This is the caveat namespace, not the complete token
+format.
 
-The Salsa20 implementation is pure Python and does not guarantee constant-time
-execution. It is not suitable for deployments whose threat model includes
-local or high-resolution timing attackers. Authentication tags are verified by
-\`cryptography\` before plaintext is returned, but that does not make the
-keystream computation constant-time. Compatibility is tested against published vectors and reference
-implementations; those tests do not constitute an independent cryptographic
-audit.
+## Use out of instance
 
-Neither PyNaCl nor PyMacaroons is a runtime dependency or an optional extra.
-They can be installed temporarily to run differential interoperability tests.
+### Built
+
+Module: \`jam.macaroons.MacaroonModule\`
+
+Args:
+
+* \`keychain\`: \`BaseKeyChain | None = None\` - Optional managed-key profile.
+  Explicit-key protocol operations do not require it.
+* \`location\`: \`str = ""\` - Default location used by KeyChain-backed
+  \`issue()\`. It does not affect the explicit \`encode(..., location=...)\`
+  argument.
+* \`limits\`: \`Limits = DEFAULT_LIMITS\` - Resource bounds.
+* \`registry\`: \`CaveatRegistry | None = None\` - Jam structured-caveat registry.
+
+Returns:
+
+\`MacaroonModule\`: Standalone protocol module. It implements \`BaseMacaroon\`.
+
+\`\`\`python
+from jam.macaroons import MacaroonModule
+
+macaroon = MacaroonModule()
+\`\`\`
+
+### Encode a token
+
+Method: \`macaroon.encode\`
+
+Args:
+
+* \`identifier\`: \`bytes | str\` - Nonempty opaque root identifier.
+* \`root_key\`: \`bytes | str\` - Explicit root secret.
+* \`location\`: \`str = ""\` - Unsigned location hint.
+
+Returns:
+
+\`str\`: Serialized standard binary v2 Macaroon.
+
+\`\`\`python
+from secrets import token_bytes
+
+root_key = token_bytes(32)
+token = macaroon.encode(
+    "credential-id",
+    root_key,
+    location="https://api.example",
+)
+\`\`\`
+
+### Decode a token
+
+Method: \`macaroon.decode\`
+
+Args:
+
+* \`token\`: \`bytes | str\` - Serialized Macaroon.
+
+Returns:
+
+\`Macaroon\`: Unverified model suitable for inspection and attenuation.
+
+\`\`\`python
+decoded = macaroon.decode(token)
+delegated = decoded.add_caveat(b"account = 42")
+\`\`\`
+
+### Verify a token
+
+Method: \`macaroon.verify\`
+
+Args:
+
+* \`token\`: \`bytes | str | Macaroon\` - Primary credential.
+* \`root_key\`: \`bytes | str\` - Explicit root secret.
+* \`discharges\`: \`Iterable[bytes | str | Macaroon] = ()\` - Bound discharges.
+* \`structured_satisfiers\`: \`Mapping[str, Callable[[Any], bool]] | None\` -
+  Structured caveat callbacks.
+* \`collect_structured\`: \`bool = False\` - Collect unknown structured caveats
+  instead of rejecting them.
+
+Returns:
+
+\`VerificationResult\`: Structured caveats from the verified graph.
+
+\`\`\`python
+macaroon.satisfy_exact(b"account = 42")
+result = macaroon.verify(delegated, root_key)
+\`\`\`
+
+Unknown caveats fail closed by default. \`collect_structured=True\` deliberately
+defers structured-caveat policy evaluation: the caller must enforce every
+returned caveat before granting access. Signature verification alone does not
+satisfy deferred restrictions.
+
+### Add a first-party caveat
+
+Method: \`Macaroon.add_caveat\`
+
+Args:
+
+* \`caveat\`: \`Caveat | bytes | str\` - Structured or opaque predicate.
+
+Returns:
+
+\`Macaroon\`: New attenuated copy.
+
+\`\`\`python
+from jam.macaroons import Caveat
+
+delegated = decoded.add_caveat(Caveat("tenant", "example"))
+\`\`\`
+
+### Add a third-party caveat
+
+Method: \`Macaroon.add_third_party_caveat\`
+
+Args:
+
+* \`caveat_root_key\`: \`bytes | str\` - Secret shared with the discharge issuer.
+* \`identifier\`: \`bytes | str\` - Discharge identifier.
+* \`location\`: \`str = ""\` - Third-party location hint.
+
+Returns:
+
+\`Macaroon\`: New copy requiring a discharge.
+
+### Bind a discharge
+
+Method: \`discharge.bind\`
+
+Args:
+
+* \`primary\`: \`Macaroon | bytes\` - Final primary Macaroon or its signature.
+
+Returns:
+
+\`Macaroon\`: Discharge bound to the primary.
+
+## Security and dependencies
+
+Macaroons add no runtime or optional dependency. Jam's existing
+\`cryptography\` dependency provides Poly1305; Jam implements compatible
+HSalsa20/XSalsa20 internally so third-party verification IDs remain compatible
+with NaCl implementations.
+
+The pure-Python Salsa20 implementation does not guarantee constant-time
+execution. Do not use it where local or high-resolution timing attackers are
+in scope. Authentication tags are verified by \`cryptography\` before plaintext
+is returned, but this does not make keystream computation constant-time.
+
+Compatibility is tested against published vectors and reference
+implementations, but those tests are not an independent cryptographic audit.
 `} />
   ),
   "4.2.0/authx--sessions": () => (
