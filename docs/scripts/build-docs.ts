@@ -13,7 +13,10 @@ interface NavItem {
 
 interface VersionManifest {
   versions: string[];
-  docs: Record<string, { nav: NavItem[]; pages: { slug: string; title: string }[] }>;
+  docs: Record<
+    string,
+    { nav: NavItem[]; pages: { slug: string; title: string }[]; apiModules: string[] }
+  >;
 }
 
 interface YmlPage {
@@ -54,6 +57,21 @@ function escapeForTs(s: string): string {
 
 function linksToLatest(content: string, version: string): string {
   return content.replaceAll(`](/${version}/`, "](/latest/");
+}
+
+function searchTextFromMarkdown(content: string): string {
+  return content
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/```[^\n]*\n([\s\S]*?)```/g, " $1 ")
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, " $1 ")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, " $1 ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/^[ \t]*[:]{3}\w+[^\n]*$/gm, " ")
+    .replace(/^[ \t]*#{1,6}[ \t]+/gm, "")
+    .replace(/^[ \t]*[-*+>][ \t]+/gm, "")
+    .replace(/[`*~|]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function buildNavFromYml(ymlRoot: YmlBlock[], versionDir: string): NavItem[] {
@@ -118,6 +136,10 @@ async function main() {
   fs.mkdirSync(GENERATED_DIR, { recursive: true });
 
   const manifest: VersionManifest = { versions, docs: {} };
+  const searchIndex: Record<
+    string,
+    { slug: string; title: string; text: string }[]
+  > = {};
   const pageEntries: { key: string; content: string }[] = [];
 
   for (const version of versions) {
@@ -132,22 +154,33 @@ async function main() {
         .map((entry) => entry.replace(/\\/g, "/").replace(/\.md$/, "").replace(/\//g, "."))
         .sort()
       : [];
-    manifest.docs[version] = { nav, pages, apiModules };
+    const indexedPages: { slug: string; title: string; text: string }[] = [];
 
     for (const page of pages) {
       const filePath = path.join(versionDir, page.slug.replace(/--/g, "/") + ".md");
       const raw = fs.readFileSync(filePath, "utf-8");
       const { content } = matter(raw);
+      indexedPages.push({
+        ...page,
+        text: searchTextFromMarkdown(content),
+      });
       pageEntries.push({
         key: `${version}/${page.slug}`,
         content: version === versions[0] ? linksToLatest(content, version) : content,
       });
     }
+    manifest.docs[version] = { nav, pages, apiModules };
+    searchIndex[version] = indexedPages;
   }
 
   fs.writeFileSync(
     path.join(GENERATED_DIR, "manifest.json"),
     JSON.stringify(manifest, null, 2),
+  );
+
+  fs.writeFileSync(
+    path.join(GENERATED_DIR, "search-index.json"),
+    JSON.stringify(searchIndex, null, 2),
   );
 
   const pageLines = pageEntries.map(

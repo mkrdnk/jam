@@ -6,6 +6,14 @@ export interface NavItem {
   children?: NavItem[];
 }
 
+export interface SearchPage {
+  slug: string;
+  title: string;
+  text: string;
+}
+
+export type SearchIndex = Record<string, SearchPage[]>;
+
 export interface VersionManifest {
   versions: string[];
   docs: Record<

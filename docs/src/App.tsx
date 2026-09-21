@@ -4,7 +4,7 @@ import { CodeBlock } from "./components/CodeBlock"
 import { mdPages } from "./generated/pages"
 import manifest from "./generated/manifest.json"
 import { findPageBySlug, getAdjacentPages, getFirstPageSlug } from "./lib/nav"
-import type { NavItem as MdNavItem, VersionManifest } from "./types"
+import type { NavItem as MdNavItem, SearchIndex, SearchPage as SearchPageEntry, VersionManifest } from "./types"
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -956,16 +956,106 @@ function SiteFooter({ onOpenMd }: { onOpenMd: (slug: string) => void }) {
 
 // ─── SEARCH PAGE ──────────────────────────────────────────────────────────────
 
+interface SearchResult extends SearchPageEntry {
+  score: number
+  excerpt: string
+}
+
+function countOccurrences(value: string, needle: string): number {
+  let count = 0
+  let index = value.indexOf(needle)
+  while (index !== -1) {
+    count++
+    index = value.indexOf(needle, index + needle.length)
+  }
+  return count
+}
+
+function searchExcerpt(text: string, terms: string[], phrase: string): string {
+  const lower = text.toLocaleLowerCase()
+  let matchIndex = lower.indexOf(phrase)
+  let matchLength = phrase.length
+
+  if (matchIndex === -1) {
+    for (const term of terms) {
+      const index = lower.indexOf(term)
+      if (index !== -1 && (matchIndex === -1 || index < matchIndex)) {
+        matchIndex = index
+        matchLength = term.length
+      }
+    }
+  }
+
+  if (matchIndex === -1) return text.slice(0, 180)
+
+  const excerptLength = 190
+  const context = Math.floor((excerptLength - matchLength) / 2)
+  let start = Math.max(0, matchIndex - context)
+  let end = Math.min(text.length, start + excerptLength)
+
+  if (start > 0) {
+    const nextSpace = text.indexOf(" ", start)
+    if (nextSpace !== -1 && nextSpace < matchIndex) start = nextSpace + 1
+  }
+  if (end < text.length) {
+    const previousSpace = text.lastIndexOf(" ", end)
+    if (previousSpace > matchIndex + matchLength) end = previousSpace
+  }
+
+  return `${start > 0 ? "…" : ""}${text.slice(start, end)}${end < text.length ? "…" : ""}`
+}
+
+function searchPages(pages: SearchPageEntry[], query: string): SearchResult[] {
+  const phrase = query.trim().toLocaleLowerCase().replace(/\s+/g, " ")
+  if (!phrase) {
+    return pages.map((page) => ({ ...page, score: 0, excerpt: page.text.slice(0, 190) }))
+  }
+
+  const terms = [...new Set(phrase.split(" "))]
+  return pages
+    .flatMap((page) => {
+      const title = page.title.toLocaleLowerCase()
+      const text = page.text.toLocaleLowerCase()
+      const slug = page.slug.toLocaleLowerCase().replace(/--/g, " ")
+      const searchable = `${title} ${slug} ${text}`
+      if (!terms.every((term) => searchable.includes(term))) return []
+
+      let score = title === phrase ? 1000 : 0
+      if (title.includes(phrase)) score += 300
+      if (text.includes(phrase)) score += 100
+      for (const term of terms) {
+        if (title.includes(term)) score += 50
+        if (slug.includes(term)) score += 20
+        score += Math.min(countOccurrences(text, term), 10)
+      }
+
+      return [{
+        ...page,
+        score,
+        excerpt: searchExcerpt(page.text, terms, phrase),
+      }]
+    })
+    .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))
+}
+
 function SearchPage({ query, version, onOpenMd }: {
   query: string
   version: string
   onOpenMd: (slug: string) => void
 }) {
   const [q, setQ] = useState(query)
-  const pages = MD_MANIFEST.docs[version]?.pages || []
-  const results = q.trim()
-    ? pages.filter((p) => p.title.toLowerCase().includes(q.trim().toLowerCase()))
-    : pages
+  const [pages, setPages] = useState<SearchPageEntry[] | null>(null)
+  const results = pages ? searchPages(pages, q) : []
+
+  useEffect(() => setQ(query), [query])
+  useEffect(() => {
+    let active = true
+    setPages(null)
+    import("./generated/search-index.json").then((module) => {
+      if (active) setPages((module.default as SearchIndex)[version] || [])
+    })
+    return () => { active = false }
+  }, [version])
 
   return (
     <div style={{ maxWidth: 680, margin: "0 auto", padding: "2rem 2rem" }}>
@@ -998,7 +1088,11 @@ function SearchPage({ query, version, onOpenMd }: {
         )}
       </div>
 
-      {results.length === 0 ? (
+      {pages === null ? (
+        <div style={{ padding: "3rem 0", textAlign: "center", fontSize: 13, color: "var(--text-3)", fontFamily: "Inter, sans-serif" }}>
+          Loading search index…
+        </div>
+      ) : results.length === 0 ? (
         <div style={{ padding: "3rem 0", textAlign: "center" }}>
           <div style={{ fontSize: 13.5, color: "var(--text-2)", fontWeight: 500, marginBottom: "0.25rem", fontFamily: "Inter, sans-serif" }}>No results</div>
           <div style={{ fontSize: 13, color: "var(--text-3)", fontFamily: "Inter, sans-serif" }}>Try a different search term.</div>
@@ -1019,6 +1113,9 @@ function SearchPage({ query, version, onOpenMd }: {
             >
               <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: "0.25rem" }}>
                 <span style={{ fontWeight: 600, fontSize: 13.5, color: "var(--text)" }}>{r.title}</span>
+              </div>
+              <div style={{ fontSize: 12.5, lineHeight: 1.5, color: "var(--text-2)", marginBottom: "0.35rem" }}>
+                {r.excerpt}
               </div>
               <span style={{ fontSize: 11, color: "var(--text-3)" }}>{r.slug.replace(/--/g, " / ")}</span>
             </button>

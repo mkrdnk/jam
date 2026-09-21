@@ -99,11 +99,6 @@
                   "id": "authx--jose--algorithms",
                   "title": "Algorithms",
                   "slug": "authx--jose--algorithms"
-                },
-                {
-                  "id": "authx--jose--lists",
-                  "title": "Algorithm lists",
-                  "slug": "authx--jose--lists"
                 }
               ]
             },
@@ -356,10 +351,6 @@
         {
           "slug": "authx--jose--algorithms",
           "title": "Algorithms"
-        },
-        {
-          "slug": "authx--jose--lists",
-          "title": "Algorithm lists"
         },
         {
           "slug": "authx--paseto",
@@ -726,11 +717,6 @@
                   "id": "authx--jose--algorithms",
                   "title": "Algorithms",
                   "slug": "authx--jose--algorithms"
-                },
-                {
-                  "id": "authx--jose--lists",
-                  "title": "Algorithm lists",
-                  "slug": "authx--jose--lists"
                 }
               ]
             },
@@ -937,10 +923,6 @@
         {
           "slug": "authx--jose--algorithms",
           "title": "Algorithms"
-        },
-        {
-          "slug": "authx--jose--lists",
-          "title": "Algorithm lists"
         },
         {
           "slug": "authx--paseto",
@@ -1261,11 +1243,6 @@
                   "id": "authx--jose--algorithms",
                   "title": "Algorithms",
                   "slug": "authx--jose--algorithms"
-                },
-                {
-                  "id": "authx--jose--lists",
-                  "title": "Algorithm lists",
-                  "slug": "authx--jose--lists"
                 }
               ]
             },
@@ -1467,10 +1444,6 @@
         {
           "slug": "authx--jose--algorithms",
           "title": "Algorithms"
-        },
-        {
-          "slug": "authx--jose--lists",
-          "title": "Algorithm lists"
         },
         {
           "slug": "authx--paseto",
@@ -1646,11 +1619,6 @@
                   "id": "authx--jose--algorithms",
                   "title": "Algorithms",
                   "slug": "authx--jose--algorithms"
-                },
-                {
-                  "id": "authx--jose--lists",
-                  "title": "Algorithm lists",
-                  "slug": "authx--jose--lists"
                 }
               ]
             },
@@ -1852,10 +1820,6 @@
         {
           "slug": "authx--jose--algorithms",
           "title": "Algorithms"
-        },
-        {
-          "slug": "authx--jose--lists",
-          "title": "Algorithm lists"
         },
         {
           "slug": "authx--paseto",
@@ -2031,11 +1995,6 @@
                   "id": "authx--jose--algorithms",
                   "title": "Algorithms",
                   "slug": "authx--jose--algorithms"
-                },
-                {
-                  "id": "authx--jose--lists",
-                  "title": "Algorithm lists",
-                  "slug": "authx--jose--lists"
                 }
               ]
             },
@@ -2239,10 +2198,6 @@
           "title": "Algorithms"
         },
         {
-          "slug": "authx--jose--lists",
-          "title": "Algorithm lists"
-        },
-        {
           "slug": "authx--paseto",
           "title": "PASETO"
         },
@@ -2416,11 +2371,6 @@
                   "id": "authx--jose--algorithms",
                   "title": "Algorithms",
                   "slug": "authx--jose--algorithms"
-                },
-                {
-                  "id": "authx--jose--lists",
-                  "title": "Algorithm lists",
-                  "slug": "authx--jose--lists"
                 }
               ]
             },
@@ -2596,10 +2546,6 @@
         {
           "slug": "authx--jose--algorithms",
           "title": "Algorithms"
-        },
-        {
-          "slug": "authx--jose--lists",
-          "title": "Algorithm lists"
         },
         {
           "slug": "authx--paseto",
