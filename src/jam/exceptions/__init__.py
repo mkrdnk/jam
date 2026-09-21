@@ -4,8 +4,8 @@
 
 from .base import JamConfigurationError, JamError, JamValidationError
 from .jose import (
-    JamJWEEncryptionError,
     JamJWEDecryptionError,
+    JamJWEEncryptionError,
     JamJWKValidationError,
     JamJWSVerificationError,
 )
@@ -17,6 +17,12 @@ from .jwt import (
     JamJWTUnsupportedAlgorithm,
 )
 from .keychain import JamKeyChainError
+from .macaroons import (
+    InvalidCaveatError,
+    MacaroonError,
+    SerializationError,
+    VerificationError,
+)
 from .oauth2 import (
     JamOAuth2EmptyRaw,
     JamOAuth2Error,
@@ -39,24 +45,28 @@ from .plugins import (
     JamStarlettePluginConfigError,
     JamStarlettePluginError,
 )
+from .saml import (
+    JamSAMLEmptyPrivateKey,
+    JamSAMLEmptyPublicKey,
+    JamSAMLError,
+    JamSAMLExpired,
+    JamSAMLInvalidAudience,
+    JamSAMLInvalidIssuer,
+    JamSAMLNotYetValid,
+    JamSAMLUnsupportedAlgorithm,
+    JamSAMLValidationError,
+)
 from .sessions import (
     JamSessionEmptyAESKey,
     JamSessionNotFound,
 )
-from .saml import (
-    JamSAMLError,
-    JamSAMLExpired,
-    JamSAMLNotYetValid,
-    JamSAMLInvalidAudience,
-    JamSAMLInvalidIssuer,
-    JamSAMLEmptyPrivateKey,
-    JamSAMLEmptyPublicKey,
-    JamSAMLUnsupportedAlgorithm,
-    JamSAMLValidationError,
-)
 
 
 __all__ = [
+    "MacaroonError",
+    "SerializationError",
+    "VerificationError",
+    "InvalidCaveatError",
     "JamError",
     "JamConfigurationError",
     "JamValidationError",

@@ -21,6 +21,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 -->
 
+## 4.2.0 - [unreleased]
+
+### Added
+
+- Added first-class Macaroon credentials with explicit synchronous and
+  asynchronous `Jam.issue(..., via="macaroon")` and
+  `Jam.authenticate(..., via="macaroon")` flows.
+- Added a standalone `jam.macaroons` module with standard binary v2
+  serialization, immutable attenuation, opaque and structured first-party
+  caveats, third-party caveats, bound and nested discharge Macaroons, and
+  compatibility with reference implementations.
+- Added built-in `permission`, `condition`, `expires_at`, and `not_before`
+  caveats, plus an instance-owned `CaveatRegistry` for custom structured
+  caveats.
+- Added generic `AuthorizationConstraint`, `ConditionConstraint`, and
+  `PermissionConstraint` types. Authenticated principals now carry immutable
+  credential constraints separately from root claims and permissions.
+- Added `MACAROON-HMAC-SHA256` KeyChain support, including historical-key
+  verification, rotation, revocation, `Memory`, and `FileStorage`.
+- Added Macaroon support to the Django credential adapters and documentation
+  for configuration, attenuation, custom and opaque caveats, and discharge
+  acquisition.
+
+### Changed
+
+- Authorization internals now live in the `jam.authz` package with separate
+  contracts, constraints, policy compilation, roots, and condition helpers.
+  Existing `from jam.authz import ...` imports remain supported.
+- Credential constraints are evaluated before the configured authorization
+  policy. They can only reduce authority; a custom policy cannot bypass a
+  failing constraint or widen a Macaroon's root permissions.
+- Optional authentication modules are imported only when configured, allowing
+  a Macaroon-only Jam instance to run without unrelated extras.
+- Macaroon verification now accepts serialized primary and discharge tokens
+  only. The decoded `Macaroon` model remains available for attenuation and must
+  be serialized again before verification.
+
+### Deprecated
+
+### Removed
+
+- Removed the unused internal version compatibility helper and the direct
+  `packaging` dependency. `cryptography` is now Jam's only mandatory runtime
+  dependency.
+
+### Fixed
+
+- Missing context data, references, malformed condition values, unsafe regular
+  expressions, unsupported caveats, invalid timestamps, and runtime comparison
+  mismatches now fail closed for credential constraints.
+- Django principal adaptation now preserves credential constraints.
+- Macaroon time boundaries now fail during authentication and remain mandatory
+  authorization constraints. Configurable issuer, audience, and floating-point
+  clock leeway checks are available in the Macaroon profile.
+
+### Security
+
+- Macaroon signatures and complete discharge graphs are verified before
+  structured caveats or application satisfiers are invoked.
+- Added strict canonical parsing and configurable limits for serialized size,
+  caveat payloads, total caveat count, discharge count, and discharge depth.
+- Structured Macaroon satisfiers receive deeply immutable JSON values, so
+  callbacks cannot change the signed caveat represented by verification
+  results.
+- Added an internal NaCl-compatible XSalsa20-Poly1305 SecretBox implementation
+  for third-party caveat keys without an additional runtime dependency.
+  Poly1305 tags are verified before plaintext is returned. The Salsa20
+  implementation is pure Python and is not suitable when local or
+  high-resolution timing attackers are in scope.
+
+---
+
 ## [4.1.3] - 2026-09-18
 
 ### Added

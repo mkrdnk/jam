@@ -39,27 +39,19 @@ _BEARER_TYPES = frozenset({"jwt", "jwe", "paseto"})
 
 def _bearer_format() -> str | None:
     enabled = configured_mechanisms()
-    match (
-        "jwt" in enabled,
-        "jwe" in enabled,
-        "paseto" in enabled,
-    ):
-        case (True, False, False):
-            return "JWT"
-        case (False, True, False):
-            return "JWE"
-        case (False, False, True):
-            return "PASETO"
-        case (True, True, False):
-            return "JWT or JWE"
-        case (True, False, True):
-            return "JWT or PASETO"
-        case (False, True, True):
-            return "JWE or PASETO"
-        case (True, True, True):
-            return "JWT, JWE or PASETO"
-        case _:
-            return None
+    formats = [
+        label
+        for name, label in (
+            ("jwt", "JWT"),
+            ("jwe", "JWE"),
+            ("paseto", "PASETO"),
+            ("macaroon", "Macaroon"),
+        )
+        if name in enabled
+    ]
+    if len(formats) > 1:
+        return ", ".join(formats[:-1]) + " or " + formats[-1]
+    return formats[0] if formats else None
 
 
 def _api_key_scheme(source: CredentialSource) -> SecurityScheme:
@@ -171,10 +163,7 @@ class _JamAuth:
         }
 
     def _uses_cookie_session(self) -> bool:
-        return (
-            self._accepts_session
-            and self._session_source.kind == "cookie"
-        )
+        return self._accepts_session and self._session_source.kind == "cookie"
 
     def _ensure_cookie_session_csrf(
         self,

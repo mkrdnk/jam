@@ -5,24 +5,30 @@ from __future__ import annotations
 import dataclasses
 import logging
 import time
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from jam.__base_encoder__ import BaseEncoder
 from jam.authz import (
+    AuthorizationContext,
     BasePolicy,
     Policy,
+    Principal,
 )
 from jam.encoders import JsonEncoder
-from jam.exceptions import JamConfigurationError
+from jam.exceptions import JamConfigurationError, JamValidationError
 from jam.plugins.__base__ import BasePlugin
 from jam.subject import BaseSubject
 from jam.utils.config_maker import __config_maker__, __module_loader__
 
 
+if TYPE_CHECKING:
+    from jam.macaroons import CaveatRegistry, MacaroonModule
+
+
 logger = logging.getLogger(__name__)
 
-JamIssueType = Literal["jwt", "paseto", "session"]
-JamAuthType = Literal["jwt", "jwe", "paseto", "session"]
+JamIssueType = Literal["jwt", "paseto", "session", "macaroon"]
+JamAuthType = Literal["jwt", "jwe", "paseto", "session", "macaroon"]
 
 
 class _JamCore:
@@ -41,6 +47,7 @@ class _JamCore:
     oauth2: dict[str, Any] | None = None
     otp: Any = None
     paseto: Any = None
+    macaroon: MacaroonModule | None = None
     keychains: dict[str, Any]
     _jwt_list: Any = None
     _policy: BasePolicy
@@ -53,6 +60,7 @@ class _JamCore:
         serializer: BaseEncoder | type[BaseEncoder] = JsonEncoder,
         subject: type[BaseSubject] | None = None,
         plugins: list[type[BasePlugin]] | None = None,
+        caveat_registry: CaveatRegistry | None = None,
     ) -> None:
         """Initialize instance.
 
@@ -63,6 +71,7 @@ class _JamCore:
             serializer (Union[BaseEncoder, type[BaseEncoder]]): Serializer.
             subject (type[BaseSubject] | None): Subject class override.
             plugins (list[type[BasePlugin]] | None): List of plugins.
+            caveat_registry: Custom caveat registry owned by this instance.
         """
         if config is None:
             config = self.config or {}
@@ -72,6 +81,7 @@ class _JamCore:
         self.config = config
         self._serializer = serializer
         self._plugins = []
+        self._caveat_registry = caveat_registry
 
         if subject is not None:
             self.subject = subject
@@ -84,6 +94,7 @@ class _JamCore:
         self.oauth2: dict[str, Any] | None = None
         self.otp = None
         self.paseto = None
+        self.macaroon = None
         self.keychains = {}
         self._jwt_list = None
         self._policy: BasePolicy = Policy()
@@ -105,6 +116,31 @@ class _JamCore:
             self.paseto is not None,
             self.otp is not None,
         )
+
+    def _authorize(
+        self,
+        principal: Principal[Any] | BaseSubject | dict[str, Any],
+        permission: str,
+        context: AuthorizationContext | None = None,
+    ) -> bool:
+        """Enforce credential restrictions before the configured policy."""
+        if isinstance(principal, Principal):
+            if (
+                principal.token_type == "macaroon"
+                and not principal.has_permission(permission)
+            ):
+                return False
+            if principal.constraints:
+                context = context or AuthorizationContext()
+                try:
+                    if not all(
+                        constraint.check(principal, permission, context)
+                        for constraint in principal.constraints
+                    ):
+                        return False
+                except JamValidationError:
+                    return False
+        return self._policy.check(principal, permission, context)
 
     def __build_main_config(
         self,
@@ -144,9 +180,6 @@ class _JamCore:
         Args:
             config (dict[str, Any]): Configuration
         """
-        from jam.jose import JWE, JWS, JWT
-        from jam.paseto import REGISTRY as PASETO_REGISTRY
-
         jose_cfg = config.get("jose") or {}
         if not isinstance(jose_cfg, dict):
             jose_cfg = {}
@@ -189,8 +222,19 @@ class _JamCore:
             self.keychains[name] = chain
             return chain
 
+        if "macaroon" in config:
+            from jam.macaroons import create_instance
+
+            self.macaroon = create_instance(
+                config["macaroon"],
+                resolve_keychain=get_keychain,
+                registry=self._caveat_registry,
+            )
+
         jwt_cfg = jose_cfg.get("jwt")
         if jwt_cfg is not None:
+            from jam.jose import JWT
+
             jwt_cfg = jwt_cfg.copy()
             chain_name = jwt_cfg.pop("keychain", None)
             if self._async:
@@ -212,11 +256,15 @@ class _JamCore:
 
         jws_cfg = jose_cfg.get("jws")
         if jws_cfg is not None:
+            from jam.jose import JWS
+
             self.jws = JWS(config=jws_cfg)
             self.jose["jws"] = self.jws
 
         jwe_cfg = jose_cfg.get("jwe")
         if jwe_cfg is not None:
+            from jam.jose import JWE
+
             self.jwe = JWE(config=jwe_cfg)
             self.jose["jwe"] = self.jwe
 
@@ -277,6 +325,8 @@ class _JamCore:
 
         paseto_cfg = config.get("paseto")
         if isinstance(paseto_cfg, dict):
+            from jam.paseto import REGISTRY as PASETO_REGISTRY
+
             cfg = paseto_cfg.copy()
             version = cfg.pop("version", None)
             chain_name = cfg.pop("keychain", None)

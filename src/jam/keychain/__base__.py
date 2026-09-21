@@ -245,6 +245,8 @@ class BaseKeyChain(ABC):
         return key
 
     def _generate_material(self) -> bytes:
+        if self.algorithm == "MACAROON-HMAC-SHA256":
+            return secrets.token_bytes(32)
         if self.algorithm.startswith("HS") or self.purpose == "local":
             return secrets.token_bytes(32)
         if self.algorithm.startswith("RS"):

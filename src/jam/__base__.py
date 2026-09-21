@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 import logging
 from typing import Any
 
@@ -57,7 +58,8 @@ class BaseJam(_JamCore, ABC):
 
         Args:
             subject (BaseSubject | dict[str, Any]): Subject instance.
-            via (JamIssueType): Token type: "jwt", "paseto" or "session".
+            via (JamIssueType): Token type: "jwt", "paseto", "session",
+                or "macaroon".
             exp (int | None): Expiration in seconds.
             iss (str | None): Issuer.
             aud (str | None): Audience.
@@ -72,13 +74,20 @@ class BaseJam(_JamCore, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def authenticate(self, token: str, via: JamAuthType) -> Principal[Any]:
+    def authenticate(
+        self,
+        token: str,
+        via: JamAuthType,
+        *,
+        discharges: Sequence[str | bytes] | None = None,
+    ) -> Principal[Any]:
         """Authenticate a token or session and return a subject.
 
         Args:
             token (str): Token or session ID.
-            via (JamAuthType): Token type: "jwt", "jwe", "paseto" or
-                "session".
+            via (JamAuthType): Token type: "jwt", "jwe", "paseto",
+                "session", or "macaroon".
+            discharges: Bound discharges for third-party caveats.
 
         Returns:
             Principal: Authenticated subject and credential claims.
