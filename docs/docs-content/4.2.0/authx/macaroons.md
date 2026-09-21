@@ -12,9 +12,10 @@ AND every credential constraint
 AND server-side policy
 ```
 
-> Jam deliberately keeps Macaroon caveats simple. Each caveat represents one
-> restriction, and all caveats are combined with AND. Complex Boolean and
-> allow/deny logic belongs in server-side `authz.rules`.
+!!! tip
+    Jam deliberately keeps Macaroon caveats simple. Each caveat represents one
+    restriction, and all caveats are combined with AND. Complex Boolean and
+    allow/deny logic belongs in server-side `authz.rules`.
 
 ## Use in instance
 
