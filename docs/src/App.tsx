@@ -322,6 +322,15 @@ function Header({ theme, onToggleTheme, onNavigate, onSearch, sidebarOpen, onTog
 
 // ─── MD NAV (docs-content) ────────────────────────────────────────────────────
 
+const SIDEBAR_INLINE_PADDING = 20
+const SIDEBAR_NESTED_INDENT = 24
+
+function sidebarItemPadding(depth: number): string {
+  const nestedDepth = Math.max(0, depth - 1)
+  const left = SIDEBAR_INLINE_PADDING + nestedDepth * SIDEBAR_NESTED_INDENT
+  return `0.3125rem ${SIDEBAR_INLINE_PADDING}px 0.3125rem ${left}px`
+}
+
 function MdNavItemView({ item, depth, active, onClick }: {
   item: MdNavItem
   depth: number
@@ -340,7 +349,7 @@ function MdNavItemView({ item, depth, active, onClick }: {
           display: "flex", alignItems: "center", justifyContent: "space-between",
           width: "100%", textAlign: "left", textDecoration: "none",
           background: "none", border: "none",
-          padding: `0.3125rem calc(1rem + ${depth * 10}px)`,
+          padding: sidebarItemPadding(depth),
           fontSize: 14, fontWeight: 400,
           color: "var(--text-2)",
           fontFamily: "Inter, sans-serif",
@@ -368,7 +377,7 @@ function MdNavItemView({ item, depth, active, onClick }: {
           border: "none",
           borderLeft: `2px solid ${isActive ? "var(--nav-active)" : "transparent"}`,
           cursor: "pointer",
-          padding: `0.3125rem calc(1rem + ${depth * 10}px)`,
+          padding: sidebarItemPadding(depth),
           fontSize: 14, fontWeight: isActive ? 600 : 400,
           color: isActive ? "var(--nav-active)" : "var(--text-2)",
           fontFamily: "Inter, sans-serif",
@@ -384,13 +393,13 @@ function MdNavItemView({ item, depth, active, onClick }: {
   }
 
   return (
-    <div style={{ marginBottom: "0.125rem" }}>
+    <div style={{ marginBottom: depth === 0 ? "1.25rem" : "0.125rem" }}>
       {depth === 0 ? (
         <div style={{
           fontSize: 12, fontWeight: 800,
           letterSpacing: "0.07em", textTransform: "uppercase",
-          color: "var(--text-2)", padding: `0 ${1 + depth * 0.625}rem`,
-          lineHeight: 1.4, marginBottom: "0.25rem",
+          color: "var(--text-2)", padding: `0 ${SIDEBAR_INLINE_PADDING}px`,
+          lineHeight: 1.4, marginBottom: "0.375rem",
         }}>
           {item.title}
         </div>
@@ -402,7 +411,7 @@ function MdNavItemView({ item, depth, active, onClick }: {
           style={{
             display: "flex", alignItems: "center", gap: 6, width: "100%",
             background: "none", border: "none", cursor: "pointer",
-            color: "var(--text-2)", padding: `0.3125rem ${1 + depth * 0.625}rem`,
+            color: "var(--text-2)", padding: sidebarItemPadding(depth),
             fontSize: 14, fontWeight: 400, lineHeight: 1.5,
             fontFamily: "Inter, sans-serif", textAlign: "left",
           }}
@@ -449,17 +458,17 @@ function Sidebar({ open, onClose, mdNav, activeMdSlug, onOpenMd }: {
         style={{
           position: "fixed", top: 56, left: 0, bottom: 0, width: 248,
           background: "var(--bg-subtle)", borderRight: "1px solid var(--border)",
-          overflowY: "auto", padding: "0.875rem 0 2rem", zIndex: 95,
+          overflowY: "auto", padding: "1.25rem 0 2rem", zIndex: 95,
         }}
       >
         {mdNav.length > 0 && (
-          <div style={{ marginBottom: "1.375rem" }}>
+          <div>
             <div style={{
               fontSize: 12, fontWeight: 800,
               letterSpacing: "0.07em", textTransform: "uppercase",
-              color: "var(--accent)", padding: "0 1rem",
+              color: "var(--accent)", padding: `0 ${SIDEBAR_INLINE_PADDING}px`,
               lineHeight: 1.4,
-              marginBottom: "0.25rem",
+              marginBottom: "1rem",
             }}>
               Docs
             </div>
