@@ -28,7 +28,7 @@ uv run pytest tests/instance/        # Jam/AsyncJam facade tests
 uv run ruff check src/               # lint and import order
 uv run ruff format --check src/      # verify formatting
 uv run ruff format src/              # apply formatting
-uv run pyrefly                       # type-check src/jam (not mypy/pyright)
+uv run pyrefly check                 # type-check src/jam (not mypy/pyright)
 uv build                             # verify packaging changes
 ```
 
