@@ -187,6 +187,17 @@
           ]
         },
         {
+          "id": "group:Examples",
+          "title": "Examples",
+          "children": [
+            {
+              "id": "examples--fastapi_example_app",
+              "title": "FastAPI application with JWT",
+              "slug": "examples--fastapi_example_app"
+            }
+          ]
+        },
+        {
           "id": "group:Developer tools",
           "title": "Developer tools",
           "children": [
@@ -376,6 +387,10 @@
         {
           "slug": "integrations--django--dmr",
           "title": "Django Modern REST"
+        },
+        {
+          "slug": "examples--fastapi_example_app",
+          "title": "FastAPI application with JWT"
         },
         {
           "slug": "dev--logging",
