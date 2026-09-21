@@ -65,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed the unused internal version compatibility helper and the direct
   `packaging` dependency. `cryptography` is now Jam's only mandatory runtime
   dependency.
+- [Remove CLAUDE.md](https://code.claude.com/docs/en/changelog#2-1-277) file.
 
 ### Fixed
 
