@@ -129,6 +129,38 @@ def test_closed_credential_types():
     }
 
 
+@pytest.mark.parametrize("facade", [Jam, AsyncJam])
+@pytest.mark.parametrize(
+    ("name", "display_name"),
+    [
+        ("jwt", "JWT"),
+        ("jws", "JWS"),
+        ("jwe", "JWE"),
+        ("jose", "JOSE"),
+        ("session", "Session"),
+        ("oauth2", "OAuth2"),
+        ("otp", "OTP"),
+        ("paseto", "PASETO"),
+        ("saml", "SAML"),
+        ("macaroon", "Macaroon"),
+    ],
+)
+def test_direct_module_access_fails_with_configuration_error(
+    facade,
+    name,
+    display_name,
+):
+    jam = facade()
+
+    with pytest.raises(
+        JamConfigurationError,
+        match=f"{display_name} module is not configured",
+    ) as error:
+        getattr(jam, name)
+
+    assert error.value.error_code == f"configuration.{name}.not_configured"
+
+
 def test_missing_sync_module():
     jam = Jam()
     with pytest.raises(JamConfigurationError):

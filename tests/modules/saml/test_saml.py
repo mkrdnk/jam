@@ -2,8 +2,7 @@
 
 import pytest
 
-from jam.saml import SAML
-from jam.exceptions.saml import (
+from jam.exceptions import (
     JamSAMLEmptyPrivateKey,
     JamSAMLExpired,
     JamSAMLInvalidAudience,
@@ -14,6 +13,17 @@ from jam.exceptions.saml import (
     JamSAMLSOAPError,
     JamSAMLValidationError,
 )
+from jam.saml import SAML
+
+
+def test_saml_exceptions_are_publicly_exported():
+    from jam.exceptions import __all__ as exception_exports
+
+    assert {
+        "JamSAMLInvalidRecipient",
+        "JamSAMLReplayDetected",
+        "JamSAMLSOAPError",
+    } <= set(exception_exports)
 
 
 class TestSAMLIdP:
