@@ -196,6 +196,11 @@
               "slug": "dev--logging"
             },
             {
+              "id": "dev--exceptions",
+              "title": "Exceptions",
+              "slug": "dev--exceptions"
+            },
+            {
               "id": "dev--serializers",
               "title": "JSON serialization",
               "slug": "dev--serializers"
@@ -375,6 +380,10 @@
         {
           "slug": "dev--logging",
           "title": "Logging"
+        },
+        {
+          "slug": "dev--exceptions",
+          "title": "Exceptions"
         },
         {
           "slug": "dev--serializers",
