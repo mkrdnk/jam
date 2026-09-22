@@ -16,11 +16,11 @@ from jam.__base_encoder__ import BaseEncoder
 from jam.encoders import JsonEncoder
 from jam.exceptions import (
     JamConfigurationError,
-    JamJWTInBlackList,
-    JamJWTNotInWhiteList,
     JamPASETOInvalidPurpose,
     JamPASETOInvalidTokenFormat,
     JamPASETOKeyVerificationError,
+    JamTokenInDenyList,
+    JamTokenNotInAllowList,
 )
 from jam.lists import BaseList, build_list
 from jam.paseto.utils import (
@@ -439,18 +439,18 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
             token (str): PASETO token.
 
         Raises:
-            JamJWTNotInWhiteList: If token is not in the white list.
-            JamJWTInBlackList: If token is in the black list.
+            JamTokenNotInAllowList: If token is not in the allowlist.
+            JamTokenInDenyList: If token is in the denylist.
         """
         if not self.list:
             return
         match self.list.__list_type__:
             case "white":
                 if not self.list.check(token):
-                    raise JamJWTNotInWhiteList
+                    raise JamTokenNotInAllowList
             case "black":
                 if self.list.check(token):
-                    raise JamJWTInBlackList
+                    raise JamTokenInDenyList
             case _:
                 raise JamConfigurationError(
                     message="Invalid PASETO list type",

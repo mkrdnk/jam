@@ -9,9 +9,9 @@ from jam.authz import AuthorizationContext, Principal
 from jam.exceptions import (
     JamConfigurationError,
     JamJWSVerificationError,
-    JamJWTInBlackList,
-    JamJWTNotInWhiteList,
     JamSessionNotFound,
+    JamTokenInDenyList,
+    JamTokenNotInAllowList,
 )
 from jam.subject import BaseSubject
 
@@ -59,7 +59,7 @@ class AsyncJam(BaseAsyncJam):
             case "jwt":
                 return await self._issue_jwt(payload, exp, iss, aud, nbf, jti)
             case "paseto":
-                return self._issue_paseto(
+                token = self._issue_paseto(
                     payload,
                     exp,
                     iss,
@@ -67,6 +67,12 @@ class AsyncJam(BaseAsyncJam):
                     nbf,
                     jti,
                 )
+                if (
+                    self._paseto_list is not None
+                    and self._paseto_list.__list_type__ == "white"
+                ):
+                    await self._paseto_list.add(token)
+                return token
             case "saml":
                 return self._issue_saml(payload, exp, iss, aud, nbf, jti)
             case "session":
@@ -103,9 +109,9 @@ class AsyncJam(BaseAsyncJam):
                 if self._jwt_list is not None:
                     listed = await self._jwt_list.check(token)
                     if self._jwt_list.__list_type__ == "white" and not listed:
-                        raise JamJWTNotInWhiteList
+                        raise JamTokenNotInAllowList
                     if self._jwt_list.__list_type__ == "black" and listed:
-                        raise JamJWTInBlackList
+                        raise JamTokenInDenyList
                 payload = self.jwt.decode(token, check_list=False)["payload"]
             case "jwe":
                 jwt = self.jwt
@@ -121,6 +127,15 @@ class AsyncJam(BaseAsyncJam):
                     )
                 payload = decrypted
             case "paseto":
+                if self._paseto_list is not None:
+                    listed = await self._paseto_list.check(token)
+                    if (
+                        self._paseto_list.__list_type__ == "white"
+                        and not listed
+                    ):
+                        raise JamTokenNotInAllowList
+                    if self._paseto_list.__list_type__ == "black" and listed:
+                        raise JamTokenInDenyList
                 payload, _footer = self.paseto.decode(token)
             case "saml":
                 payload = self._authenticate_saml(token)
@@ -173,6 +188,7 @@ class AsyncJam(BaseAsyncJam):
         modules = [
             self._session,
             self._jwt_list,
+            self._paseto_list,
             *((self._oauth2 or {}).values()),
         ]
         for module in modules:

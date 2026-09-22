@@ -5,7 +5,12 @@ from typing import Literal
 
 
 class BaseList(ABC):
-    """Abstract class for token black/white lists manipulation."""
+    """Storage contract for serialized-token allowlists and denylists.
+
+    List entries are complete serialized tokens, not token identifiers such as
+    a JWT ``jti`` claim. A ``black`` list denies present tokens, while a
+    ``white`` list denies absent tokens.
+    """
 
     __list_type__: Literal["black", "white"]
 

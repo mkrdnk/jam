@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-"""Asynchronous JWT allowlists and denylists."""
+"""Asynchronous token allowlists and denylists."""
 
 from typing import Any
 

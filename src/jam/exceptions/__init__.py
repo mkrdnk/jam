@@ -17,6 +17,7 @@ from .jwt import (
     JamJWTUnsupportedAlgorithm,
 )
 from .keychain import JamKeyChainError
+from .lists import JamTokenInDenyList, JamTokenNotInAllowList
 from .macaroons import (
     InvalidCaveatError,
     MacaroonError,
@@ -81,6 +82,8 @@ __all__ = [
     "JamJWTNotInWhiteList",
     "JamJWTNotYetValid",
     "JamJWTUnsupportedAlgorithm",
+    "JamTokenInDenyList",
+    "JamTokenNotInAllowList",
     "JamJWSVerificationError",
     "JamJWKValidationError",
     "JamJWEEncryptionError",

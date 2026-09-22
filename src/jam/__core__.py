@@ -58,7 +58,9 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
     _saml: SAML | None = None
     _macaroon: MacaroonModule | None = None
     keychains: dict[str, Any]
+    lists: dict[str, Any]
     _jwt_list: Any = None
+    _paseto_list: Any = None
     _policy: BasePolicy
 
     def __init__(
@@ -106,7 +108,9 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
         self._saml = None
         self._macaroon = None
         self.keychains = {}
+        self.lists = {}
         self._jwt_list = None
+        self._paseto_list = None
         self._policy: BasePolicy = Policy()
 
         logger.debug(
@@ -216,6 +220,16 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
         self._paseto = module
 
     @property
+    def jwt_list(self) -> Any | None:
+        """Return the configured JWT token list, if any."""
+        return self._jwt_list
+
+    @property
+    def paseto_list(self) -> Any | None:
+        """Return the configured PASETO token list, if any."""
+        return self._paseto_list
+
+    @property
     def saml(self) -> SAML:
         """Return the configured SAML module."""
         return self._require_module(self._saml, "saml", "SAML")
@@ -306,6 +320,44 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
             jose_cfg = {}
         self.jose = {}
         keychain_cfg = config.get("keychains") or {}
+        lists_cfg = config.get("lists") or {}
+
+        if not isinstance(lists_cfg, dict):
+            raise JamConfigurationError(
+                message="Token lists configuration must be a mapping.",
+                error_code="configuration.lists.invalid",
+            )
+
+        if self._async:
+            from jam.aio.lists import build_list as build_token_list
+        else:
+            from jam.lists import build_list as build_token_list
+
+        for name, list_cfg in lists_cfg.items():
+            if not isinstance(name, str) or not name:
+                raise JamConfigurationError(
+                    message="Token list names must be non-empty strings.",
+                    error_code="configuration.lists.invalid_name",
+                )
+            if isinstance(list_cfg, dict):
+                list_cfg = list_cfg.copy()
+                list_cfg.setdefault("prefix", name)
+                if list_cfg.get("backend") == "json":
+                    list_cfg.setdefault("json_path", f"{name}.json")
+            self.lists[name] = build_token_list(list_cfg)
+
+        def get_token_list(list_config: Any) -> Any | None:
+            if list_config is None:
+                return None
+            if isinstance(list_config, str):
+                try:
+                    return self.lists[list_config]
+                except KeyError as exc:
+                    raise JamConfigurationError(
+                        message=f"Token list '{list_config}' is not configured.",
+                        error_code="configuration.lists.not_configured",
+                    ) from exc
+            return build_token_list(list_config)
 
         def get_keychain(
             name: str, algorithm: str, purpose: str | None = None
@@ -358,15 +410,11 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
 
             jwt_cfg = jwt_cfg.copy()
             chain_name = jwt_cfg.pop("keychain", None)
-            if self._async:
-                jwt_cfg = jwt_cfg.copy()
-                list_cfg = jwt_cfg.pop("list", None)
-                if list_cfg is not None:
-                    from jam.aio.lists import build_list
-
-                    self._jwt_list = build_list(list_cfg)
+            list_cfg = jwt_cfg.pop("list", None)
+            self._jwt_list = get_token_list(list_cfg)
             self.jwt = JWT(
                 config=jwt_cfg,
+                list=None if self._async else self._jwt_list,
                 keychain=(
                     get_keychain(chain_name, jwt_cfg.get("alg", "HS256"))
                     if chain_name
@@ -451,6 +499,8 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
             cfg = paseto_cfg.copy()
             version = cfg.pop("version", None)
             chain_name = cfg.pop("keychain", None)
+            list_cfg = cfg.pop("list", None)
+            self._paseto_list = get_token_list(list_cfg)
             if version not in PASETO_REGISTRY:
                 raise JamConfigurationError(
                     message=(
@@ -462,6 +512,7 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
             module_cls = PASETO_REGISTRY[version]
             self.paseto = module_cls(
                 config=cfg,
+                list=None if self._async else self._paseto_list,
                 keychain=(
                     get_keychain(
                         chain_name,
