@@ -56,12 +56,15 @@ Args:
 * `replay_ttl`: `int = 300` - Retention period for consumed message IDs.
 * `keychain`: `str | None` - Name of a KeyChain used instead of a fixed
   signing or verification key.
+* `list`: `str | dict[str, Any] | None` - Named or inline token list.
+  See: [Lists](/latest/authx/lists).
 
 IdP config:
 
 ```toml
 [jam.saml]
 role = "idp"
+list = "credentials"
 entity_id = "https://idp.example.com"
 audience = "https://sp.example.com"
 private_key = "path/to/idp_private_key.pem"
@@ -73,6 +76,7 @@ SP config:
 ```toml
 [jam.saml]
 role = "sp"
+list = "credentials"
 entity_id = "https://sp.example.com"
 expected_issuer = "https://idp.example.com"
 acs_url = "https://sp.example.com/acs"

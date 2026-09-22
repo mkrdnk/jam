@@ -37,8 +37,6 @@ nav:
             file: authx/jose/algorithms.md
       - label: PASETO
         file: authx/paseto.md
-      - label: Token lists
-        file: authx/lists.md
       - label: Macaroons
         file: authx/macaroons.md
       - label: Sessions
@@ -49,6 +47,8 @@ nav:
         file: authx/otp.md
       - label: OAuth2
         file: authx/oauth2.md
+      - label: Token lists
+        file: authx/lists.md
   - block: Framework integrations
     pages:
       - label: FastAPI

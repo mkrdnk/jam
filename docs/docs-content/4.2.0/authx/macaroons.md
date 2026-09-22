@@ -36,6 +36,8 @@ Args:
 * `leeway`: `float = 0` - Non-negative clock tolerance in seconds for
   `expires_at` and `not_before`.
 * `limits`: `dict[str, int] | None` - Parser and verifier resource limits.
+* `list`: `str | dict[str, Any] | None` - Named or inline token list.
+  See: [Lists](/latest/authx/lists).
 
 Limit args:
 
@@ -63,6 +65,7 @@ algorithm = "MACAROON-HMAC-SHA256"
 
 [jam.macaroon]
 keychain = "macaroons"
+list = "credentials"
 location = "https://api.example"
 issuer = "https://api.example"
 audience = "documents-api"

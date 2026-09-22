@@ -1,8 +1,9 @@
 # Lists
 
-Lists make otherwise stateless JWT and PASETO credentials revocable.
-Each entry is the **complete serialized token string**. Do not add the JWT
-`jti` claim: authentication checks the token itself.
+Lists make otherwise stateless JWT, PASETO, Macaroon, and SAML credentials
+revocable. Each entry is the **complete serialized credential string**. Do not
+add an identifier such as the JWT `jti` claim: authentication checks the
+credential itself.
 
 The existing configuration values are:
 
@@ -13,8 +14,8 @@ The existing configuration values are:
 
 ## Configure a shared list
 
-Lists are top-level named modules. JWT and PASETO can reference the same list
-or use different named lists.
+Lists are top-level named modules. JWT, PASETO, Macaroons, and SAML can
+reference the same list or use different named lists.
 
 ```toml
 [jam.lists.credentials]
@@ -32,6 +33,20 @@ list = "credentials"
 version = "v4"
 purpose = "local"
 secret_key = "$PASETO_SECRET_KEY"
+list = "credentials"
+
+[jam.keychains.macaroons]
+type = "Memory"
+algorithm = "MACAROON-HMAC-SHA256"
+
+[jam.macaroon]
+keychain = "macaroons"
+list = "credentials"
+
+[jam.saml]
+role = "sp"
+entity_id = "https://sp.example.com"
+idp_public_key = "path/to/idp_cert.pem"
 list = "credentials"
 ```
 
@@ -57,9 +72,14 @@ jam = Jam(config="config.toml")
 token_list = jam.lists["credentials"]
 ```
 
-`jam.jwt_list` and `jam.paseto_list` are compatibility conveniences pointing
-to the selected entries in `jam.lists`. Synchronous token modules also expose
-the same store as `jam.jwt.list` and `jam.paseto.list`.
+`jam.jwt_list`, `jam.paseto_list`, `jam.macaroon_list`, and `jam.saml_list`
+are convenience references to the selected entries in `jam.lists`.
+Synchronous JWT and PASETO modules also expose the same store as
+`jam.jwt.list` and `jam.paseto.list`.
+
+A SAML IdP and SP normally use separate `Jam` instances. They must point to
+the same persistent backend and prefix for an allowlist issued by the IdP to
+be visible to the SP.
 
 ```python
 token = jam.issue({"id": "user-123"}, via="paseto")
@@ -71,7 +91,8 @@ jam.authenticate(token, via="paseto")
 
 ### Async usage
 
-`AsyncJam` uses native asynchronous list backends for both JWT and PASETO:
+`AsyncJam` uses native asynchronous list backends for all four credential
+types:
 
 ```python
 from jam.aio import AsyncJam
@@ -92,7 +113,7 @@ Adds token to blacklist or whitelist.
 
 Args:
 
-* `token`: `str` - JWT token to add.
+* `token`: `str` - Serialized credential to add.
 
 ```python
 jam.lists["credentials"].add(token=token)
