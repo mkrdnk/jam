@@ -7,7 +7,13 @@ import pytest
 from fakeredis import FakeRedis
 
 from jam import Jam
-from jam.exceptions import JamConfigurationError, JamJWTInBlackList
+from jam.exceptions import (
+    JamConfigurationError,
+    JamJWTInBlackList,
+    JamTokenInDenyList,
+    JamTokenNotInAllowList,
+)
+from jam.lists.memory import MemoryList
 from jam.subject import BaseSubject
 from jam.utils import generate_symmetric_key
 
@@ -250,6 +256,100 @@ def test_saml_issue_and_authenticate(saml_configs):
     assert principal.claims["permissions"] == ["documents:read"]
     assert principal.claims["exp"] > principal.claims["nbf"]
     assert principal.token_type == "saml"
+
+
+def test_saml_shared_allowlist(saml_configs):
+    idp_config, sp_config = saml_configs
+    token_list = MemoryList(type="white")
+    list_config = {"credentials": token_list}
+    idp = Jam(
+        config={
+            "lists": list_config,
+            "saml": {**idp_config["saml"], "list": "credentials"},
+        }
+    )
+    sp = Jam(
+        config={
+            "lists": list_config,
+            "saml": {**sp_config["saml"], "list": "credentials"},
+        }
+    )
+
+    token = idp.issue({"id": "user123"}, via="saml", exp=60)
+
+    assert idp.saml_list is token_list
+    assert sp.saml_list is token_list
+    assert token_list.check(token)
+    assert sp.authenticate(token, via="saml").subject["id"] == "user123"
+
+    token_list.delete(token)
+    with pytest.raises(JamTokenNotInAllowList):
+        sp.authenticate(token, via="saml")
+
+
+def test_macaroon_shared_allowlist():
+    jam = Jam(
+        config={
+            "lists": {
+                "credentials": {
+                    "backend": "memory",
+                    "type": "white",
+                }
+            },
+            "keychains": {
+                "root": {
+                    "type": "Memory",
+                    "algorithm": "MACAROON-HMAC-SHA256",
+                }
+            },
+            "macaroon": {
+                "keychain": "root",
+                "list": "credentials",
+            },
+        }
+    )
+    jam.keychains["root"].rotate("first")
+
+    token = jam.issue({"id": "user123"}, via="macaroon")
+
+    assert jam.macaroon_list is jam.lists["credentials"]
+    assert jam.lists["credentials"].check(token)
+    assert jam.authenticate(token, via="macaroon").subject["id"] == "user123"
+
+    jam.lists["credentials"].delete(token)
+    with pytest.raises(JamTokenNotInAllowList):
+        jam.authenticate(token, via="macaroon")
+
+
+def test_macaroon_shared_denylist():
+    jam = Jam(
+        config={
+            "lists": {
+                "credentials": {
+                    "backend": "memory",
+                    "type": "black",
+                }
+            },
+            "keychains": {
+                "root": {
+                    "type": "Memory",
+                    "algorithm": "MACAROON-HMAC-SHA256",
+                }
+            },
+            "macaroon": {
+                "keychain": "root",
+                "list": "credentials",
+            },
+        }
+    )
+    jam.keychains["root"].rotate("first")
+    token = jam.issue({"id": "user123"}, via="macaroon")
+
+    assert not jam.lists["credentials"].check(token)
+    jam.lists["credentials"].add(token)
+
+    with pytest.raises(JamTokenInDenyList):
+        jam.authenticate(token, via="macaroon")
 
 
 def test_saml_requires_configuration():
