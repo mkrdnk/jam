@@ -11,6 +11,8 @@ from jam.exceptions import (
     JamConfigurationError,
     JamJWSVerificationError,
     JamSessionNotFound,
+    JamTokenInDenyList,
+    JamTokenNotInAllowList,
 )
 from jam.subject import BaseSubject
 
@@ -82,7 +84,7 @@ class Jam(BaseJam):
         )
         match via:
             case "macaroon":
-                return self.macaroon.issue(
+                credential = self.macaroon.issue(
                     payload,
                     exp=exp,
                     nbf=nbf,
@@ -90,6 +92,10 @@ class Jam(BaseJam):
                     aud=aud,
                     jti=jti,
                 )
+                self._register_allowlisted_token(
+                    self._macaroon_list, credential
+                )
+                return credential
             case "jwt":
                 credential = self.jwt.encode(
                     payload=payload,
@@ -109,6 +115,7 @@ class Jam(BaseJam):
                 return credential
             case "saml":
                 credential = self._issue_saml(payload, exp, iss, aud, nbf, jti)
+                self._register_allowlisted_token(self._saml_list, credential)
                 logger.info("Issued credential via=saml")
                 return credential
             case "session":
@@ -157,6 +164,7 @@ class Jam(BaseJam):
         constraints = ()
         match via:
             case "macaroon":
+                self._check_token_list(self._macaroon_list, token)
                 payload, constraints = self.macaroon.authenticate(
                     token,
                     discharges=() if discharges is None else discharges,
@@ -179,6 +187,7 @@ class Jam(BaseJam):
             case "paseto":
                 payload, _footer = self.paseto.decode(token)
             case "saml":
+                self._check_token_list(self._saml_list, token)
                 payload = self._authenticate_saml(token)
             case "session":
                 data = self.session.get(token)
@@ -206,3 +215,20 @@ class Jam(BaseJam):
             token_type=via,
             constraints=constraints,
         )
+
+    @staticmethod
+    def _register_allowlisted_token(token_list: Any, token: str) -> None:
+        """Register an issued token when an allowlist is configured."""
+        if token_list is not None and token_list.__list_type__ == "white":
+            token_list.add(token)
+
+    @staticmethod
+    def _check_token_list(token_list: Any, token: str) -> None:
+        """Enforce an optional token allowlist or denylist."""
+        if token_list is None:
+            return
+        listed = token_list.check(token)
+        if token_list.__list_type__ == "white" and not listed:
+            raise JamTokenNotInAllowList
+        if token_list.__list_type__ == "black" and listed:
+            raise JamTokenInDenyList

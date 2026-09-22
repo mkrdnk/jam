@@ -61,6 +61,8 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
     lists: dict[str, Any]
     _jwt_list: Any = None
     _paseto_list: Any = None
+    _macaroon_list: Any = None
+    _saml_list: Any = None
     _policy: BasePolicy
 
     def __init__(
@@ -111,6 +113,8 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
         self.lists = {}
         self._jwt_list = None
         self._paseto_list = None
+        self._macaroon_list = None
+        self._saml_list = None
         self._policy: BasePolicy = Policy()
 
         logger.debug(
@@ -228,6 +232,16 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
     def paseto_list(self) -> Any | None:
         """Return the configured PASETO token list, if any."""
         return self._paseto_list
+
+    @property
+    def macaroon_list(self) -> Any | None:
+        """Return the configured Macaroon token list, if any."""
+        return self._macaroon_list
+
+    @property
+    def saml_list(self) -> Any | None:
+        """Return the configured SAML token list, if any."""
+        return self._saml_list
 
     @property
     def saml(self) -> SAML:
@@ -398,8 +412,14 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
         if "macaroon" in config:
             from jam.macaroons import create_instance
 
+            macaroon_cfg = config["macaroon"]
+            if isinstance(macaroon_cfg, dict):
+                macaroon_cfg = macaroon_cfg.copy()
+                self._macaroon_list = get_token_list(
+                    macaroon_cfg.pop("list", None)
+                )
             self.macaroon = create_instance(
-                config["macaroon"],
+                macaroon_cfg,
                 resolve_keychain=get_keychain,
                 registry=self._caveat_registry,
             )
@@ -539,6 +559,7 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
             cfg.pop("audience", None)
             cfg.pop("expected_issuer", None)
             chain_name = cfg.pop("keychain", None)
+            self._saml_list = get_token_list(cfg.pop("list", None))
             custom_module = cfg.pop("custom_module", None)
             module_cls = (
                 __module_loader__(custom_module) if custom_module else SAML

@@ -48,7 +48,7 @@ class AsyncJam(BaseAsyncJam):
         payload = self._prepare_payload(subject, permissions, claims)
         match via:
             case "macaroon":
-                return self.macaroon.issue(
+                token = self.macaroon.issue(
                     payload,
                     exp=exp,
                     nbf=nbf,
@@ -56,6 +56,10 @@ class AsyncJam(BaseAsyncJam):
                     aud=aud,
                     jti=jti,
                 )
+                await self._register_allowlisted_token(
+                    self._macaroon_list, token
+                )
+                return token
             case "jwt":
                 return await self._issue_jwt(payload, exp, iss, aud, nbf, jti)
             case "paseto":
@@ -67,14 +71,12 @@ class AsyncJam(BaseAsyncJam):
                     nbf,
                     jti,
                 )
-                if (
-                    self._paseto_list is not None
-                    and self._paseto_list.__list_type__ == "white"
-                ):
-                    await self._paseto_list.add(token)
+                await self._register_allowlisted_token(self._paseto_list, token)
                 return token
             case "saml":
-                return self._issue_saml(payload, exp, iss, aud, nbf, jti)
+                token = self._issue_saml(payload, exp, iss, aud, nbf, jti)
+                await self._register_allowlisted_token(self._saml_list, token)
+                return token
             case "session":
                 session = self.session
                 session_key = (
@@ -101,17 +103,13 @@ class AsyncJam(BaseAsyncJam):
         constraints = ()
         match via:
             case "macaroon":
+                await self._check_token_list(self._macaroon_list, token)
                 payload, constraints = self.macaroon.authenticate(
                     token,
                     discharges=() if discharges is None else discharges,
                 )
             case "jwt":
-                if self._jwt_list is not None:
-                    listed = await self._jwt_list.check(token)
-                    if self._jwt_list.__list_type__ == "white" and not listed:
-                        raise JamTokenNotInAllowList
-                    if self._jwt_list.__list_type__ == "black" and listed:
-                        raise JamTokenInDenyList
+                await self._check_token_list(self._jwt_list, token)
                 payload = self.jwt.decode(token, check_list=False)["payload"]
             case "jwe":
                 jwt = self.jwt
@@ -127,17 +125,10 @@ class AsyncJam(BaseAsyncJam):
                     )
                 payload = decrypted
             case "paseto":
-                if self._paseto_list is not None:
-                    listed = await self._paseto_list.check(token)
-                    if (
-                        self._paseto_list.__list_type__ == "white"
-                        and not listed
-                    ):
-                        raise JamTokenNotInAllowList
-                    if self._paseto_list.__list_type__ == "black" and listed:
-                        raise JamTokenInDenyList
+                await self._check_token_list(self._paseto_list, token)
                 payload, _footer = self.paseto.decode(token)
             case "saml":
+                await self._check_token_list(self._saml_list, token)
                 payload = self._authenticate_saml(token)
             case "session":
                 data = await self.session.get(token)
@@ -158,6 +149,23 @@ class AsyncJam(BaseAsyncJam):
             constraints=constraints,
         )
 
+    @staticmethod
+    async def _register_allowlisted_token(token_list: Any, token: str) -> None:
+        """Register an issued token when an async allowlist is configured."""
+        if token_list is not None and token_list.__list_type__ == "white":
+            await token_list.add(token)
+
+    @staticmethod
+    async def _check_token_list(token_list: Any, token: str) -> None:
+        """Enforce an optional async token allowlist or denylist."""
+        if token_list is None:
+            return
+        listed = await token_list.check(token)
+        if token_list.__list_type__ == "white" and not listed:
+            raise JamTokenNotInAllowList
+        if token_list.__list_type__ == "black" and listed:
+            raise JamTokenInDenyList
+
     async def _issue_jwt(
         self,
         payload: dict[str, Any],
@@ -176,11 +184,7 @@ class AsyncJam(BaseAsyncJam):
             nbf=nbf,
             jti=jti,
         )
-        if (
-            self._jwt_list is not None
-            and self._jwt_list.__list_type__ == "white"
-        ):
-            await self._jwt_list.add(token)
+        await self._register_allowlisted_token(self._jwt_list, token)
         return token
 
     async def aclose(self) -> None:
@@ -189,9 +193,15 @@ class AsyncJam(BaseAsyncJam):
             self._session,
             self._jwt_list,
             self._paseto_list,
+            self._macaroon_list,
+            self._saml_list,
             *((self._oauth2 or {}).values()),
         ]
+        closed: set[int] = set()
         for module in modules:
+            if module is None or id(module) in closed:
+                continue
+            closed.add(id(module))
             close = getattr(module, "aclose", None)
             if close is not None:
                 await close()
