@@ -1,6 +1,6 @@
 [project]
 name = "jamlib"
-version = "4.2.1a0"
+version = "4.2.1a1"
 description = "Simple and universal library for authorization."
 authors = [
     {name = "Makridenko Adrian",email = "adrianmakridenko@duck.com"},
@@ -29,7 +29,7 @@ keywords = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "cryptography>=50.0.0",
+    "cryptography>=50.0.1",
 ]
 
 classifiers = [
@@ -65,15 +65,15 @@ Changelog = "https://github.com/mkrdnk/jam/blob/master/CHANGELOG.md"
 jam = "jam.cli:cli"
 
 [project.optional-dependencies]
-cli=["click>=8.3.1"]
-redis=["redis>=7.3.0"]
-json=["tinydb>=4.8.2"]
+cli=["click>=8.5.0"]
+redis=["redis>=8.1.0"]
+json=["tinydb>=4.9.0"]
 oauth2=["httpx>=0.28.1"]
 yaml=["pyyaml>=6.0.3"]
 toml=["toml>=0.10.2"]
-litestar=["litestar>=2.21.1"]
-starlette=["starlette>=0.52.1"]
-fastapi=["fastapi>=0.135.1"]
+litestar=["litestar>=2.24.0"]
+starlette=["starlette>=1.6.0"]
+fastapi=["fastapi>=0.141.1"]
 flask=["flask>=3.1.2"]
 django=["django>=5.2"]
 drf=[
@@ -95,20 +95,20 @@ include = ["jam*"]
 
 [dependency-groups]
 dev = [
-    "click>=8.3.1",
-    "fakeredis>=2.34.1",
-    "icecream>=2.1.10",
-    "pre-commit>=4.5.1",
-    "pyrefly>=0.56.0",
-    "ruff>=0.15.6",
+    "click>=8.5.0",
+    "fakeredis>=2.38.0",
+    "icecream>=2.2.0",
+    "pre-commit>=4.6.2",
+    "pyrefly>=0.56.0,<0.57",
+    "ruff>=0.16.8",
     "unicecream>=0.2.1",
-    "uvicorn>=0.41.0",
+    "uvicorn>=0.53.0",
 ]
 tests = [
-    "pytest>=9.0.2",
-    "pytest-asyncio>=1.3.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
     "pytest-django>=4.12.0",
-    "coverage>=7.13.4"
+    "coverage>=7.16.1"
 ]
 
 
@@ -118,7 +118,7 @@ line-length = 80
 exclude = ["*__init__.py", "tests/", "*exceptions/", "env", ".env", ".env.example", "migrations/", ".venv/", "docs/"]
 
 [tool.ruff.lint]
-extend-select = ["UP", "D", "I"]
+select = ["E4", "E7", "E9", "F", "UP", "D", "I"]
 ignore = ["UP009", "D100", "UP007"]
 
 [tool.ruff.lint.pydocstyle]

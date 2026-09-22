@@ -6,8 +6,16 @@ import pytest
 from fakeredis import FakeAsyncRedis
 
 from jam.aio import AsyncJam, Jam
+from jam.aio.lists.memory import MemoryList
 from jam.authz import Principal
-from jam.exceptions import JamConfigurationError
+from jam.exceptions import (
+    JamConfigurationError,
+    JamJWTInBlackList,
+    JamJWTNotInWhiteList,
+    JamTokenInDenyList,
+    JamTokenNotInAllowList,
+)
+from jam.utils import generate_symmetric_key
 
 
 def test_legacy_name_is_alias():
@@ -78,8 +86,104 @@ async def test_jwt_async_allowlist():
 
     token = await jam.issue({"id": "user123"}, via="jwt")
 
-    assert await jam._jwt_list.check(token)
+    assert await jam.jwt_list.check(token)
     assert (await jam.authenticate(token, via="jwt")).subject["id"] == "user123"
+
+
+@pytest.mark.asyncio
+async def test_paseto_async_allowlist():
+    key = generate_symmetric_key(32)
+    jam = AsyncJam(
+        config={
+            "paseto": {
+                "version": "v4",
+                "purpose": "local",
+                "secret_key": key,
+                "list": {
+                    "backend": "memory",
+                    "type": "white",
+                },
+            }
+        }
+    )
+
+    token = await jam.issue({"id": "user123"}, via="paseto")
+
+    assert await jam.paseto_list.check(token)
+    assert (
+        await jam.authenticate(token, via="paseto")
+    ).subject["id"] == "user123"
+
+    await jam.paseto_list.delete(token)
+    with pytest.raises(JamJWTNotInWhiteList):
+        await jam.authenticate(token, via="paseto")
+
+
+@pytest.mark.asyncio
+async def test_paseto_async_denylist():
+    jam = AsyncJam(
+        config={
+            "paseto": {
+                "version": "v4",
+                "purpose": "local",
+                "secret_key": generate_symmetric_key(32),
+                "list": {
+                    "backend": "memory",
+                    "type": "black",
+                },
+            }
+        }
+    )
+
+    token = await jam.issue({"id": "user123"}, via="paseto")
+    await jam.paseto_list.add(token)
+
+    with pytest.raises(JamJWTInBlackList):
+        await jam.authenticate(token, via="paseto")
+
+
+@pytest.mark.asyncio
+async def test_jwt_and_paseto_share_named_async_token_list():
+    jam = AsyncJam(
+        config={
+            "lists": {
+                "credentials": {
+                    "backend": "memory",
+                    "type": "white",
+                }
+            },
+            "jose": {
+                "jwt": {
+                    "alg": "HS256",
+                    "secret_key": "SECRET",
+                    "list": "credentials",
+                }
+            },
+            "paseto": {
+                "version": "v4",
+                "purpose": "local",
+                "secret_key": generate_symmetric_key(32),
+                "list": "credentials",
+            },
+        }
+    )
+
+    jwt = await jam.issue({"id": "jwt-user"}, via="jwt")
+    paseto = await jam.issue({"id": "paseto-user"}, via="paseto")
+    token_list = jam.lists["credentials"]
+
+    assert jam.jwt_list is token_list
+    assert jam.paseto_list is token_list
+    assert await token_list.check_many([jwt, paseto]) == {
+        jwt: True,
+        paseto: True,
+    }
+    assert (
+        await jam.authenticate(jwt, via="jwt")
+    ).subject["id"] == "jwt-user"
+    assert (
+        await jam.authenticate(paseto, via="paseto")
+    ).subject["id"] == "paseto-user"
 
 
 @pytest.mark.asyncio
@@ -122,3 +226,102 @@ async def test_saml_issue_and_authenticate(saml_configs):
     assert principal.claims["aud"] == "https://sp.test"
     assert principal.claims["iss"] == "https://idp.test"
     assert principal.token_type == "saml"
+
+
+@pytest.mark.asyncio
+async def test_saml_shared_async_allowlist(saml_configs):
+    idp_config, sp_config = saml_configs
+    token_list = MemoryList(type="white")
+    list_config = {"credentials": token_list}
+    idp = AsyncJam(
+        config={
+            "lists": list_config,
+            "saml": {**idp_config["saml"], "list": "credentials"},
+        }
+    )
+    sp = AsyncJam(
+        config={
+            "lists": list_config,
+            "saml": {**sp_config["saml"], "list": "credentials"},
+        }
+    )
+
+    token = await idp.issue({"id": "user123"}, via="saml", exp=60)
+
+    assert idp.saml_list is token_list
+    assert sp.saml_list is token_list
+    assert await token_list.check(token)
+    principal = await sp.authenticate(token, via="saml")
+    assert principal.subject["id"] == "user123"
+
+    await token_list.delete(token)
+    with pytest.raises(JamTokenNotInAllowList):
+        await sp.authenticate(token, via="saml")
+
+
+@pytest.mark.asyncio
+async def test_macaroon_shared_async_allowlist():
+    jam = AsyncJam(
+        config={
+            "lists": {
+                "credentials": {
+                    "backend": "memory",
+                    "type": "white",
+                }
+            },
+            "keychains": {
+                "root": {
+                    "type": "Memory",
+                    "algorithm": "MACAROON-HMAC-SHA256",
+                }
+            },
+            "macaroon": {
+                "keychain": "root",
+                "list": "credentials",
+            },
+        }
+    )
+    jam.keychains["root"].rotate("first")
+
+    token = await jam.issue({"id": "user123"}, via="macaroon")
+
+    assert jam.macaroon_list is jam.lists["credentials"]
+    assert await jam.lists["credentials"].check(token)
+    principal = await jam.authenticate(token, via="macaroon")
+    assert principal.subject["id"] == "user123"
+
+    await jam.lists["credentials"].delete(token)
+    with pytest.raises(JamTokenNotInAllowList):
+        await jam.authenticate(token, via="macaroon")
+
+
+@pytest.mark.asyncio
+async def test_macaroon_shared_async_denylist():
+    jam = AsyncJam(
+        config={
+            "lists": {
+                "credentials": {
+                    "backend": "memory",
+                    "type": "black",
+                }
+            },
+            "keychains": {
+                "root": {
+                    "type": "Memory",
+                    "algorithm": "MACAROON-HMAC-SHA256",
+                }
+            },
+            "macaroon": {
+                "keychain": "root",
+                "list": "credentials",
+            },
+        }
+    )
+    jam.keychains["root"].rotate("first")
+    token = await jam.issue({"id": "user123"}, via="macaroon")
+
+    assert not await jam.lists["credentials"].check(token)
+    await jam.lists["credentials"].add(token)
+
+    with pytest.raises(JamTokenInDenyList):
+        await jam.authenticate(token, via="macaroon")

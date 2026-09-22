@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from .base import JamConfigurationError, JamError
+from .lists import JamTokenInDenyList, JamTokenNotInAllowList
 
 
 class JamJWTExpired(JamError):
@@ -13,14 +14,9 @@ class JamJWTNotYetValid(JamError):
     default_code = "jwt.token_not_yet_valid"
 
 
-class JamJWTInBlackList(JamError):
-    default_message = "Token in blacklist."
-    default_code = "jwt.blacklist"
-
-
-class JamJWTNotInWhiteList(JamError):
-    default_message = "Token not in whitelist."
-    default_code = "jwt.whitelist"
+# Compatibility aliases for the original JWT-specific API.
+JamJWTInBlackList = JamTokenInDenyList
+JamJWTNotInWhiteList = JamTokenNotInAllowList
 
 
 class JamJWTUnsupportedAlgorithm(JamConfigurationError):

@@ -21,9 +21,9 @@ logger = logging.getLogger(__name__)
 
 
 class JSONList(BaseList):
-    """JSON file-based JWT black/white list.
+    """JSON file-based token allowlist or denylist.
 
-    Not recommended for blacklists - no TTL support, user must manage token lifetime.
+    Denylists require manual cleanup because this backend has no TTL support.
 
     Dependency required: `pip install jamlib[json]`
 
@@ -62,7 +62,7 @@ class JSONList(BaseList):
         """Add a single token to the list.
 
         Args:
-            token (str): JWT token.
+            token (str): Serialized token.
         """
         self._db.insert({"token": token})
         logger.debug("Added token to %s list", self._prefix)
@@ -71,7 +71,7 @@ class JSONList(BaseList):
         """Add multiple tokens to the list.
 
         Args:
-            tokens (list[str]): List of JWT tokens.
+            tokens (list[str]): Serialized tokens.
         """
         for token in tokens:
             self._db.insert({"token": token})
@@ -81,7 +81,7 @@ class JSONList(BaseList):
         """Check if a token is present in the list.
 
         Args:
-            token (str): JWT token.
+            token (str): Serialized token.
 
         Returns:
             bool: True if token exists in list.
@@ -93,7 +93,7 @@ class JSONList(BaseList):
         """Check multiple tokens in the list.
 
         Args:
-            tokens (list[str]): List of JWT tokens.
+            tokens (list[str]): Serialized tokens.
 
         Returns:
             dict[str, bool]: Mapping of token to presence.
@@ -108,7 +108,7 @@ class JSONList(BaseList):
         """Remove a token from the list.
 
         Args:
-            token (str): JWT token.
+            token (str): Serialized token.
         """
         cond = Query()
         self._db.remove(cond.token == token)
@@ -118,7 +118,7 @@ class JSONList(BaseList):
         """Remove multiple tokens from the list.
 
         Args:
-            tokens (list[str]): List of JWT tokens.
+            tokens (list[str]): Serialized tokens.
         """
         cond = Query()
         for token in tokens:

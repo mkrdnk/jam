@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class RedisList(BaseList):
-    """Redis-based JWT black/white list.
+    """Redis-based token allowlist or denylist.
 
     Most optimal for production use with TTL support.
 
@@ -90,7 +90,7 @@ class RedisList(BaseList):
         """Add a single token to the list.
 
         Args:
-            token (str): JWT token.
+            token (str): Serialized token.
         """
         self._redis.set(self._make_key(token), "1", ex=self._ttl)
         logger.debug("Added token to %s list", self._prefix)
@@ -99,7 +99,7 @@ class RedisList(BaseList):
         """Add multiple tokens to the list.
 
         Args:
-            tokens (list[str]): List of JWT tokens.
+            tokens (list[str]): Serialized tokens.
         """
         if not tokens:
             return
@@ -113,7 +113,7 @@ class RedisList(BaseList):
         """Check if a token is present in the list.
 
         Args:
-            token (str): JWT token.
+            token (str): Serialized token.
 
         Returns:
             bool: True if token exists in list.
@@ -124,7 +124,7 @@ class RedisList(BaseList):
         """Check multiple tokens in the list.
 
         Args:
-            tokens (list[str]): List of JWT tokens.
+            tokens (list[str]): Serialized tokens.
 
         Returns:
             dict[str, bool]: Mapping of token to presence.
@@ -141,7 +141,7 @@ class RedisList(BaseList):
         """Remove a token from the list.
 
         Args:
-            token (str): JWT token.
+            token (str): Serialized token.
         """
         self._redis.delete(self._make_key(token))
         logger.debug("Deleted token from %s list", self._prefix)
@@ -150,7 +150,7 @@ class RedisList(BaseList):
         """Remove multiple tokens from the list.
 
         Args:
-            tokens (list[str]): List of JWT tokens.
+            tokens (list[str]): Serialized tokens.
         """
         if not tokens:
             return

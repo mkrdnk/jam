@@ -12,10 +12,10 @@ from jam.encoders import JsonEncoder
 from jam.exceptions import (
     JamConfigurationError,
     JamJWTExpired,
-    JamJWTInBlackList,
-    JamJWTNotInWhiteList,
     JamJWTNotYetValid,
     JamJWTUnsupportedAlgorithm,
+    JamTokenInDenyList,
+    JamTokenNotInAllowList,
 )
 from jam.exceptions.jose import (
     JamInvalidKeyTypeError,
@@ -514,8 +514,8 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
             JamJWSVerificationError: If token has invalid type.
             JamJWTExpired: If token is expired.
             JamJWTNotYetValid: If token is not yet valid.
-            JamJWTNotInWhiteList: If token is not in the white list.
-            JamJWTInBlackList: If token is in the black list.
+            JamTokenNotInAllowList: If token is not in the allowlist.
+            JamTokenInDenyList: If token is in the denylist.
         """
         if not self.jws and self.keychain is None:
             raise JamConfigurationError(
@@ -528,11 +528,11 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
                 case "white":
                     if not self.list.check(token):
                         logger.warning("Rejected JWT not present in whitelist")
-                        raise JamJWTNotInWhiteList
+                        raise JamTokenNotInAllowList
                 case "black":
                     if self.list.check(token):
                         logger.warning("Rejected JWT present in blacklist")
-                        raise JamJWTInBlackList
+                        raise JamTokenInDenyList
                 case _:
                     raise JamConfigurationError(
                         message="Invalid JWT list type",

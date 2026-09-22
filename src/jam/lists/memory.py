@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class MemoryList(BaseList):
-    """In-memory JWT black/white list.
+    """In-memory token allowlist or denylist.
 
     Suitable for development, testing, or when external storage is not needed.
     No TTL support - tokens persist until explicitly removed.
@@ -46,7 +46,7 @@ class MemoryList(BaseList):
         """Add a single token to the list.
 
         Args:
-            token (str): JWT token.
+            token (str): Serialized token.
         """
         self._storage[token] = True
         logger.debug("Added token to %s list", self._prefix)
@@ -55,7 +55,7 @@ class MemoryList(BaseList):
         """Add multiple tokens to the list.
 
         Args:
-            tokens (list[str]): List of JWT tokens.
+            tokens (list[str]): Serialized tokens.
         """
         for token in tokens:
             self._storage[token] = True
@@ -65,7 +65,7 @@ class MemoryList(BaseList):
         """Check if a token is present in the list.
 
         Args:
-            token (str): JWT token.
+            token (str): Serialized token.
 
         Returns:
             bool: True if token exists in list.
@@ -76,7 +76,7 @@ class MemoryList(BaseList):
         """Check multiple tokens in the list.
 
         Args:
-            tokens (list[str]): List of JWT tokens.
+            tokens (list[str]): Serialized tokens.
 
         Returns:
             dict[str, bool]: Mapping of token to presence.
@@ -87,7 +87,7 @@ class MemoryList(BaseList):
         """Remove a token from the list.
 
         Args:
-            token (str): JWT token.
+            token (str): Serialized token.
         """
         self._storage.pop(token, None)
         logger.debug("Deleted token from %s list", self._prefix)
@@ -96,7 +96,7 @@ class MemoryList(BaseList):
         """Remove multiple tokens from the list.
 
         Args:
-            tokens (list[str]): List of JWT tokens.
+            tokens (list[str]): Serialized tokens.
         """
         for token in tokens:
             self._storage.pop(token, None)

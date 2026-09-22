@@ -5,7 +5,11 @@ import json
 import os
 import tempfile
 from jam.jose import JWT, JWS, JWE
-from jam.exceptions import JamJWTUnsupportedAlgorithm
+from jam.exceptions import (
+    JamJWTInBlackList,
+    JamJWTNotInWhiteList,
+    JamJWTUnsupportedAlgorithm,
+)
 from jam.exceptions.jose import JamJWSVerificationError
 from jam.utils import generate_ecdsa_keypair, generate_rsa_key_pair
 
@@ -317,7 +321,7 @@ class TestJWTErrors:
 
 
 class TestJWTListMemory:
-    def test_blacklist_add_and_check(self):
+    def test_blacklist_revokes_complete_token(self):
         jwt = JWT(
             alg="HS256",
             secret_key="SOME_JWT_KEY_THIS_IS_MORE_THAN_16_BYTES",
@@ -325,13 +329,13 @@ class TestJWTListMemory:
         )
 
         token = jwt.encode(payload={"user_id": 123})
-        decoded = decode_payload(jwt, token)
+        jwt.list.add(token)
 
-        jwt.list.add(decoded["jti"])
+        assert jwt.list.check(token) is True
+        with pytest.raises(JamJWTInBlackList):
+            jwt.decode(token)
 
-        assert jwt.list.check(decoded["jti"]) is True
-
-    def test_whitelist_add_and_check(self):
+    def test_whitelist_registers_issued_token(self):
         jwt = JWT(
             alg="HS256",
             secret_key="SOME_JWT_KEY_THIS_IS_MORE_THAN_16_BYTES",
@@ -339,23 +343,24 @@ class TestJWTListMemory:
         )
 
         token = jwt.encode(payload={"user_id": 123})
-        decoded = decode_payload(jwt, token)
 
-        jwt.list.add(decoded["jti"])
+        assert jwt.list.check(token) is True
+        assert decode_payload(jwt, token)["user_id"] == 123
 
-        assert jwt.list.check(decoded["jti"]) is True
-
-    def test_whitelist_not_exists(self):
+    def test_whitelist_rejects_token_issued_elsewhere(self):
+        key = "SOME_JWT_KEY_THIS_IS_MORE_THAN_16_BYTES"
         jwt = JWT(
             alg="HS256",
-            secret_key="SOME_JWT_KEY_THIS_IS_MORE_THAN_16_BYTES",
+            secret_key=key,
             list={"backend": "memory", "type": "white"},
         )
+        token = JWT(alg="HS256", secret_key=key).encode(
+            payload={"user_id": 123}
+        )
 
-        token = jwt.encode(payload={"user_id": 123})
-        decoded = decode_payload(jwt, token)
-
-        assert jwt.list.check(decoded["jti"]) is False
+        assert jwt.list.check(token) is False
+        with pytest.raises(JamJWTNotInWhiteList):
+            jwt.decode(token)
 
 
 class TestJWTListJSON:
@@ -377,11 +382,11 @@ class TestJWTListJSON:
             )
 
             token = jwt.encode(payload={"user_id": 123})
-            decoded = decode_payload(jwt, token)
+            jwt.list.add(token)
 
-            jwt.list.add(decoded["jti"])
-
-            assert jwt.list.check(decoded["jti"]) is True
+            assert jwt.list.check(token) is True
+            with pytest.raises(JamJWTInBlackList):
+                jwt.decode(token)
 
             jwt2 = JWT(
                 alg="HS256",
@@ -392,7 +397,7 @@ class TestJWTListJSON:
                     "json_path": json_path,
                 },
             )
-            assert jwt2.list.check(decoded["jti"]) is True
+            assert jwt2.list.check(token) is True
         finally:
             if os.path.exists(json_path):
                 os.remove(json_path)
@@ -415,11 +420,9 @@ class TestJWTListJSON:
             )
 
             token = jwt.encode(payload={"user_id": 123})
-            decoded = decode_payload(jwt, token)
 
-            jwt.list.add(decoded["jti"])
-
-            assert jwt.list.check(decoded["jti"]) is True
+            assert jwt.list.check(token) is True
+            assert decode_payload(jwt, token)["user_id"] == 123
         finally:
             if os.path.exists(json_path):
                 os.remove(json_path)

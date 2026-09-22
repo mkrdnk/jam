@@ -21,6 +21,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 -->
 
+## 4.2.1 - [unreleased]
+
+### Added
+
+### Changed
+- Add lists support to SAML and Macaroons.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+- Fix lists documentation.
+
+### Security
+- Update `cryptography` to `50.0.1`.
+
+---
+
 ## 4.2.0 - 2026-09-21
 
 ### Added

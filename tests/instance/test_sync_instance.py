@@ -7,8 +7,15 @@ import pytest
 from fakeredis import FakeRedis
 
 from jam import Jam
-from jam.exceptions import JamConfigurationError
+from jam.exceptions import (
+    JamConfigurationError,
+    JamJWTInBlackList,
+    JamTokenInDenyList,
+    JamTokenNotInAllowList,
+)
+from jam.lists.memory import MemoryList
 from jam.subject import BaseSubject
+from jam.utils import generate_symmetric_key
 
 
 @dataclass
@@ -49,6 +56,128 @@ def test_jwt_instance(jam_jwt_instance):
     assert decoded.subject == user
     assert decoded.subject.id == "user123"
     assert decoded.claims["sub"] == "user123"
+
+
+def test_jwt_denylist_through_facade():
+    jam = Jam(
+        config={
+            "jose": {
+                "jwt": {
+                    "alg": "HS256",
+                    "secret_key": "SECRET",
+                    "list": {"backend": "memory", "type": "black"},
+                }
+            }
+        }
+    )
+    token = jam.issue({"id": "user123"}, via="jwt")
+
+    jam.jwt_list.add(token)
+
+    with pytest.raises(JamJWTInBlackList):
+        jam.authenticate(token, via="jwt")
+
+
+def test_paseto_denylist_through_facade():
+    jam = Jam(
+        config={
+            "paseto": {
+                "version": "v4",
+                "purpose": "local",
+                "secret_key": generate_symmetric_key(32),
+                "list": {"backend": "memory", "type": "black"},
+            }
+        }
+    )
+    token = jam.issue({"id": "user123"}, via="paseto")
+
+    jam.paseto_list.add(token)
+
+    with pytest.raises(JamJWTInBlackList):
+        jam.authenticate(token, via="paseto")
+
+
+def test_jwt_and_paseto_share_named_token_list():
+    jam = Jam(
+        config={
+            "lists": {
+                "credentials": {
+                    "backend": "memory",
+                    "type": "white",
+                }
+            },
+            "jose": {
+                "jwt": {
+                    "alg": "HS256",
+                    "secret_key": "SECRET",
+                    "list": "credentials",
+                }
+            },
+            "paseto": {
+                "version": "v4",
+                "purpose": "local",
+                "secret_key": generate_symmetric_key(32),
+                "list": "credentials",
+            },
+        }
+    )
+
+    jwt = jam.issue({"id": "jwt-user"}, via="jwt")
+    paseto = jam.issue({"id": "paseto-user"}, via="paseto")
+    token_list = jam.lists["credentials"]
+
+    assert jam.jwt_list is token_list
+    assert jam.paseto_list is token_list
+    assert jam.jwt.list is token_list
+    assert jam.paseto.list is token_list
+    assert token_list.check_many([jwt, paseto]) == {
+        jwt: True,
+        paseto: True,
+    }
+    assert jam.authenticate(jwt, via="jwt").subject["id"] == "jwt-user"
+    assert jam.authenticate(paseto, via="paseto").subject["id"] == "paseto-user"
+
+
+def test_named_token_list_must_exist():
+    with pytest.raises(JamConfigurationError) as exc_info:
+        Jam(
+            config={
+                "jose": {
+                    "jwt": {
+                        "alg": "HS256",
+                        "secret_key": "SECRET",
+                        "list": "missing",
+                    }
+                }
+            }
+        )
+
+    assert (
+        exc_info.value.error_code == "configuration.lists.not_configured"
+    )
+
+
+def test_named_token_list_from_toml(tmp_path):
+    config_path = tmp_path / "jam.toml"
+    config_path.write_text(
+        """
+[jam.lists.credentials]
+backend = "memory"
+type = "white"
+
+[jam.jose.jwt]
+alg = "HS256"
+secret_key = "SECRET"
+list = "credentials"
+""",
+        encoding="utf-8",
+    )
+
+    jam = Jam(config=str(config_path))
+    token = jam.issue({"id": "user123"}, via="jwt")
+
+    assert jam.jwt_list is jam.lists["credentials"]
+    assert jam.lists["credentials"].check(token)
 
 
 def test_jwe_authentication():
@@ -127,6 +256,100 @@ def test_saml_issue_and_authenticate(saml_configs):
     assert principal.claims["permissions"] == ["documents:read"]
     assert principal.claims["exp"] > principal.claims["nbf"]
     assert principal.token_type == "saml"
+
+
+def test_saml_shared_allowlist(saml_configs):
+    idp_config, sp_config = saml_configs
+    token_list = MemoryList(type="white")
+    list_config = {"credentials": token_list}
+    idp = Jam(
+        config={
+            "lists": list_config,
+            "saml": {**idp_config["saml"], "list": "credentials"},
+        }
+    )
+    sp = Jam(
+        config={
+            "lists": list_config,
+            "saml": {**sp_config["saml"], "list": "credentials"},
+        }
+    )
+
+    token = idp.issue({"id": "user123"}, via="saml", exp=60)
+
+    assert idp.saml_list is token_list
+    assert sp.saml_list is token_list
+    assert token_list.check(token)
+    assert sp.authenticate(token, via="saml").subject["id"] == "user123"
+
+    token_list.delete(token)
+    with pytest.raises(JamTokenNotInAllowList):
+        sp.authenticate(token, via="saml")
+
+
+def test_macaroon_shared_allowlist():
+    jam = Jam(
+        config={
+            "lists": {
+                "credentials": {
+                    "backend": "memory",
+                    "type": "white",
+                }
+            },
+            "keychains": {
+                "root": {
+                    "type": "Memory",
+                    "algorithm": "MACAROON-HMAC-SHA256",
+                }
+            },
+            "macaroon": {
+                "keychain": "root",
+                "list": "credentials",
+            },
+        }
+    )
+    jam.keychains["root"].rotate("first")
+
+    token = jam.issue({"id": "user123"}, via="macaroon")
+
+    assert jam.macaroon_list is jam.lists["credentials"]
+    assert jam.lists["credentials"].check(token)
+    assert jam.authenticate(token, via="macaroon").subject["id"] == "user123"
+
+    jam.lists["credentials"].delete(token)
+    with pytest.raises(JamTokenNotInAllowList):
+        jam.authenticate(token, via="macaroon")
+
+
+def test_macaroon_shared_denylist():
+    jam = Jam(
+        config={
+            "lists": {
+                "credentials": {
+                    "backend": "memory",
+                    "type": "black",
+                }
+            },
+            "keychains": {
+                "root": {
+                    "type": "Memory",
+                    "algorithm": "MACAROON-HMAC-SHA256",
+                }
+            },
+            "macaroon": {
+                "keychain": "root",
+                "list": "credentials",
+            },
+        }
+    )
+    jam.keychains["root"].rotate("first")
+    token = jam.issue({"id": "user123"}, via="macaroon")
+
+    assert not jam.lists["credentials"].check(token)
+    jam.lists["credentials"].add(token)
+
+    with pytest.raises(JamTokenInDenyList):
+        jam.authenticate(token, via="macaroon")
 
 
 def test_saml_requires_configuration():

@@ -27,7 +27,7 @@ modules independently.
 | Area | Capabilities |
 | --- | --- |
 | Credentials | JWT, JWS, JWE, PASETO v1-v4, Macaroons, and SAML 2.0 |
-| Stateful authentication | Server-side sessions and JWT allowlists/blocklists |
+| Stateful authentication | Sessions and shared credential token lists |
 | Identity and verification | OAuth2 clients, HOTP, and TOTP |
 | Authorization | Typed principals, credential constraints, contextual policy rules, and deny-by-default evaluation |
 | Key management | In-memory and file-backed keychains, rotation, historical-key verification, and revocation |

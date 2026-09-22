@@ -35,8 +35,6 @@ nav:
             file: authx/jose/jwk.md
           - label: Algorithms
             file: authx/jose/algorithms.md
-          # - label: Algorithm lists
-            # file: authx/jose/lists.md
       - label: PASETO
         file: authx/paseto.md
       - label: Macaroons
@@ -49,6 +47,8 @@ nav:
         file: authx/otp.md
       - label: OAuth2
         file: authx/oauth2.md
+      - label: Token lists
+        file: authx/lists.md
   - block: Framework integrations
     pages:
       - label: FastAPI
