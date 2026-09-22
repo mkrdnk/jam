@@ -1,7 +1,7 @@
 [project]
 name = "jamlib"
-version = "4.2.1a1"
-description = "Simple and universal library for authorization."
+version = "4.2.1"
+description = "A modular authentication and authorization framework for Python."
 authors = [
     {name = "Makridenko Adrian",email = "adrianmakridenko@duck.com"},
     {name = "Ksenia Travnikova",email = "kseniatravnikova@duck.com"}
