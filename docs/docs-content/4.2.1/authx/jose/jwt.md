@@ -72,7 +72,8 @@ Args:
 * `enc`: `str | None` - Content encryption algorithm. Configures JWE mode (see [Token modes](#token-modes)).
 * `secret_key`: `str` - Key for signing/encryption. Default reads from `JAM_JWT_SECRET_KEY` environment variable.
 * `password`: `str | None` - Password for encrypted private keys.
-* `list`: `dict[str, Any] | None` - Token list config. See: [Lists](/latest/authx/jose/lists).
+* `list`: `str | dict[str, Any] | None` - Named or inline token list.
+  See: [Lists](/latest/authx/lists).
 
 ### Usage
 

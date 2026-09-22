@@ -68,6 +68,20 @@ These exceptions cover JWS, JWK, and JWE operations. They are defined in
 | `JamInvalidPaddingError` | `jose.invalid_padding` | Cryptographic padding is invalid. |
 | `JamRedisListConfigurationError` | `jose.redis_list_configuration_error` | A Redis-backed token list is configured incorrectly. |
 
+## Token lists
+
+Import these exceptions from `jam.exceptions`. The default codes retain their
+historical `jwt.*` values for compatibility, although the exceptions apply to
+both JWT and PASETO.
+
+| Exception | Default code | Description |
+| --- | --- | --- |
+| `JamTokenInDenyList` | `jwt.blacklist` | The token is present in the denylist. |
+| `JamTokenNotInAllowList` | `jwt.whitelist` | The token is absent from the allowlist. |
+
+`JamJWTInBlackList` and `JamJWTNotInWhiteList` remain aliases for these
+generic exceptions.
+
 ## JWT
 
 Import these exceptions from `jam.exceptions`.
@@ -76,8 +90,6 @@ Import these exceptions from `jam.exceptions`.
 | --- | --- | --- |
 | `JamJWTExpired` | `jwt.token_expired` | The token lifetime has expired. |
 | `JamJWTNotYetValid` | `jwt.token_not_yet_valid` | The token is not valid yet according to its `nbf` claim. |
-| `JamJWTInBlackList` | `jwt.blacklist` | The token is present in the blacklist. |
-| `JamJWTNotInWhiteList` | `jwt.whitelist` | The token is absent from the whitelist. |
 | `JamJWTUnsupportedAlgorithm` | `jwt.config.unsupported_algorithm` | The configured JWT algorithm is unsupported. |
 
 ## KeyChain
@@ -233,8 +245,11 @@ in the class tables above.
 | `configuration.keychain.missing_path` | `JamConfigurationError` | A file-backed KeyChain has no storage path. |
 | `configuration.keychain.not_configured` | `JamConfigurationError` | The requested KeyChain is not configured. |
 | `configuration.keychain.unknown_type` | `JamConfigurationError` | The configured KeyChain type is unknown. |
+| `configuration.lists.invalid` | `JamConfigurationError` | The top-level token-list registry is not a mapping. |
+| `configuration.lists.invalid_name` | `JamConfigurationError` | A token-list name is empty or is not a string. |
+| `configuration.lists.not_configured` | `JamConfigurationError` | A credential module references an unknown named token list. |
 | `configuration.lists.unknown_backend` | `JamConfigurationError` | The configured token-list backend is unknown. |
-| `configuration.lists.unknown_type` | `JamConfigurationError` | The configured async token-list type is unknown. |
+| `configuration.lists.unknown_type` | `JamConfigurationError` | The configured token-list type is unknown. |
 | `configuration.macaroon.invalid_keychain` | `JamConfigurationError` | The KeyChain algorithm is incompatible with macaroons. |
 | `configuration.macaroon.invalid_location` | `JamConfigurationError` | The macaroon location is not a valid string. |
 | `configuration.macaroon.missing_keychain` | `JamConfigurationError` | Macaroon profile operations require a KeyChain. |
