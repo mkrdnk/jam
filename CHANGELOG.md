@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## 4.2.1 - [unreleased]
 
 ### Added
+- Added [LLM docs](https://jam.makridenko.com/llm-docs.txt).
 
 ### Changed
 - Add lists support to SAML and Macaroons.
