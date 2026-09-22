@@ -105,6 +105,8 @@ nav:
     pages:
       - label: API reference
         file: api/index.md
+      - label: LLM Docs
+        url: /llm-docs.txt
       - label: GitHub
         url: https://github.com/mkrdnk/jam
       - label: PyPi

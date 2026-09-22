@@ -14,6 +14,7 @@ const ROOT = path.resolve(import.meta.dirname, "..")
 const DIST_DIR = path.join(ROOT, "dist")
 const INDEX_PATH = path.join(DIST_DIR, "index.html")
 const MANIFEST_PATH = path.join(ROOT, "src", "generated", "manifest.json")
+const LLM_DOCS_PATH = path.join(DIST_DIR, "llm-docs.txt")
 const TOP_LEVEL_ROUTES = ["api", "search"]
 
 function routeFromSlug(slug: string): string {
@@ -128,6 +129,9 @@ function verifyOutput(
 function main(): void {
   if (!fs.existsSync(INDEX_PATH)) {
     throw new Error(`Built application entry point not found: ${INDEX_PATH}`)
+  }
+  if (!fs.existsSync(LLM_DOCS_PATH) || fs.statSync(LLM_DOCS_PATH).size === 0) {
+    throw new Error(`Built LLM documentation not found: ${LLM_DOCS_PATH}`)
   }
 
   const manifest = readManifest()

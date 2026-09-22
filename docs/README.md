@@ -43,7 +43,7 @@ Vite will then reload the changed generated files.
 | `docs-content/<version>/` | Authored Markdown for a released documentation version |
 | `docs-content/nav.yml` | Shared sidebar structure and page labels |
 | `scripts/gen_api.py` | Generates the latest API reference from `src/jam/` |
-| `scripts/build-docs.ts` | Builds navigation, rendered pages, and the search index |
+| `scripts/build-docs.ts` | Builds navigation, rendered pages, search, and `llm-docs.txt` |
 | `src/generated/` | Generated application data; commit updates to these files |
 | `src/components/MarkdownRenderer.tsx` | Supported Markdown rendering behavior |
 | `src/App.tsx` | Documentation site layout, routing, and search |
@@ -183,7 +183,8 @@ It performs the following steps:
 
 1. Generates the API reference from the Python package.
 2. Builds the navigation manifest, page components, and full-text search
-   index.
+   index. It also combines every page in the latest documentation version into
+   `public/llm-docs.txt` for publication at `/llm-docs.txt`.
 3. Produces the Vite application in `dist/`.
 4. Generates and verifies static entry points for versioned and `/latest/`
    routes.

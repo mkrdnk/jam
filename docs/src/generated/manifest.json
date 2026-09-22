@@ -278,6 +278,11 @@
               "slug": "api--index"
             },
             {
+              "id": "url:/llm-docs.txt",
+              "title": "LLM Docs",
+              "url": "/llm-docs.txt"
+            },
+            {
               "id": "url:https://github.com/mkrdnk/jam",
               "title": "GitHub",
               "url": "https://github.com/mkrdnk/jam"
@@ -850,6 +855,11 @@
               "slug": "api--index"
             },
             {
+              "id": "url:/llm-docs.txt",
+              "title": "LLM Docs",
+              "url": "/llm-docs.txt"
+            },
+            {
               "id": "url:https://github.com/mkrdnk/jam",
               "title": "GitHub",
               "url": "https://github.com/mkrdnk/jam"
@@ -1371,6 +1381,11 @@
           "title": "Reference",
           "children": [
             {
+              "id": "url:/llm-docs.txt",
+              "title": "LLM Docs",
+              "url": "/llm-docs.txt"
+            },
+            {
               "id": "url:https://github.com/mkrdnk/jam",
               "title": "GitHub",
               "url": "https://github.com/mkrdnk/jam"
@@ -1746,6 +1761,11 @@
           "id": "group:Reference",
           "title": "Reference",
           "children": [
+            {
+              "id": "url:/llm-docs.txt",
+              "title": "LLM Docs",
+              "url": "/llm-docs.txt"
+            },
             {
               "id": "url:https://github.com/mkrdnk/jam",
               "title": "GitHub",
@@ -2123,6 +2143,11 @@
           "title": "Reference",
           "children": [
             {
+              "id": "url:/llm-docs.txt",
+              "title": "LLM Docs",
+              "url": "/llm-docs.txt"
+            },
+            {
               "id": "url:https://github.com/mkrdnk/jam",
               "title": "GitHub",
               "url": "https://github.com/mkrdnk/jam"
@@ -2472,6 +2497,11 @@
           "id": "group:Reference",
           "title": "Reference",
           "children": [
+            {
+              "id": "url:/llm-docs.txt",
+              "title": "LLM Docs",
+              "url": "/llm-docs.txt"
+            },
             {
               "id": "url:https://github.com/mkrdnk/jam",
               "title": "GitHub",
