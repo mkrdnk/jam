@@ -35,10 +35,10 @@ nav:
             file: authx/jose/jwk.md
           - label: Algorithms
             file: authx/jose/algorithms.md
-          # - label: Algorithm lists
-            # file: authx/jose/lists.md
       - label: PASETO
         file: authx/paseto.md
+      - label: Token lists
+        file: authx/lists.md
       - label: Macaroons
         file: authx/macaroons.md
       - label: Sessions

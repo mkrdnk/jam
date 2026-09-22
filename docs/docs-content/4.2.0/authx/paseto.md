@@ -9,6 +9,8 @@ Args:
 * `version`: `str` - PASETO version(v1 / v2 / v3 / v4).
 * `purpose`: `str` - `local` / `public`.
 * `secret_key`: `str | None`: Secret key for PASETO.
+* `list`: `str | dict[str, Any] | None` - Named or inline token list.
+  See: [Lists](/latest/authx/lists).
 
 
 ```toml

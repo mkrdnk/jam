@@ -43,5 +43,5 @@ The `jam.jose` package exports the following:
 - [JWS](/latest/authx/jose/jws) - data signing and verification
 - [JWE](/latest/authx/jose/jwe) - data encryption and decryption
 - [JWK](/latest/authx/jose/jwk) - cryptographic keys management
-- [Lists](/latest/authx/jose/lists) - token black and white lists
+- [Lists](/latest/authx/lists) - shared JWT and PASETO token lists
 - [Algorithms](/latest/authx/jose/algorithms) - supported algorithms reference

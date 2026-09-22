@@ -108,6 +108,11 @@
               "slug": "authx--paseto"
             },
             {
+              "id": "authx--lists",
+              "title": "Token lists",
+              "slug": "authx--lists"
+            },
+            {
               "id": "authx--macaroons",
               "title": "Macaroons",
               "slug": "authx--macaroons"
@@ -362,6 +367,10 @@
           "title": "PASETO"
         },
         {
+          "slug": "authx--lists",
+          "title": "Token lists"
+        },
+        {
           "slug": "authx--macaroons",
           "title": "Macaroons"
         },
@@ -521,6 +530,7 @@
         "jam.exceptions.jose",
         "jam.exceptions.jwt",
         "jam.exceptions.keychain",
+        "jam.exceptions.lists",
         "jam.exceptions.macaroons",
         "jam.exceptions.oauth2",
         "jam.exceptions.paseto",

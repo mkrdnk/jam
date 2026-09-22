@@ -1385,7 +1385,7 @@ The \`jam.jose\` package exports the following:
 - [JWS](/latest/authx/jose/jws) - data signing and verification
 - [JWE](/latest/authx/jose/jwe) - data encryption and decryption
 - [JWK](/latest/authx/jose/jwk) - cryptographic keys management
-- [Lists](/latest/authx/jose/lists) - token black and white lists
+- [Lists](/latest/authx/lists) - shared JWT and PASETO token lists
 - [Algorithms](/latest/authx/jose/algorithms) - supported algorithms reference
 `} />
   ),
@@ -1464,7 +1464,8 @@ Args:
 * \`enc\`: \`str | None\` - Content encryption algorithm. Configures JWE mode (see [Token modes](#token-modes)).
 * \`secret_key\`: \`str\` - Key for signing/encryption. Default reads from \`JAM_JWT_SECRET_KEY\` environment variable.
 * \`password\`: \`str | None\` - Password for encrypted private keys.
-* \`list\`: \`dict[str, Any] | None\` - Token list config. See: [Lists](/latest/authx/jose/lists).
+* \`list\`: \`str | dict[str, Any] | None\` - Named or inline token list.
+  See: [Lists](/latest/authx/lists).
 
 ### Usage
 
@@ -3006,6 +3007,8 @@ Args:
 * \`version\`: \`str\` - PASETO version(v1 / v2 / v3 / v4).
 * \`purpose\`: \`str\` - \`local\` / \`public\`.
 * \`secret_key\`: \`str | None\`: Secret key for PASETO.
+* \`list\`: \`str | dict[str, Any] | None\` - Named or inline token list.
+  See: [Lists](/latest/authx/lists).
 
 
 \`\`\`toml
@@ -3148,6 +3151,312 @@ print(payload)
     }
 print(footer)
 >>> "some_footer_as_string"
+\`\`\`
+`} />
+  ),
+  "4.2.0/authx--lists": () => (
+    <MarkdownRenderer content={`# Lists
+
+Lists make otherwise stateless JWT and PASETO credentials revocable.
+Each entry is the **complete serialized token string**. Do not add the JWT
+\`jti\` claim: authentication checks the token itself.
+
+The existing configuration values are:
+
+* \`type = "black"\`: a denylist. Issued tokens are not added automatically;
+  call \`add(token)\` to revoke one.
+* \`type = "white"\`: an allowlist. Tokens issued by the configured module are
+  added automatically; removing a token revokes it.
+
+## Configure a shared list
+
+Lists are top-level named modules. JWT and PASETO can reference the same list
+or use different named lists.
+
+\`\`\`toml
+[jam.lists.credentials]
+type = "black"
+backend = "redis"
+redis_uri = "redis://localhost:6379"
+ttl = 3600
+
+[jam.jose.jwt]
+alg = "\$JWT_ALG"
+secret_key = "\$JWT_SECRET_KEY"
+list = "credentials"
+
+[jam.paseto]
+version = "v4"
+purpose = "local"
+secret_key = "\$PASETO_SECRET_KEY"
+list = "credentials"
+\`\`\`
+
+Args:
+
+* \`type\`: \`str\` - List type: \`black\` or \`white\`.
+* \`backend\`: \`str\` - Storage backend: \`redis\`, \`json\`, \`memory\`.
+* \`redis_uri\`: \`str\` - Redis connection URI (for redis backend).
+* \`json_path\`: \`str\` - JSON file path (for json backend).
+* \`ttl\`: \`int\` - Time to live in seconds (optional, for redis).
+* \`prefix\`: \`str\` - Key prefix for namespacing.
+
+An inline \`list = { ... }\` configuration remains supported for compatibility,
+but named lists are preferred because they are reusable and have an explicit
+storage namespace.
+
+## Use in instance
+
+\`\`\`python
+from jam import Jam
+
+jam = Jam(config="config.toml")
+token_list = jam.lists["credentials"]
+\`\`\`
+
+\`jam.jwt_list\` and \`jam.paseto_list\` are compatibility conveniences pointing
+to the selected entries in \`jam.lists\`. Synchronous token modules also expose
+the same store as \`jam.jwt.list\` and \`jam.paseto.list\`.
+
+\`\`\`python
+token = jam.issue({"id": "user-123"}, via="paseto")
+jam.lists["credentials"].add(token)
+
+# Raises JamTokenInDenyList because the complete token was revoked.
+jam.authenticate(token, via="paseto")
+\`\`\`
+
+### Async usage
+
+\`AsyncJam\` uses native asynchronous list backends for both JWT and PASETO:
+
+\`\`\`python
+from jam.aio import AsyncJam
+
+jam = AsyncJam(config="config.toml")
+token = await jam.issue({"id": "user-123"}, via="jwt")
+await jam.lists["credentials"].add(token)
+
+# Raises JamTokenInDenyList.
+await jam.authenticate(token, via="jwt")
+\`\`\`
+
+### Add token to list
+
+Method: \`jam.lists[name].add\`
+
+Adds token to blacklist or whitelist.
+
+Args:
+
+* \`token\`: \`str\` - JWT token to add.
+
+\`\`\`python
+jam.lists["credentials"].add(token=token)
+\`\`\`
+
+### Check token in list
+
+Method: \`jam.lists[name].check\`
+
+Checks if token is in list.
+
+Args:
+
+* \`token\`: \`str\` - JWT token to check.
+
+Returns:
+
+\`bool\`: \`True\` if token is in list, \`False\` otherwise.
+
+\`\`\`python
+is_revoked = jam.lists["credentials"].check(token=token)
+if is_revoked:
+    print("Token is revoked")
+\`\`\`
+
+### Delete token from list
+
+Method: \`jam.lists[name].delete\`
+
+Removes token from list.
+
+Args:
+
+* \`token\`: \`str\` - JWT token to delete.
+
+\`\`\`python
+jam.lists["credentials"].delete(token=token)
+\`\`\`
+
+### Add multiple tokens
+
+Method: \`jam.lists[name].add_many\`
+
+Adds multiple tokens to list.
+
+Args:
+
+* \`tokens\`: \`list[str]\` - List of JWT tokens.
+
+\`\`\`python
+jam.lists["credentials"].add_many(tokens=[token1, token2, token3])
+\`\`\`
+
+### Check multiple tokens
+
+Method: \`jam.lists[name].check_many\`
+
+Checks multiple tokens in list.
+
+Args:
+
+* \`tokens\`: \`list[str]\` - List of JWT tokens.
+
+Returns:
+
+\`dict[str, bool]\`: Dict mapping tokens to their presence status.
+
+\`\`\`python
+results = jam.lists["credentials"].check_many(tokens=[token1, token2])
+print(results)
+>>> {token1: True, token2: False}
+\`\`\`
+
+### Delete multiple tokens
+
+Method: \`jam.lists[name].delete_many\`
+
+Removes multiple tokens from list.
+
+Args:
+
+* \`tokens\`: \`list[str]\` - List of JWT tokens.
+
+\`\`\`python
+jam.lists["credentials"].delete_many(tokens=[token1, token2])
+\`\`\`
+
+## Use out of instance
+
+### RedisList
+
+Redis-based token list. Most optimal for production with TTL support.
+
+Module: \`jam.lists.redis.RedisList\`
+
+Args:
+
+* \`type\`: \`str\` - List type: \`black\` or \`white\`.
+* \`prefix\`: \`str\` - Key prefix for namespacing.
+* \`redis_uri\`: \`str\` - Redis connection URI.
+* \`redis\`: \`Redis\` - Pre-configured Redis client (optional).
+* \`ttl\`: \`int\` - Time to live in seconds (optional).
+
+\`\`\`python
+from jam.lists.redis import RedisList
+
+list = RedisList(
+    type="black",
+    prefix="jwt",
+    redis_uri="redis://localhost:6379",
+    ttl=3600
+)
+list.add(token)
+list.check(token)
+list.delete(token)
+\`\`\`
+
+!!! note "TTL behavior"
+    When \`ttl\` is set, tokens automatically expire from the list after the
+    specified number of seconds. This is useful for token blacklists where
+    tokens should only be tracked until their natural expiration.
+
+### MemoryList
+
+In-memory token list. Simple but not persistent.
+
+Module: \`jam.lists.memory.MemoryList\`
+
+Args:
+
+* \`type\`: \`str\` - List type: \`black\` or \`white\`.
+* \`prefix\`: \`str\` - Key prefix for namespacing.
+
+\`\`\`python
+from jam.lists.memory import MemoryList
+
+list = MemoryList(
+    type="black",
+    prefix="jwt"
+)
+list.add(token)
+list.check(token)
+list.delete(token)
+\`\`\`
+
+### JSONList
+
+JSON file-based token list. Persistent but limited scalability.
+
+Module: \`jam.lists.json.JSONList\`
+
+Args:
+
+* \`type\`: \`str\` - List type: \`black\` or \`white\`.
+* \`prefix\`: \`str\` - Key prefix for namespacing.
+* \`json_path\`: \`str\` - Path to JSON file.
+
+\`\`\`python
+from jam.lists.json import JSONList
+
+list = JSONList(
+    type="black",
+    prefix="jwt",
+    json_path="blacklist.json"
+)
+list.add(token)
+list.check(token)
+list.delete(token)
+\`\`\`
+
+## Methods comparison
+
+| Method | MemoryList | RedisList | JSONList |
+|--------|------------|----------|----------|
+| \`add\` | ✓ | ✓ | ✓ |
+| \`delete\` | ✓ | ✓ | ✓ |
+| \`check\` | ✓ | ✓ | ✓ |
+| \`add_many\` | ✓ | ✓ | ✓ |
+| \`delete_many\` | ✓ | ✓ | ✓ |
+| \`check_many\` | ✓ | ✓ | ✓ |
+| TTL support | ✗ | ✓ | ✗ |
+| Persistence | ✗ | ✓ | ✓ |
+
+## Blacklist vs Whitelist
+
+### Blacklist
+
+Tokens in blacklist are rejected.
+
+\`\`\`python
+list = RedisList(type="black", prefix="jwt", redis_uri="...")
+
+# Token is in blacklist
+if list.check(token):
+    raise Exception("Token has been revoked")
+\`\`\`
+
+### Whitelist
+
+Only tokens in whitelist are accepted.
+
+\`\`\`python
+list = RedisList(type="white", prefix="jwt", redis_uri="...")
+
+# Token is not in whitelist
+if not list.check(token):
+    raise Exception("Token is not valid")
 \`\`\`
 `} />
   ),
@@ -8396,6 +8705,20 @@ These exceptions cover JWS, JWK, and JWE operations. They are defined in
 | \`JamInvalidPaddingError\` | \`jose.invalid_padding\` | Cryptographic padding is invalid. |
 | \`JamRedisListConfigurationError\` | \`jose.redis_list_configuration_error\` | A Redis-backed token list is configured incorrectly. |
 
+## Token lists
+
+Import these exceptions from \`jam.exceptions\`. The default codes retain their
+historical \`jwt.*\` values for compatibility, although the exceptions apply to
+both JWT and PASETO.
+
+| Exception | Default code | Description |
+| --- | --- | --- |
+| \`JamTokenInDenyList\` | \`jwt.blacklist\` | The token is present in the denylist. |
+| \`JamTokenNotInAllowList\` | \`jwt.whitelist\` | The token is absent from the allowlist. |
+
+\`JamJWTInBlackList\` and \`JamJWTNotInWhiteList\` remain aliases for these
+generic exceptions.
+
 ## JWT
 
 Import these exceptions from \`jam.exceptions\`.
@@ -8404,8 +8727,6 @@ Import these exceptions from \`jam.exceptions\`.
 | --- | --- | --- |
 | \`JamJWTExpired\` | \`jwt.token_expired\` | The token lifetime has expired. |
 | \`JamJWTNotYetValid\` | \`jwt.token_not_yet_valid\` | The token is not valid yet according to its \`nbf\` claim. |
-| \`JamJWTInBlackList\` | \`jwt.blacklist\` | The token is present in the blacklist. |
-| \`JamJWTNotInWhiteList\` | \`jwt.whitelist\` | The token is absent from the whitelist. |
 | \`JamJWTUnsupportedAlgorithm\` | \`jwt.config.unsupported_algorithm\` | The configured JWT algorithm is unsupported. |
 
 ## KeyChain
@@ -8561,8 +8882,11 @@ in the class tables above.
 | \`configuration.keychain.missing_path\` | \`JamConfigurationError\` | A file-backed KeyChain has no storage path. |
 | \`configuration.keychain.not_configured\` | \`JamConfigurationError\` | The requested KeyChain is not configured. |
 | \`configuration.keychain.unknown_type\` | \`JamConfigurationError\` | The configured KeyChain type is unknown. |
+| \`configuration.lists.invalid\` | \`JamConfigurationError\` | The top-level token-list registry is not a mapping. |
+| \`configuration.lists.invalid_name\` | \`JamConfigurationError\` | A token-list name is empty or is not a string. |
+| \`configuration.lists.not_configured\` | \`JamConfigurationError\` | A credential module references an unknown named token list. |
 | \`configuration.lists.unknown_backend\` | \`JamConfigurationError\` | The configured token-list backend is unknown. |
-| \`configuration.lists.unknown_type\` | \`JamConfigurationError\` | The configured async token-list type is unknown. |
+| \`configuration.lists.unknown_type\` | \`JamConfigurationError\` | The configured token-list type is unknown. |
 | \`configuration.macaroon.invalid_keychain\` | \`JamConfigurationError\` | The KeyChain algorithm is incompatible with macaroons. |
 | \`configuration.macaroon.invalid_location\` | \`JamConfigurationError\` | The macaroon location is not a valid string. |
 | \`configuration.macaroon.missing_keychain\` | \`JamConfigurationError\` | Macaroon profile operations require a KeyChain. |
@@ -9773,7 +10097,7 @@ Delete multiple tokens.
 
 Source: \`src/jam/aio/lists/__init__.py\`
 
-Asynchronous JWT allowlists and denylists.
+Asynchronous token allowlists and denylists.
 
 ## \`build_list\`
 
@@ -11238,18 +11562,6 @@ class class JamJWTExpired(JamError)
 class class JamJWTNotYetValid(JamError)
 \`\`\`
 
-## \`JamJWTInBlackList\`
-
-\`\`\`python
-class class JamJWTInBlackList(JamError)
-\`\`\`
-
-## \`JamJWTNotInWhiteList\`
-
-\`\`\`python
-class class JamJWTNotInWhiteList(JamError)
-\`\`\`
-
 ## \`JamJWTUnsupportedAlgorithm\`
 
 \`\`\`python
@@ -11267,6 +11579,28 @@ class class JamKeyChainError(JamError)
 \`\`\`
 
 KeyChain operation could not be completed.
+
+## jam.exceptions.lists
+
+Source: \`src/jam/exceptions/lists.py\`
+
+Generic token-list errors.
+
+## \`JamTokenInDenyList\`
+
+\`\`\`python
+class class JamTokenInDenyList(JamError)
+\`\`\`
+
+A token is present in its configured denylist.
+
+## \`JamTokenNotInAllowList\`
+
+\`\`\`python
+class class JamTokenNotInAllowList(JamError)
+\`\`\`
+
+A token is absent from its configured allowlist.
 
 ## jam.exceptions.macaroons
 
@@ -13934,8 +14268,8 @@ Raises:
     JamJWSVerificationError: If token has invalid type.
     JamJWTExpired: If token is expired.
     JamJWTNotYetValid: If token is not yet valid.
-    JamJWTNotInWhiteList: If token is not in the white list.
-    JamJWTInBlackList: If token is in the black list.
+    JamTokenNotInAllowList: If token is not in the allowlist.
+    JamTokenInDenyList: If token is in the denylist.
 
 ### \`encrypt\`
 
@@ -14143,7 +14477,11 @@ Source: \`src/jam/lists/__base__.py\`
 class class BaseList(ABC)
 \`\`\`
 
-Abstract class for token black/white lists manipulation.
+Storage contract for serialized-token allowlists and denylists.
+
+List entries are complete serialized tokens, not token identifiers such as
+a JWT \`\`jti\`\` claim. A \`\`black\`\` list denies present tokens, while a
+\`\`white\`\` list denies absent tokens.
 
 ### \`add\`
 
@@ -14203,7 +14541,7 @@ Remove multiple tokens from the list.
 
 Source: \`src/jam/lists/__init__.py\`
 
-Module for managing JWT black and white lists.
+Token allowlists and denylists with pluggable storage backends.
 
 ## \`build_list\`
 
@@ -14232,9 +14570,9 @@ Source: \`src/jam/lists/json.py\`
 class class JSONList(BaseList)
 \`\`\`
 
-JSON file-based JWT black/white list.
+JSON file-based token allowlist or denylist.
 
-Not recommended for blacklists - no TTL support, user must manage token lifetime.
+Denylists require manual cleanup because this backend has no TTL support.
 
 Dependency required: \`pip install jamlib[json]\`
 
@@ -14259,7 +14597,7 @@ def add(self, token
 Add a single token to the list.
 
 Args:
-    token (str): JWT token.
+    token (str): Serialized token.
 
 ### \`add_many\`
 
@@ -14270,7 +14608,7 @@ def add_many(self, tokens
 Add multiple tokens to the list.
 
 Args:
-    tokens (list[str]): List of JWT tokens.
+    tokens (list[str]): Serialized tokens.
 
 ### \`check\`
 
@@ -14281,7 +14619,7 @@ def check(self, token
 Check if a token is present in the list.
 
 Args:
-    token (str): JWT token.
+    token (str): Serialized token.
 
 Returns:
     bool: True if token exists in list.
@@ -14295,7 +14633,7 @@ def check_many(self, tokens
 Check multiple tokens in the list.
 
 Args:
-    tokens (list[str]): List of JWT tokens.
+    tokens (list[str]): Serialized tokens.
 
 Returns:
     dict[str, bool]: Mapping of token to presence.
@@ -14309,7 +14647,7 @@ def delete(self, token
 Remove a token from the list.
 
 Args:
-    token (str): JWT token.
+    token (str): Serialized token.
 
 ### \`delete_many\`
 
@@ -14320,7 +14658,7 @@ def delete_many(self, tokens
 Remove multiple tokens from the list.
 
 Args:
-    tokens (list[str]): List of JWT tokens.
+    tokens (list[str]): Serialized tokens.
 
 ## jam.lists.memory
 
@@ -14332,7 +14670,7 @@ Source: \`src/jam/lists/memory.py\`
 class class MemoryList(BaseList)
 \`\`\`
 
-In-memory JWT black/white list.
+In-memory token allowlist or denylist.
 
 Suitable for development, testing, or when external storage is not needed.
 No TTL support - tokens persist until explicitly removed.
@@ -14357,7 +14695,7 @@ def add(self, token
 Add a single token to the list.
 
 Args:
-    token (str): JWT token.
+    token (str): Serialized token.
 
 ### \`add_many\`
 
@@ -14368,7 +14706,7 @@ def add_many(self, tokens
 Add multiple tokens to the list.
 
 Args:
-    tokens (list[str]): List of JWT tokens.
+    tokens (list[str]): Serialized tokens.
 
 ### \`check\`
 
@@ -14379,7 +14717,7 @@ def check(self, token
 Check if a token is present in the list.
 
 Args:
-    token (str): JWT token.
+    token (str): Serialized token.
 
 Returns:
     bool: True if token exists in list.
@@ -14393,7 +14731,7 @@ def check_many(self, tokens
 Check multiple tokens in the list.
 
 Args:
-    tokens (list[str]): List of JWT tokens.
+    tokens (list[str]): Serialized tokens.
 
 Returns:
     dict[str, bool]: Mapping of token to presence.
@@ -14407,7 +14745,7 @@ def delete(self, token
 Remove a token from the list.
 
 Args:
-    token (str): JWT token.
+    token (str): Serialized token.
 
 ### \`delete_many\`
 
@@ -14418,7 +14756,7 @@ def delete_many(self, tokens
 Remove multiple tokens from the list.
 
 Args:
-    tokens (list[str]): List of JWT tokens.
+    tokens (list[str]): Serialized tokens.
 
 ## jam.lists.redis
 
@@ -14430,7 +14768,7 @@ Source: \`src/jam/lists/redis.py\`
 class class RedisList(BaseList)
 \`\`\`
 
-Redis-based JWT black/white list.
+Redis-based token allowlist or denylist.
 
 Most optimal for production use with TTL support.
 
@@ -14457,7 +14795,7 @@ def add(self, token
 Add a single token to the list.
 
 Args:
-    token (str): JWT token.
+    token (str): Serialized token.
 
 ### \`add_many\`
 
@@ -14468,7 +14806,7 @@ def add_many(self, tokens
 Add multiple tokens to the list.
 
 Args:
-    tokens (list[str]): List of JWT tokens.
+    tokens (list[str]): Serialized tokens.
 
 ### \`check\`
 
@@ -14479,7 +14817,7 @@ def check(self, token
 Check if a token is present in the list.
 
 Args:
-    token (str): JWT token.
+    token (str): Serialized token.
 
 Returns:
     bool: True if token exists in list.
@@ -14493,7 +14831,7 @@ def check_many(self, tokens
 Check multiple tokens in the list.
 
 Args:
-    tokens (list[str]): List of JWT tokens.
+    tokens (list[str]): Serialized tokens.
 
 Returns:
     dict[str, bool]: Mapping of token to presence.
@@ -14507,7 +14845,7 @@ def delete(self, token
 Remove a token from the list.
 
 Args:
-    token (str): JWT token.
+    token (str): Serialized token.
 
 ### \`delete_many\`
 
@@ -14518,7 +14856,7 @@ def delete_many(self, tokens
 Remove multiple tokens from the list.
 
 Args:
-    tokens (list[str]): List of JWT tokens.
+    tokens (list[str]): Serialized tokens.
 
 ## jam.macaroons.__base__
 
