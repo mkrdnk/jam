@@ -7,7 +7,12 @@ from fakeredis import FakeAsyncRedis
 
 from jam.aio import AsyncJam, Jam
 from jam.authz import Principal
-from jam.exceptions import JamConfigurationError
+from jam.exceptions import (
+    JamConfigurationError,
+    JamJWTInBlackList,
+    JamJWTNotInWhiteList,
+)
+from jam.utils import generate_symmetric_key
 
 
 def test_legacy_name_is_alias():
@@ -78,8 +83,104 @@ async def test_jwt_async_allowlist():
 
     token = await jam.issue({"id": "user123"}, via="jwt")
 
-    assert await jam._jwt_list.check(token)
+    assert await jam.jwt_list.check(token)
     assert (await jam.authenticate(token, via="jwt")).subject["id"] == "user123"
+
+
+@pytest.mark.asyncio
+async def test_paseto_async_allowlist():
+    key = generate_symmetric_key(32)
+    jam = AsyncJam(
+        config={
+            "paseto": {
+                "version": "v4",
+                "purpose": "local",
+                "secret_key": key,
+                "list": {
+                    "backend": "memory",
+                    "type": "white",
+                },
+            }
+        }
+    )
+
+    token = await jam.issue({"id": "user123"}, via="paseto")
+
+    assert await jam.paseto_list.check(token)
+    assert (
+        await jam.authenticate(token, via="paseto")
+    ).subject["id"] == "user123"
+
+    await jam.paseto_list.delete(token)
+    with pytest.raises(JamJWTNotInWhiteList):
+        await jam.authenticate(token, via="paseto")
+
+
+@pytest.mark.asyncio
+async def test_paseto_async_denylist():
+    jam = AsyncJam(
+        config={
+            "paseto": {
+                "version": "v4",
+                "purpose": "local",
+                "secret_key": generate_symmetric_key(32),
+                "list": {
+                    "backend": "memory",
+                    "type": "black",
+                },
+            }
+        }
+    )
+
+    token = await jam.issue({"id": "user123"}, via="paseto")
+    await jam.paseto_list.add(token)
+
+    with pytest.raises(JamJWTInBlackList):
+        await jam.authenticate(token, via="paseto")
+
+
+@pytest.mark.asyncio
+async def test_jwt_and_paseto_share_named_async_token_list():
+    jam = AsyncJam(
+        config={
+            "lists": {
+                "credentials": {
+                    "backend": "memory",
+                    "type": "white",
+                }
+            },
+            "jose": {
+                "jwt": {
+                    "alg": "HS256",
+                    "secret_key": "SECRET",
+                    "list": "credentials",
+                }
+            },
+            "paseto": {
+                "version": "v4",
+                "purpose": "local",
+                "secret_key": generate_symmetric_key(32),
+                "list": "credentials",
+            },
+        }
+    )
+
+    jwt = await jam.issue({"id": "jwt-user"}, via="jwt")
+    paseto = await jam.issue({"id": "paseto-user"}, via="paseto")
+    token_list = jam.lists["credentials"]
+
+    assert jam.jwt_list is token_list
+    assert jam.paseto_list is token_list
+    assert await token_list.check_many([jwt, paseto]) == {
+        jwt: True,
+        paseto: True,
+    }
+    assert (
+        await jam.authenticate(jwt, via="jwt")
+    ).subject["id"] == "jwt-user"
+    assert (
+        await jam.authenticate(paseto, via="paseto")
+    ).subject["id"] == "paseto-user"
 
 
 @pytest.mark.asyncio

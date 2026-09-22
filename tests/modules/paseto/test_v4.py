@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 
-from jam.exceptions import JamPASETOInvalidED25519Key
+from jam.exceptions import (
+    JamJWTInBlackList,
+    JamJWTNotInWhiteList,
+    JamPASETOInvalidED25519Key,
+)
 from pytest import fixture, raises
 
 from jam.paseto.v4 import PASETOv4
@@ -59,3 +63,44 @@ def test_decode_token_by_public_key(public_paseto, public_paseto_no_private):
 
     with raises(JamPASETOInvalidED25519Key):
         public_paseto_no_private.encode({"user": "error"})
+
+
+def test_denylist_revokes_complete_token(symmetric_key):
+    paseto = PASETOv4.key(
+        purpose="local",
+        secret_key=symmetric_key,
+        list={"backend": "memory", "type": "black"},
+    )
+    token = paseto.encode({"data": "test"})
+
+    paseto.list.add(token)
+
+    with raises(JamJWTInBlackList):
+        paseto.decode(token)
+
+
+def test_allowlist_registers_issued_token(symmetric_key):
+    paseto = PASETOv4.key(
+        purpose="local",
+        secret_key=symmetric_key,
+        list={"backend": "memory", "type": "white"},
+    )
+    token = paseto.encode({"data": "test"})
+
+    assert paseto.list.check(token)
+    assert paseto.decode(token)[0] == {"data": "test"}
+
+
+def test_allowlist_rejects_token_issued_elsewhere(symmetric_key):
+    paseto = PASETOv4.key(
+        purpose="local",
+        secret_key=symmetric_key,
+        list={"backend": "memory", "type": "white"},
+    )
+    token = PASETOv4.key(
+        purpose="local",
+        secret_key=symmetric_key,
+    ).encode({"data": "test"})
+
+    with raises(JamJWTNotInWhiteList):
+        paseto.decode(token)
