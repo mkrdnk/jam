@@ -7,6 +7,7 @@ Source code: https://github.com/mkrdnk/jam
 Documentation: https://jam.makridenko.com
 """
 
+from importlib.metadata import version as _distribution_version
 import logging
 
 from jam.__base__ import BaseJam
@@ -29,7 +30,7 @@ logging.getLogger("jam").addHandler(logging.NullHandler())
 logging.getLogger("jam").addFilter(SensitiveDataFilter())
 
 
-__version__ = "4.2.0"
+__version__ = _distribution_version("jamlib")
 __all__ = [
     "Jam",
     "BaseJam",
