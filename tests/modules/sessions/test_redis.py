@@ -109,6 +109,29 @@ def test_update_nonexistent_session(redis_session_instance_no_crypt):
         )
 
 
+def test_update_empty_session(redis_session_instance_no_crypt):
+    session = redis_session_instance_no_crypt.create("test", {})
+
+    redis_session_instance_no_crypt.update(session, {"updated": True})
+
+    assert redis_session_instance_no_crypt.get(session) == {"updated": True}
+
+
+def test_rework_empty_session(redis_session_instance_no_crypt):
+    old_session = redis_session_instance_no_crypt.create("test", {})
+
+    new_session = redis_session_instance_no_crypt.rework(old_session)
+
+    assert new_session != old_session
+    assert redis_session_instance_no_crypt.get(old_session) is None
+    assert redis_session_instance_no_crypt.get(new_session) == {}
+
+
+def test_rework_nonexistent_session(redis_session_instance_no_crypt):
+    with pytest.raises(JamSessionNotFound):
+        redis_session_instance_no_crypt.rework("nonexistent:session")
+
+
 def test_create_session_empty_data(redis_session_instance_no_crypt):
     session = redis_session_instance_no_crypt.create(
         session_key="test", data={}
@@ -155,3 +178,21 @@ def test_get_crypt_session(redis_session_with_crypt, f, fake_redis):
     ).decode()
 
     assert decoded_retrieved_data_from_redis == '{"user_id": 1}'
+
+
+@pytest.mark.parametrize("decode_responses", [True, False])
+@pytest.mark.parametrize("is_session_crypt", [True, False])
+def test_get_normalizes_redis_response(
+    decode_responses, is_session_crypt, aes_key
+):
+    fake_redis = FakeRedis(decode_responses=decode_responses)
+    sessions = RedisSessions(
+        redis_uri=fake_redis,
+        redis_sessions_key="test",
+        ttl=None,
+        is_session_crypt=is_session_crypt,
+        session_aes_secret=aes_key if is_session_crypt else None,
+    )
+    session = sessions.create("test", {"user_id": 1})
+
+    assert sessions.get(session) == {"user_id": 1}
