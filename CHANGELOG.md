@@ -21,6 +21,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 -->
 
+## 4.2.2 - [unreleased]
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- JWT `exp` and `nbf` claims now require finite numeric values, reject booleans,
+  and treat `exp == now` as expired. Validation also applies when registered
+  claims are supplied through the custom payload.
+- Synchronous and asynchronous Redis session backends now support clients with
+  either decoded string or raw byte responses and preserve empty sessions when
+  updating or reissuing them.
+
+### Security
+
+---
+
 ## 4.2.1 - 2026-09-22
 
 ### Added

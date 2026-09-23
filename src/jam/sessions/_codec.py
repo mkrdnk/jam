@@ -16,6 +16,11 @@ from jam.utils.config_maker import __key_loader__
 logger = logging.getLogger(__name__)
 
 
+def _normalize_session_payload(data: bytes | str) -> str:
+    """Normalize a session payload returned by a storage backend."""
+    return data.decode("utf-8") if isinstance(data, bytes) else data
+
+
 class _SessionCodec:
     """Shared session identifier and payload serialization."""
 

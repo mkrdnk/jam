@@ -3,6 +3,7 @@
 import base64
 import json
 import logging
+import math
 import time
 from typing import TYPE_CHECKING, Any
 import uuid
@@ -12,6 +13,7 @@ from jam.encoders import JsonEncoder
 from jam.exceptions import (
     JamConfigurationError,
     JamJWTExpired,
+    JamJWTInvalidClaim,
     JamJWTNotYetValid,
     JamJWTUnsupportedAlgorithm,
     JamTokenInDenyList,
@@ -37,6 +39,28 @@ from jam.utils.config_meta import ConfigMeta
 
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_numeric_date(claim: str, value: Any) -> int | float:
+    """Validate and return an RFC 7519 NumericDate claim.
+
+    Args:
+        claim: Claim name.
+        value: Claim value.
+
+    Raises:
+        JamJWTInvalidClaim: If the value is not a finite number.
+
+    Returns:
+        int | float: The validated NumericDate value.
+    """
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int | float)
+        or not math.isfinite(value)
+    ):
+        raise JamJWTInvalidClaim(details={"claim": claim, "value": value})
+    return value
 
 
 if TYPE_CHECKING:
@@ -514,6 +538,7 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
             JamJWSVerificationError: If token has invalid type.
             JamJWTExpired: If token is expired.
             JamJWTNotYetValid: If token is not yet valid.
+            JamJWTInvalidClaim: If exp or nbf is not a valid NumericDate.
             JamTokenNotInAllowList: If token is not in the allowlist.
             JamTokenInDenyList: If token is in the denylist.
         """
@@ -590,18 +615,19 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         Raises:
             JamJWTExpired: If token is expired.
             JamJWTNotYetValid: If token is not yet valid.
+            JamJWTInvalidClaim: If exp or nbf is not a valid NumericDate.
         """
         now = int(time.time())
 
         if "exp" in payload:
-            exp = payload["exp"]
-            if isinstance(exp, int | float) and exp < now:
+            exp = _validate_numeric_date("exp", payload["exp"])
+            if now >= exp:
                 logger.warning("Rejected expired JWT")
                 raise JamJWTExpired(details={"exp": exp, "now": now})
 
         if "nbf" in payload:
-            nbf = payload["nbf"]
-            if isinstance(nbf, int | float) and nbf > now:
+            nbf = _validate_numeric_date("nbf", payload["nbf"])
+            if nbf > now:
                 logger.warning("Rejected JWT that is not yet valid")
                 raise JamJWTNotYetValid(details={"nbf": nbf, "now": now})
 

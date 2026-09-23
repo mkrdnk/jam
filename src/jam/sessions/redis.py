@@ -17,6 +17,7 @@ except ImportError:
 from jam.encoders import BaseEncoder, JsonEncoder
 from jam.exceptions import JamSessionNotFound
 from jam.sessions.__base__ import BaseSessionModule
+from jam.sessions._codec import _normalize_session_payload
 
 
 logger = logging.getLogger(__name__)
@@ -144,14 +145,15 @@ class RedisSessions(BaseSessionModule):
             name=f"{self.session_path}:{decoded_session_key[0]}",
             key=session_id,
         )
-        if not session:
+        if session is None:
             logger.debug("Session not found in Redis storage")
             return None
+        session = _normalize_session_payload(session)
 
         try:
-            loads_data = self.__decode_session_data__(session)  # type: ignore[arg-type]
+            loads_data = self.__decode_session_data__(session)
         except AttributeError:
-            loads_data = self._serializer.loads(session)  # type: ignore[arg-type]
+            loads_data = self._serializer.loads(session)
         logger.debug(
             "Found session in Redis storage with data_key_count=%d",
             (len(loads_data) if isinstance(loads_data, dict) else 0),
@@ -205,7 +207,7 @@ class RedisSessions(BaseSessionModule):
         decoded_session_key = self.__decode_session_id_if_needed__(
             session_id
         ).split(":", 1)
-        if not self.get(session_id):
+        if self.get(session_id) is None:
             logger.warning("Attempted to update a non-existent Redis session")
             raise JamSessionNotFound(details={"session_id": session_id})
 
@@ -250,7 +252,7 @@ class RedisSessions(BaseSessionModule):
             session_id
         ).split(":", 1)
         session_data = self.get(session_id)
-        if not session_data:
+        if session_data is None:
             raise JamSessionNotFound(details={"session_id": session_id})
 
         new_session_id = self.create(decoded_session_key[0], session_data)

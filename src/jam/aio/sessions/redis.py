@@ -10,6 +10,7 @@ from redis.asyncio import Redis  # type: ignore[attr-defined]
 from jam.aio.sessions.__base__ import BaseAsyncSessionModule
 from jam.encoders import BaseEncoder, JsonEncoder
 from jam.exceptions import JamSessionNotFound
+from jam.sessions._codec import _normalize_session_payload
 
 
 logger = logging.getLogger(__name__)
@@ -125,9 +126,10 @@ class RedisSessions(BaseAsyncSessionModule):
             name=f"{self.session_path}:{decoded_session_key[0]}",
             key=session_id,
         )
-        if not session:
+        if session is None:
             logger.debug("Session not found in async Redis storage")
             return None
+        session = _normalize_session_payload(session)
 
         try:
             loads_data = self.__decode_session_data__(session)
@@ -186,7 +188,7 @@ class RedisSessions(BaseAsyncSessionModule):
         decoded_session_key = self.__decode_session_id_if_needed__(
             session_id
         ).split(":", 1)
-        if not await self.get(session_id):
+        if await self.get(session_id) is None:
             logger.warning(
                 "Attempted to update a non-existent async Redis session"
             )
@@ -232,7 +234,7 @@ class RedisSessions(BaseAsyncSessionModule):
             session_id
         ).split(":", 1)
         session_data = await self.get(session_id)
-        if not session_data:
+        if session_data is None:
             raise JamSessionNotFound(details={"session_id": session_id})
 
         new_session_id = await self.create(decoded_session_key[0], session_data)

@@ -6,7 +6,9 @@ import os
 import tempfile
 from jam.jose import JWT, JWS, JWE
 from jam.exceptions import (
+    JamJWTExpired,
     JamJWTInBlackList,
+    JamJWTInvalidClaim,
     JamJWTNotInWhiteList,
     JamJWTUnsupportedAlgorithm,
 )
@@ -259,6 +261,7 @@ class TestJWTJWERSA:
 class TestJWTErrors:
     def test_missing_alg_and_enc(self):
         from jam.exceptions import JamConfigurationError
+
         with pytest.raises(JamConfigurationError):
             JWT(secret_key="some_key")
 
@@ -272,24 +275,28 @@ class TestJWTErrors:
 
     def test_decode_without_jws_config(self):
         from jam.exceptions import JamConfigurationError
+
         jwt = JWT(enc="A128CBC-HS256", secret_key="some_key_32_bytes_long")
         with pytest.raises(JamConfigurationError):
             jwt.decode("some.token")
 
     def test_encrypt_without_jwe_config(self):
         from jam.exceptions import JamConfigurationError
+
         jwt = JWT(alg="HS256", secret_key="some_key")
         with pytest.raises(JamConfigurationError):
             jwt.encrypt({"data": "test"})
 
     def test_cannot_specify_both_alg_and_jws(self):
         from jam.exceptions import JamConfigurationError
+
         jws = JWS(alg="HS256", key="SOME_KEY_THAT_IS_LONG")
         with pytest.raises(JamConfigurationError, match="Cannot specify both"):
             JWT(alg="HS256", jws=jws, secret_key="SOME_KEY")
 
     def test_cannot_specify_both_enc_and_jwe(self):
         from jam.exceptions import JamConfigurationError
+
         jwe = JWE(
             alg="A128KW", enc="A128CBC-HS256", key="SOME_KEY_THAT_IS_LONG"
         )
@@ -499,6 +506,13 @@ class TestJWTEncoding:
 
 
 class TestJWTClaims:
+    @pytest.fixture
+    def jwt(self):
+        return JWT(
+            alg="HS256",
+            secret_key="SOME_JWT_KEY_THIS_IS_MORE_THAN_16_BYTES",
+        )
+
     def test_all_claims(self):
         jwt = JWT(
             alg="HS256",
@@ -524,3 +538,45 @@ class TestJWTClaims:
         assert decoded["iat"] is not None
         assert decoded["jti"] is not None
         assert decoded["custom"] == "claim"
+
+    @pytest.mark.parametrize("claim", ["exp", "nbf"])
+    @pytest.mark.parametrize(
+        "value", ["123", True, False, float("nan"), float("inf"), -float("inf")]
+    )
+    def test_invalid_numeric_date_claim(self, jwt, claim, value):
+        token = jwt.encode(payload={claim: value})
+
+        with pytest.raises(JamJWTInvalidClaim) as exc_info:
+            jwt.decode(token)
+
+        assert exc_info.value.error_code == "jwt.invalid_claim"
+        assert exc_info.value.details["claim"] == claim
+
+    def test_exp_equal_to_now_is_expired(self, jwt, monkeypatch):
+        now = 1_700_000_000
+        monkeypatch.setattr("jam.jose.jwt.time.time", lambda: now)
+        token = jwt.encode(payload={"exp": now})
+
+        with pytest.raises(JamJWTExpired):
+            jwt.decode(token)
+
+    @pytest.mark.parametrize(
+        ("claim", "value"),
+        [
+            ("exp", 2_000_000_000),
+            ("exp", 2_000_000_000.5),
+            ("nbf", 0),
+            ("nbf", 0.5),
+        ],
+    )
+    def test_valid_numeric_date_claim(self, jwt, claim, value):
+        token = jwt.encode(payload={claim: value})
+
+        assert jwt.decode(token)["payload"][claim] == value
+
+    def test_invalid_claim_validation_can_be_disabled(self, jwt):
+        token = jwt.encode(payload={"exp": "not-a-numeric-date"})
+
+        payload = jwt.decode(token, validate_claims=False)["payload"]
+
+        assert payload["exp"] == "not-a-numeric-date"

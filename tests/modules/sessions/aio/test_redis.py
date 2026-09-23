@@ -119,6 +119,34 @@ async def test_update_nonexistent_session(redis_session_instance_no_crypt):
 
 
 @pytest.mark.asyncio
+async def test_update_empty_session(redis_session_instance_no_crypt):
+    session = await redis_session_instance_no_crypt.create("test", {})
+
+    await redis_session_instance_no_crypt.update(session, {"updated": True})
+
+    assert await redis_session_instance_no_crypt.get(session) == {
+        "updated": True
+    }
+
+
+@pytest.mark.asyncio
+async def test_rework_empty_session(redis_session_instance_no_crypt):
+    old_session = await redis_session_instance_no_crypt.create("test", {})
+
+    new_session = await redis_session_instance_no_crypt.rework(old_session)
+
+    assert new_session != old_session
+    assert await redis_session_instance_no_crypt.get(old_session) is None
+    assert await redis_session_instance_no_crypt.get(new_session) == {}
+
+
+@pytest.mark.asyncio
+async def test_rework_nonexistent_session(redis_session_instance_no_crypt):
+    with pytest.raises(JamSessionNotFound):
+        await redis_session_instance_no_crypt.rework("nonexistent:session")
+
+
+@pytest.mark.asyncio
 async def test_create_session_empty_data(redis_session_instance_no_crypt):
     session = await redis_session_instance_no_crypt.create(
         session_key="test", data={}
@@ -169,3 +197,22 @@ async def test_get_crypt_session(redis_session_with_crypt, f, fake_redis):
     ).decode()
 
     assert decoded_retrieved_data_from_redis == '{"user_id": 1}'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("decode_responses", [True, False])
+@pytest.mark.parametrize("is_session_crypt", [True, False])
+async def test_get_normalizes_redis_response(
+    decode_responses, is_session_crypt, aes_key
+):
+    fake_redis = FakeAsyncRedis(decode_responses=decode_responses)
+    sessions = RedisSessions(
+        redis_uri=fake_redis,
+        redis_sessions_key="test",
+        default_ttl=None,
+        is_session_crypt=is_session_crypt,
+        session_aes_secret=aes_key if is_session_crypt else None,
+    )
+    session = await sessions.create("test", {"user_id": 1})
+
+    assert await sessions.get(session) == {"user_id": 1}
