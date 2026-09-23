@@ -216,6 +216,38 @@ class Jam(BaseJam):
             constraints=constraints,
         )
 
+    def close(self) -> None:
+        """Close synchronous resources owned by this instance.
+
+        Modules shared by multiple token-list references are closed only once
+        for each invocation.
+        """
+        modules = [
+            self._session,
+            *self.lists.values(),
+            self._jwt_list,
+            self._paseto_list,
+            self._macaroon_list,
+            self._saml_list,
+            *((self._oauth2 or {}).values()),
+        ]
+        closed: set[int] = set()
+        for module in modules:
+            if module is None or id(module) in closed:
+                continue
+            closed.add(id(module))
+            close = getattr(module, "close", None)
+            if callable(close):
+                close()
+
+    def __enter__(self) -> "Jam":
+        """Enter a synchronous resource context."""
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        """Close owned resources when leaving a context."""
+        self.close()
+
     @staticmethod
     def _register_allowlisted_token(token_list: Any, token: str) -> None:
         """Register an issued token when an allowlist is configured."""

@@ -73,8 +73,11 @@ class RedisSessions(BaseSessionModule):
         )
         if isinstance(redis_uri, str):
             self._redis = Redis.from_url(redis_uri, decode_responses=True)
+            self._owns_redis = True
         else:
             self._redis = redis_uri
+            self._owns_redis = False
+        self._closed = False
         logger.debug("Redis session storage initialized")
 
         self.ttl = ttl
@@ -259,3 +262,11 @@ class RedisSessions(BaseSessionModule):
 
         self.delete(session_id)
         return new_session_id
+
+    def close(self) -> None:
+        """Close the Redis client when this backend created it."""
+        if self._closed:
+            return
+        if self._owns_redis:
+            self._redis.close()
+        self._closed = True

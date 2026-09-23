@@ -5,6 +5,7 @@ import pytest
 from cryptography.fernet import Fernet
 from fakeredis import FakeRedis
 from pytest import fixture
+from unittest.mock import Mock, patch
 
 from jam.sessions.redis import RedisSessions
 
@@ -196,3 +197,24 @@ def test_get_normalizes_redis_response(
     session = sessions.create("test", {"user_id": 1})
 
     assert sessions.get(session) == {"user_id": 1}
+
+
+def test_close_does_not_close_external_redis_client():
+    client = Mock()
+    sessions = RedisSessions(redis_uri=client)
+
+    sessions.close()
+    sessions.close()
+
+    client.close.assert_not_called()
+
+
+def test_close_closes_uri_created_redis_client_once():
+    client = Mock()
+    with patch("jam.sessions.redis.Redis.from_url", return_value=client):
+        sessions = RedisSessions(redis_uri="redis://example.test/0")
+
+    sessions.close()
+    sessions.close()
+
+    client.close.assert_called_once_with()

@@ -70,6 +70,7 @@ class JSONSessions(BaseSessionModule):
         )
         self._db = tinydb.TinyDB(json_path)
         self._qs = tinydb.Query()
+        self._closed = False
         logger.debug("JSON database initialized at %s", json_path)
 
     @dataclass
@@ -214,3 +215,18 @@ class JSONSessions(BaseSessionModule):
         )
         logger.debug("Regenerated session ID in JSON storage")
         return new_session_id
+
+    def close(self) -> None:
+        """Close the JSON database connection."""
+        if self._closed:
+            return
+        self._db.close()
+        self._closed = True
+
+    def __enter__(self) -> "JSONSessions":
+        """Enter a synchronous resource context."""
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        """Close the database when leaving a context."""
+        self.close()

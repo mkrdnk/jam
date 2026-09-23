@@ -134,3 +134,8 @@ def test_get_get_session(json_session_with_crypt, f):
     assert encoded_session_data != '{"user": "test_user"}'
 
     t.truncate()
+
+
+def test_close_is_idempotent(json_sessions_no_crypt):
+    json_sessions_no_crypt.close()
+    json_sessions_no_crypt.close()

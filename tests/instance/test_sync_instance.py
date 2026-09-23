@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from typing import Any, cast
+from unittest.mock import Mock
 
 import pytest
 from fakeredis import FakeRedis
@@ -136,6 +137,48 @@ def test_jwt_and_paseto_share_named_token_list():
     }
     assert jam.authenticate(jwt, via="jwt").subject["id"] == "jwt-user"
     assert jam.authenticate(paseto, via="paseto").subject["id"] == "paseto-user"
+
+
+def test_close_closes_session_and_each_token_list_once():
+    jam = Jam()
+    session = Mock()
+    shared_list = Mock()
+    additional_list = Mock()
+    jam.session = session
+    jam.lists = {
+        "shared": shared_list,
+        "additional": additional_list,
+    }
+    jam._jwt_list = shared_list
+    jam._paseto_list = shared_list
+
+    jam.close()
+
+    session.close.assert_called_once_with()
+    shared_list.close.assert_called_once_with()
+    additional_list.close.assert_called_once_with()
+
+
+def test_close_can_be_called_repeatedly():
+    jam = Jam()
+    module = Mock()
+    jam.session = module
+
+    jam.close()
+    jam.close()
+
+    assert module.close.call_count == 2
+
+
+def test_context_manager_closes_resources():
+    module = Mock()
+    jam = Jam()
+    jam.session = module
+
+    with jam as active_jam:
+        assert active_jam is jam
+
+    module.close.assert_called_once_with()
 
 
 def test_named_token_list_must_exist():
