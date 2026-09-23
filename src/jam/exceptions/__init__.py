@@ -12,6 +12,7 @@ from .jose import (
 from .jwt import (
     JamJWTExpired,
     JamJWTInBlackList,
+    JamJWTInvalidClaim,
     JamJWTNotInWhiteList,
     JamJWTNotYetValid,
     JamJWTUnsupportedAlgorithm,
@@ -79,6 +80,7 @@ __all__ = [
     "JamOAuth2ProviderNotConfigured",
     "JamJWTExpired",
     "JamJWTInBlackList",
+    "JamJWTInvalidClaim",
     "JamJWTNotInWhiteList",
     "JamJWTNotYetValid",
     "JamJWTUnsupportedAlgorithm",
