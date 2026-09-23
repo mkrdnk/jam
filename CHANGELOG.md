@@ -25,14 +25,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added the `legacy_raw_keys` token-list setting. It defaults to `true` for
+  dual-read compatibility with existing Redis keys and JSON documents; setting
+  it to `false` enables strict fingerprint-only backend access.
+- Added synchronous resource lifecycle support to `Jam`, JSON token lists, and
+  JSON sessions through `close()` and context managers. Asynchronous JSON token
+  lists now support `aclose()` and asynchronous context managers.
+
 ### Changed
 
+- New Redis, JSON, and memory token-list entries now use stable SHA-256
+  fingerprints of serialized tokens. Redis uses versioned
+  `<prefix>:v2:<fingerprint>` keys and JSON uses versioned fingerprint
+  documents.
+- Token-list batch operations now use one Redis pipeline for writes, at most
+  two batch reads during compatibility checks, one Redis delete, and bulk
+  TinyDB operations instead of one backend operation per token.
+- Synchronous and asynchronous Redis token-list constructors now share client,
+  ownership, TTL, and legacy compatibility semantics. Redis list TTL values
+  must be `None` or a positive non-boolean integer.
+
 ### Deprecated
+
+- Legacy raw-token Redis keys and JSON documents remain readable by default for
+  this minor release. The raw-token fallback is planned for removal in the next
+  major release.
 
 ### Removed
 
 ### Fixed
 
+- Redis clients created by token-list and session backends are now closed
+  without closing caller-owned clients. TinyDB resources are closed
+  idempotently, and asynchronous JSON list operations remain serialized even
+  when a waiting coroutine is cancelled.
 - JWT `exp` and `nbf` claims now require finite numeric values, reject booleans,
   and treat `exp == now` as expired. Validation also applies when registered
   claims are supplied through the custom payload.
@@ -41,6 +67,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   updating or reissuing them.
 
 ### Security
+
+- Persistent token lists no longer write raw bearer tokens. Strict mode never
+  sends a raw token to the backend, while default dual-read compatibility keeps
+  existing Redis and JSON entries usable without read-time migration or TTL
+  changes.
 
 ---
 
