@@ -207,7 +207,7 @@ class RedisSessions(BaseSessionModule):
         decoded_session_key = self.__decode_session_id_if_needed__(
             session_id
         ).split(":", 1)
-        if not self.get(session_id):
+        if self.get(session_id) is None:
             logger.warning("Attempted to update a non-existent Redis session")
             raise JamSessionNotFound(details={"session_id": session_id})
 
@@ -252,7 +252,7 @@ class RedisSessions(BaseSessionModule):
             session_id
         ).split(":", 1)
         session_data = self.get(session_id)
-        if not session_data:
+        if session_data is None:
             raise JamSessionNotFound(details={"session_id": session_id})
 
         new_session_id = self.create(decoded_session_key[0], session_data)

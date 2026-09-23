@@ -188,7 +188,7 @@ class RedisSessions(BaseAsyncSessionModule):
         decoded_session_key = self.__decode_session_id_if_needed__(
             session_id
         ).split(":", 1)
-        if not await self.get(session_id):
+        if await self.get(session_id) is None:
             logger.warning(
                 "Attempted to update a non-existent async Redis session"
             )
@@ -234,7 +234,7 @@ class RedisSessions(BaseAsyncSessionModule):
             session_id
         ).split(":", 1)
         session_data = await self.get(session_id)
-        if not session_data:
+        if session_data is None:
             raise JamSessionNotFound(details={"session_id": session_id})
 
         new_session_id = await self.create(decoded_session_key[0], session_data)
