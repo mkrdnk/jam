@@ -10,6 +10,7 @@ from redis.asyncio import Redis  # type: ignore[attr-defined]
 from jam.aio.sessions.__base__ import BaseAsyncSessionModule
 from jam.encoders import BaseEncoder, JsonEncoder
 from jam.exceptions import JamSessionNotFound
+from jam.sessions._codec import _normalize_session_payload
 
 
 logger = logging.getLogger(__name__)
@@ -125,9 +126,10 @@ class RedisSessions(BaseAsyncSessionModule):
             name=f"{self.session_path}:{decoded_session_key[0]}",
             key=session_id,
         )
-        if not session:
+        if session is None:
             logger.debug("Session not found in async Redis storage")
             return None
+        session = _normalize_session_payload(session)
 
         try:
             loads_data = self.__decode_session_data__(session)
