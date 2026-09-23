@@ -8,13 +8,25 @@ jobs:
   verify:
     name: Test and build distribution
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      UV_PYTHON: "3.12"
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.release.tag_name }}
-      - uses: astral-sh/setup-uv@v3
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+          cache-suffix: py3.12
       - name: Validate stable tag and project version
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
@@ -27,7 +39,7 @@ jobs:
             exit 1
           fi
       - name: Install test dependencies
-        run: uv sync --group tests --all-extras
+        run: uv sync --frozen --group tests --all-extras
       - name: Run tests
         run: uv run pytest -x
       - name: Build distribution
@@ -43,6 +55,7 @@ jobs:
     name: Publish to PyPI
     needs: verify
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # Environment and permissions trusted publishing.
     environment:
       # Create this environment in the GitHub repository under Settings -> Environments
@@ -50,7 +63,8 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: astral-sh/setup-uv@v3
+      - name: Set up uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       - name: Download verified distribution
         uses: actions/download-artifact@v4
         with:

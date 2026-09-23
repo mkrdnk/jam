@@ -5,7 +5,7 @@
 ![Python Version](https://img.shields.io/badge/Python-3.10+-blue?logo=python&logoColor=white)
 [![PyPI Version](https://img.shields.io/pypi/v/jamlib)](https://pypi.org/project/jamlib/)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/jamlib?period=total&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=RED&left_text=Downloads)](https://pypi.org/project/jamlib/)
-[![Tests](https://github.com/mkrdnk/jam/actions/workflows/run-tests.yml/badge.svg)](https://github.com/mkrdnk/jam/actions/workflows/run-tests.yml)
+[![CI](https://github.com/mkrdnk/jam/actions/workflows/run-tests.yml/badge.svg)](https://github.com/mkrdnk/jam/actions/workflows/run-tests.yml)
 [![License](https://img.shields.io/github/license/mkrdnk/jam)](https://github.com/mkrdnk/jam/blob/master/LICENSE.md)
 
 **Jam is a typed, modular authentication and authorization framework for

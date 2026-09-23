@@ -142,6 +142,15 @@ python_files = ["test*.py"]
 addopts = ["--capture=no"]
 asyncio_default_fixture_loop_scope = "function"
 
+[tool.coverage.run]
+branch = true
+source = ["jam"]
+
+[tool.coverage.report]
+fail_under = 76
+show_missing = true
+skip_covered = true
+
 [tool.unicecream]
 exclude = ["__devtools/"]
 
