@@ -1,45 +1,25 @@
 # -*- coding: utf-8 -*-
 
-import logging
-from typing import Literal
+"""Redis-backed fingerprint token lists."""
+
+from threading import Lock
+from typing import Any, Literal
 
 
 try:
     from redis import Redis
 except ImportError:
     raise ImportError(
-        """
-        No required packages found, looks like you didn't install them:
-        `pip install "jamlib[redis]"`
-        """
-    )
+        'Redis support requires `pip install "jamlib[redis]"`.'
+    ) from None
 
 from jam.exceptions.jose import JamRedisListConfigurationError
 from jam.lists.__base__ import BaseList
-
-
-logger = logging.getLogger(__name__)
+from jam.lists._fingerprint import token_fingerprint
 
 
 class RedisList(BaseList):
-    """Redis-based token allowlist or denylist.
-
-    Most optimal for production use with TTL support.
-
-    Dependency required: `pip install jamlib[redis]`
-
-    Attributes:
-        _redis (Redis): Redis instance.
-        _prefix (str): Key prefix.
-
-    Methods:
-        add: add single token to list
-        add_many: add multiple tokens to list
-        check: check if token exists in list
-        check_many: check multiple tokens in list
-        delete: remove token from list
-        delete_many: remove multiple tokens from list
-    """
+    """Redis-backed token allowlist or denylist."""
 
     def __init__(
         self,
@@ -48,114 +28,136 @@ class RedisList(BaseList):
         redis_uri: str | Redis | None = None,
         redis: Redis | None = None,
         ttl: int | None = None,
+        legacy_raw_keys: bool = True,
     ) -> None:
-        """Initialize RedisList.
+        """Initialize a Redis token list.
 
         Args:
             type (Literal["white", "black"]): Type of list.
-            prefix (str): Key prefix for Redis keys.
-            redis_uri (str | Redis): Redis connection URI or Redis instance.
-            redis (Redis | None): Redis instance (alias for redis_uri).
-            ttl (int | None): Token TTL in seconds.
-        """
-        self._prefix = prefix
-        self._ttl = ttl
-        self.__list_type__ = type
+            prefix (str): Prefix for Redis keys.
+            redis_uri (str | Any | None): Redis URI or pre-created client.
+            redis (Any | None): Pre-created Redis client.
+            ttl (int | None): Positive token lifetime in seconds.
+            legacy_raw_keys (bool): Read and delete pre-v2 raw-token keys.
 
-        if isinstance(redis_uri, Redis):
-            self._redis = redis_uri
-        elif isinstance(redis, Redis):
-            self._redis = redis
-        elif redis_uri:
+        Raises:
+            JamRedisListConfigurationError: If configuration is invalid.
+        """
+        if isinstance(ttl, bool) or (
+            ttl is not None and (not isinstance(ttl, int) or ttl <= 0)
+        ):
+            raise JamRedisListConfigurationError(
+                message="ttl must be a positive integer or None."
+            )
+        if not isinstance(legacy_raw_keys, bool):
+            raise JamRedisListConfigurationError(
+                message="legacy_raw_keys must be a boolean."
+            )
+        if redis_uri is not None and redis is not None:
+            raise JamRedisListConfigurationError(
+                message="Provide either redis_uri or redis, not both."
+            )
+        if isinstance(redis_uri, str):
             self._redis = Redis.from_url(redis_uri, decode_responses=True)
-        elif redis:
+            self._owns_client = True
+        elif redis_uri is not None:
+            self._redis = redis_uri
+            self._owns_client = False
+        elif redis is not None:
             self._redis = redis
+            self._owns_client = False
         else:
             raise JamRedisListConfigurationError(
                 message="redis_uri or redis must be provided"
             )
 
-        logger.info(
-            "Initialized RedisList with type=%s, prefix=%s, ttl=%s",
-            type,
-            prefix,
-            ttl,
-        )
+        self._prefix = prefix
+        self._ttl = ttl
+        self._legacy_raw_keys = legacy_raw_keys
+        self._closed = False
+        self._close_lock = Lock()
+        self.__list_type__ = type
 
     def _make_key(self, token: str) -> str:
-        """Create Redis key with prefix."""
+        """Build a v2 fingerprint key for a serialized token."""
+        return f"{self._prefix}:v2:{token_fingerprint(token)}"
+
+    def _make_legacy_key(self, token: str) -> str:
+        """Build a pre-v2 raw-token storage key."""
         return f"{self._prefix}:{token}"
 
     def add(self, token: str) -> None:
-        """Add a single token to the list.
-
-        Args:
-            token (str): Serialized token.
-        """
+        """Add a single token to the list."""
         self._redis.set(self._make_key(token), "1", ex=self._ttl)
-        logger.debug("Added token to %s list", self._prefix)
 
     def add_many(self, tokens: list[str]) -> None:
-        """Add multiple tokens to the list.
-
-        Args:
-            tokens (list[str]): Serialized tokens.
-        """
-        if not tokens:
+        """Add multiple tokens in one Redis pipeline."""
+        keys = list(dict.fromkeys(self._make_key(token) for token in tokens))
+        if not keys:
             return
-        pipe = self._redis.pipeline()
-        for token in tokens:
-            pipe.set(self._make_key(token), "1", ex=self._ttl)
-        pipe.execute()
-        logger.debug("Added %s tokens to %s list", len(tokens), self._prefix)
+        with self._redis.pipeline() as pipeline:
+            for key in keys:
+                pipeline.set(key, "1", ex=self._ttl)
+            pipeline.execute()
 
     def check(self, token: str) -> bool:
-        """Check if a token is present in the list.
-
-        Args:
-            token (str): Serialized token.
-
-        Returns:
-            bool: True if token exists in list.
-        """
-        return bool(self._redis.exists(self._make_key(token)))
+        """Check whether a token is present."""
+        if self._redis.mget([self._make_key(token)])[0] is not None:
+            return True
+        if self._legacy_raw_keys:
+            return (
+                self._redis.mget([self._make_legacy_key(token)])[0] is not None
+            )
+        return False
 
     def check_many(self, tokens: list[str]) -> dict[str, bool]:
-        """Check multiple tokens in the list.
-
-        Args:
-            tokens (list[str]): Serialized tokens.
-
-        Returns:
-            dict[str, bool]: Mapping of token to presence.
-        """
-        if not tokens:
+        """Check multiple tokens with at most two Redis MGET commands."""
+        keys = [self._make_key(token) for token in tokens]
+        if not keys:
             return {}
-        pipe = self._redis.pipeline()
-        for token in tokens:
-            pipe.exists(self._make_key(token))
-        results = pipe.execute()
-        return {token: bool(result) for token, result in zip(tokens, results)}
+        v2_values = self._redis.mget(keys)
+        result = {
+            token: value is not None for token, value in zip(tokens, v2_values)
+        }
+        misses = [token for token in tokens if not result[token]]
+        if self._legacy_raw_keys and misses:
+            legacy_values = self._redis.mget(
+                [self._make_legacy_key(token) for token in misses]
+            )
+            result.update(
+                {
+                    token: value is not None
+                    for token, value in zip(misses, legacy_values)
+                }
+            )
+        return result
 
     def delete(self, token: str) -> None:
-        """Remove a token from the list.
-
-        Args:
-            token (str): Serialized token.
-        """
-        self._redis.delete(self._make_key(token))
-        logger.debug("Deleted token from %s list", self._prefix)
+        """Remove a token from the list."""
+        self.delete_many([token])
 
     def delete_many(self, tokens: list[str]) -> None:
-        """Remove multiple tokens from the list.
-
-        Args:
-            tokens (list[str]): Serialized tokens.
-        """
-        if not tokens:
+        """Remove v2 and, when enabled, legacy keys in one Redis command."""
+        keys = [self._make_key(token) for token in tokens]
+        if not keys:
             return
-        keys = [self._make_key(t) for t in tokens]
-        self._redis.delete(*keys)
-        logger.debug(
-            "Deleted %s tokens from %s list", len(tokens), self._prefix
-        )
+        if self._legacy_raw_keys:
+            keys.extend(self._make_legacy_key(token) for token in tokens)
+        self._redis.delete(*dict.fromkeys(keys))
+
+    def close(self) -> None:
+        """Close an internally-created Redis client once."""
+        with self._close_lock:
+            if self._closed:
+                return
+            if self._owns_client:
+                self._redis.close()
+            self._closed = True
+
+    def __enter__(self) -> "RedisList":
+        """Enter this Redis list's context."""
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        """Close an owned Redis client when leaving its context."""
+        self.close()

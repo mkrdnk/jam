@@ -47,7 +47,9 @@ def build_list(list_config: dict[str, Any] | BaseList) -> BaseList:
                 type=list_type,
                 prefix=list_config.get("prefix", "jwt_list"),
                 redis_uri=list_config.get("redis_uri"),
+                redis=list_config.get("redis"),
                 ttl=list_config.get("ttl"),
+                legacy_raw_keys=list_config.get("legacy_raw_keys", True),
             )
         case "json":
             from jam.lists.json import JSONList
@@ -56,6 +58,7 @@ def build_list(list_config: dict[str, Any] | BaseList) -> BaseList:
                 type=list_type,
                 prefix=list_config.get("prefix", "jwt_list"),
                 json_path=list_config.get("json_path", "whitelist.json"),
+                legacy_raw_keys=list_config.get("legacy_raw_keys", True),
             )
         case "memory":
             return MemoryList(

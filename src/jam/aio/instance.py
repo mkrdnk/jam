@@ -191,6 +191,7 @@ class AsyncJam(BaseAsyncJam):
         """Close I/O clients owned by this instance."""
         modules = [
             self._session,
+            *self.lists.values(),
             self._jwt_list,
             self._paseto_list,
             self._macaroon_list,

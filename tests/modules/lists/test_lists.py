@@ -35,6 +35,10 @@ def token_list(request, tmp_path):
 
 
 def test_sync_backend_contract(token_list):
+    token_list.add_many([])
+    assert token_list.check_many([]) == {}
+    token_list.delete_many([])
+
     token_list.add("one")
     token_list.add_many(["two", "three"])
 
@@ -51,6 +55,17 @@ def test_sync_backend_contract(token_list):
     assert token_list.check_many(["two", "three"]) == {
         "two": False,
         "three": False,
+    }
+
+    special_tokens = ["токен", "x" * 10_000]
+    token_list.add_many([*special_tokens, special_tokens[0]])
+    assert token_list.check_many(special_tokens) == {
+        token: True for token in special_tokens
+    }
+    token_list.delete_many([*special_tokens, special_tokens[0]])
+    token_list.delete_many(special_tokens)
+    assert token_list.check_many(special_tokens) == {
+        token: False for token in special_tokens
     }
 
 
@@ -71,6 +86,10 @@ def async_token_list(request, tmp_path):
 
 @pytest.mark.asyncio
 async def test_async_backend_contract(async_token_list):
+    await async_token_list.add_many([])
+    assert await async_token_list.check_many([]) == {}
+    await async_token_list.delete_many([])
+
     await async_token_list.add("one")
     await async_token_list.add_many(["two", "three"])
 
@@ -87,6 +106,17 @@ async def test_async_backend_contract(async_token_list):
     assert await async_token_list.check_many(["two", "three"]) == {
         "two": False,
         "three": False,
+    }
+
+    special_tokens = ["токен", "x" * 10_000]
+    await async_token_list.add_many([*special_tokens, special_tokens[0]])
+    assert await async_token_list.check_many(special_tokens) == {
+        token: True for token in special_tokens
+    }
+    await async_token_list.delete_many([*special_tokens, special_tokens[0]])
+    await async_token_list.delete_many(special_tokens)
+    assert await async_token_list.check_many(special_tokens) == {
+        token: False for token in special_tokens
     }
 
 

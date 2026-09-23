@@ -3,6 +3,7 @@
 from typing import Literal
 
 from jam.aio.lists.__base__ import BaseAsyncList
+from jam.lists._fingerprint import token_fingerprint
 
 
 class MemoryList(BaseAsyncList):
@@ -20,24 +21,28 @@ class MemoryList(BaseAsyncList):
 
     async def add(self, token: str) -> None:
         """Add a token."""
-        self._tokens.add(token)
+        self._tokens.add(token_fingerprint(token))
 
     async def add_many(self, tokens: list[str]) -> None:
         """Add multiple tokens."""
-        self._tokens.update(tokens)
+        fingerprints = [token_fingerprint(token) for token in tokens]
+        self._tokens.update(fingerprints)
 
     async def check(self, token: str) -> bool:
         """Check whether a token is present."""
-        return token in self._tokens
+        return token_fingerprint(token) in self._tokens
 
     async def check_many(self, tokens: list[str]) -> dict[str, bool]:
         """Check multiple tokens."""
-        return {token: token in self._tokens for token in tokens}
+        return {
+            token: token_fingerprint(token) in self._tokens for token in tokens
+        }
 
     async def delete(self, token: str) -> None:
         """Delete a token."""
-        self._tokens.discard(token)
+        self._tokens.discard(token_fingerprint(token))
 
     async def delete_many(self, tokens: list[str]) -> None:
         """Delete multiple tokens."""
-        self._tokens.difference_update(tokens)
+        fingerprints = [token_fingerprint(token) for token in tokens]
+        self._tokens.difference_update(fingerprints)

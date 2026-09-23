@@ -1,128 +1,149 @@
 # -*- coding: utf-8 -*-
 
-import logging
-from typing import Literal
+"""TinyDB-backed fingerprint token lists."""
+
+from threading import RLock
+from typing import Any, Literal
 
 
 try:
     from tinydb import Query, TinyDB
 except ImportError:
     raise ImportError(
-        """
-        No required packages found, looks like you didn't install them:
-        `pip install "jamlib[json]"`
-        """
-    )
+        'JSON support requires `pip install "jamlib[json]"`.'
+    ) from None
 
+from jam.exceptions import JamConfigurationError
 from jam.lists.__base__ import BaseList
-
-
-logger = logging.getLogger(__name__)
+from jam.lists._fingerprint import token_fingerprint
 
 
 class JSONList(BaseList):
-    """JSON file-based token allowlist or denylist.
-
-    Denylists require manual cleanup because this backend has no TTL support.
-
-    Dependency required: `pip install jamlib[json]`
-
-    Attributes:
-        _db (TinyDB): TinyDB instance.
-        _prefix (str): Key prefix.
-
-    Methods:
-        add: add single token to list
-        add_many: add multiple tokens to list
-        check: check if token exists in list
-        check_many: check multiple tokens in list
-        delete: remove token from list
-        delete_many: remove multiple tokens from list
-    """
+    """JSON file-based token allowlist or denylist."""
 
     def __init__(
         self,
         type: Literal["white", "black"],
         prefix: str = "jwt_list",
         json_path: str = "whitelist.json",
+        legacy_raw_keys: bool = True,
     ) -> None:
-        """Initialize JSONList.
+        """Initialize a JSON token list.
 
         Args:
             type (Literal["white", "black"]): Type of list.
-            prefix (str): Key prefix (used for logging).
-            json_path (str): Path to JSON file.
+            prefix (str): Key prefix retained for logging compatibility.
+            json_path (str): Path to the TinyDB JSON file.
+            legacy_raw_keys (bool): Read and delete legacy raw-token documents.
+
+        Raises:
+            JamConfigurationError: If legacy_raw_keys is not a boolean.
         """
+        if not isinstance(legacy_raw_keys, bool):
+            raise JamConfigurationError(
+                message="legacy_raw_keys must be a boolean.",
+                error_code="configuration.lists.invalid_legacy_raw_keys",
+            )
         self._prefix = prefix
         self.__list_type__ = type
+        self._legacy_raw_keys = legacy_raw_keys
         self._db = TinyDB(json_path)
-        logger.info("Initialized JSONList at %s", json_path)
+        self._closed = False
+        self._lock = RLock()
+
+    def _v2_fingerprints(self) -> set[str]:
+        """Read the fingerprints from valid v2 documents once."""
+        with self._lock:
+            return {
+                document["fingerprint"]
+                for document in self._db.all()
+                if document.get("version") == 2
+                and isinstance(document.get("fingerprint"), str)
+            }
 
     def add(self, token: str) -> None:
-        """Add a single token to the list.
-
-        Args:
-            token (str): Serialized token.
-        """
-        self._db.insert({"token": token})
-        logger.debug("Added token to %s list", self._prefix)
+        """Add a token if its fingerprint is not already stored."""
+        self.add_many([token])
 
     def add_many(self, tokens: list[str]) -> None:
-        """Add multiple tokens to the list.
-
-        Args:
-            tokens (list[str]): Serialized tokens.
-        """
-        for token in tokens:
-            self._db.insert({"token": token})
-        logger.debug("Added %s tokens to %s list", len(tokens), self._prefix)
+        """Add unique token fingerprints with one bulk insert."""
+        fingerprints = list(
+            dict.fromkeys(token_fingerprint(token) for token in tokens)
+        )
+        if not fingerprints:
+            return
+        with self._lock:
+            existing = self._v2_fingerprints()
+            documents = [
+                {"version": 2, "fingerprint": fingerprint}
+                for fingerprint in fingerprints
+                if fingerprint not in existing
+            ]
+            if documents:
+                self._db.insert_multiple(documents)
 
     def check(self, token: str) -> bool:
-        """Check if a token is present in the list.
-
-        Args:
-            token (str): Serialized token.
-
-        Returns:
-            bool: True if token exists in list.
-        """
-        cond = Query()
-        return bool(self._db.search(cond.token == token))
+        """Check whether a token is present."""
+        return self.check_many([token])[token]
 
     def check_many(self, tokens: list[str]) -> dict[str, bool]:
-        """Check multiple tokens in the list.
-
-        Args:
-            tokens (list[str]): Serialized tokens.
-
-        Returns:
-            dict[str, bool]: Mapping of token to presence.
-        """
-        result = {}
-        cond = Query()
-        for token in tokens:
-            result[token] = bool(self._db.search(cond.token == token))
-        return result
+        """Check multiple tokens after one read of stored documents."""
+        fingerprints = [token_fingerprint(token) for token in tokens]
+        if not fingerprints:
+            return {}
+        with self._lock:
+            documents = self._db.all()
+            v2_fingerprints = {
+                document["fingerprint"]
+                for document in documents
+                if document.get("version") == 2
+                and isinstance(document.get("fingerprint"), str)
+            }
+            legacy_tokens: set[str] = set()
+            if self._legacy_raw_keys:
+                legacy_tokens = {
+                    document["token"]
+                    for document in documents
+                    if isinstance(document.get("token"), str)
+                }
+        return {
+            token: fingerprint in v2_fingerprints or token in legacy_tokens
+            for token, fingerprint in zip(tokens, fingerprints)
+        }
 
     def delete(self, token: str) -> None:
-        """Remove a token from the list.
-
-        Args:
-            token (str): Serialized token.
-        """
-        cond = Query()
-        self._db.remove(cond.token == token)
-        logger.debug("Deleted token from %s list", self._prefix)
+        """Remove a token from the list."""
+        self.delete_many([token])
 
     def delete_many(self, tokens: list[str]) -> None:
-        """Remove multiple tokens from the list.
-
-        Args:
-            tokens (list[str]): Serialized tokens.
-        """
-        cond = Query()
-        for token in tokens:
-            self._db.remove(cond.token == token)
-        logger.debug(
-            "Deleted %s tokens from %s list", len(tokens), self._prefix
+        """Remove matching v2 and, when enabled, legacy documents once."""
+        fingerprints = list(
+            dict.fromkeys(token_fingerprint(token) for token in tokens)
         )
+        if not fingerprints:
+            return
+        condition = (Query().version == 2) & Query().fingerprint.one_of(
+            fingerprints
+        )
+        if self._legacy_raw_keys:
+            condition = condition | Query().token.one_of(
+                list(dict.fromkeys(tokens))
+            )
+        with self._lock:
+            self._db.remove(condition)
+
+    def close(self) -> None:
+        """Close the TinyDB connection once."""
+        with self._lock:
+            if self._closed:
+                return
+            self._db.close()
+            self._closed = True
+
+    def __enter__(self) -> "JSONList":
+        """Enter this JSON list's context."""
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        """Close the TinyDB connection when leaving its context."""
+        self.close()

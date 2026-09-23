@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from typing import Any, cast
+from unittest.mock import AsyncMock
 
 import pytest
 from fakeredis import FakeAsyncRedis
@@ -206,6 +207,24 @@ async def test_async_redis_session():
 
     await jam.session.delete(session_id)
     assert await jam.session.get(session_id) is None
+
+
+@pytest.mark.asyncio
+async def test_aclose_closes_each_named_list_once():
+    token_list = MemoryList(type="black")
+    token_list.aclose = AsyncMock()
+    jam = AsyncJam(
+        config={
+            "lists": {
+                "first": token_list,
+                "second": token_list,
+            }
+        }
+    )
+
+    await jam.aclose()
+
+    token_list.aclose.assert_awaited_once_with()
 
 
 @pytest.mark.asyncio

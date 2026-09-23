@@ -15,7 +15,7 @@ def build_list(
     if isinstance(list_config, BaseAsyncList):
         return list_config
 
-    backend = list_config["backend"]
+    backend = list_config.get("backend")
     list_type = list_config.get("type", "black")
     prefix = list_config.get("prefix", "jwt_list")
     if list_type not in ("black", "white"):
@@ -35,7 +35,9 @@ def build_list(
                 type=list_type,
                 prefix=prefix,
                 redis_uri=list_config.get("redis_uri"),
+                redis=list_config.get("redis"),
                 ttl=list_config.get("ttl"),
+                legacy_raw_keys=list_config.get("legacy_raw_keys", True),
             )
         case "json":
             from jam.aio.lists.json import AsyncJSONList
@@ -44,6 +46,7 @@ def build_list(
                 type=list_type,
                 prefix=prefix,
                 json_path=list_config.get("json_path", "whitelist.json"),
+                legacy_raw_keys=list_config.get("legacy_raw_keys", True),
             )
         case _:
             raise JamConfigurationError(
