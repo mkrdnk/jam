@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 
-from jam.exceptions import JamPASETOInvalidSecp384r1Key
-from pytest import fixture, raises
+from jam.exceptions import (
+    JamPASETOInvalidSecp384r1Key,
+    JamPASETOInvalidTokenFormat,
+)
+from pytest import fixture, mark, raises
 
 from jam.paseto.v3 import PASETOv3
 from jam.utils import generate_ecdsa_p384_keypair, generate_symmetric_key
@@ -59,3 +62,15 @@ def test_decode_token_by_public_key(public_paseto, public_paseto_no_private):
 
     with raises(JamPASETOInvalidSecp384r1Key):
         public_paseto_no_private.encode({"user": "error"})
+
+
+@mark.parametrize("paseto_fixture", ("local_paseto", "public_paseto"))
+def test_implicit_assertion_is_authenticated(request, paseto_fixture):
+    paseto = request.getfixturevalue(paseto_fixture)
+    payload = {"data": "test"}
+    token = paseto.encode(payload, implicit_assertion="tenant-a")
+
+    assert paseto.decode(token, implicit_assertion="tenant-a")[0] == payload
+
+    with raises(JamPASETOInvalidTokenFormat):
+        paseto.decode(token, implicit_assertion="tenant-b")

@@ -31,6 +31,7 @@ from .oauth2 import (
     JamOAuth2ProviderNotConfigured,
 )
 from .paseto import (
+    JamPASETOImplicitAssertionUnsupported,
     JamPASETOInvalidED25519Key,
     JamPASETOInvalidPurpose,
     JamPASETOInvalidRSAKey,
@@ -96,6 +97,7 @@ __all__ = [
     "JamPASETOInvalidED25519Key",
     "JamPASETOInvalidSecp384r1Key",
     "JamPASETOInvalidPurpose",
+    "JamPASETOImplicitAssertionUnsupported",
     "JamPASETOInvalidTokenFormat",
     "JamPASETOKeyVerificationError",
     "JamLitestarPluginConfigError",

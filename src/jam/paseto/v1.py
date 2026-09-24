@@ -3,6 +3,7 @@
 
 from typing import Any
 
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import (
@@ -107,7 +108,7 @@ class PASETOv1(LegacyAEADMixin, KeyLoadMixin, BasePASETO):
                 pre_auth,
                 padding.PSS(
                     mgf=padding.MGF1(hashes.SHA384()),
-                    salt_length=padding.PSS.MAX_LENGTH,
+                    salt_length=hashes.SHA384().digest_size,
                 ),
                 hashes.SHA384(),
             )
@@ -151,15 +152,26 @@ class PASETOv1(LegacyAEADMixin, KeyLoadMixin, BasePASETO):
 
         pre_auth = __pae__([header, payload, footer_decoded])
         try:
-            self._public_key.verify(
-                signature,
-                pre_auth,
-                padding.PSS(
-                    mgf=padding.MGF1(hashes.SHA384()),
-                    salt_length=padding.PSS.MAX_LENGTH,
-                ),
-                hashes.SHA384(),
-            )
+            try:
+                self._public_key.verify(
+                    signature,
+                    pre_auth,
+                    padding.PSS(
+                        mgf=padding.MGF1(hashes.SHA384()),
+                        salt_length=hashes.SHA384().digest_size,
+                    ),
+                    hashes.SHA384(),
+                )
+            except InvalidSignature:
+                self._public_key.verify(
+                    signature,
+                    pre_auth,
+                    padding.PSS(
+                        mgf=padding.MGF1(hashes.SHA384()),
+                        salt_length=padding.PSS.MAX_LENGTH,
+                    ),
+                    hashes.SHA384(),
+                )
         except Exception:
             raise JamPASETOKeyVerificationError
 

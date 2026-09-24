@@ -29,6 +29,7 @@ class PASETOv4(KeyLoadMixin, BasePASETO):
     """PASETO v4 factory."""
 
     _VERSION = "v4"
+    _SUPPORTS_IMPLICIT_ASSERTION = True
 
     def _local_keys(self, nonce: bytes) -> tuple[bytes, bytes, bytes]:
         """Derive v4.local encryption, nonce and authentication keys."""
