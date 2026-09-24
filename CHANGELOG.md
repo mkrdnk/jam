@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added synchronous resource lifecycle support to `Jam`, JSON token lists, and
   JSON sessions through `close()` and context managers. Asynchronous JSON token
   lists now support `aclose()` and asynchronous context managers.
+- Added public validation exceptions for invalid JWT NumericDates, unsupported
+  PASETO implicit assertions, and expired, premature, or malformed sessions.
 
 ### Changed
 
@@ -44,6 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Synchronous and asynchronous Redis token-list constructors now share client,
   ownership, TTL, and legacy compatibility semantics. Redis list TTL values
   must be `None` or a positive non-boolean integer.
+- RSA-PSS signatures now use the JOSE/PASETO digest-size salt, and `RSA-OAEP`
+  now uses the RFC 7518 SHA-1 parameters. Verification and decryption retain
+  compatibility fallbacks for tokens produced by earlier Jam releases.
 
 ### Deprecated
 
@@ -65,6 +70,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Synchronous and asynchronous Redis session backends now support clients with
   either decoded string or raw byte responses and preserve empty sessions when
   updating or reissuing them.
+- Session credentials now preserve and validate `exp` and `nbf` consistently
+  across backends. A session-specific serializer takes precedence over the
+  root serializer, which is used as its fallback in both facades.
+- PASETO v1 and v2 now reject non-empty implicit assertions instead of silently
+  ignoring them; v3 and v4 continue to authenticate assertions.
+- Nested encrypted JWT parsing now distinguishes a compact JWS structurally, so
+  ordinary payload values containing dots are decoded normally.
 
 ### Security
 
@@ -72,6 +84,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sends a raw token to the backend, while default dual-read compatibility keeps
   existing Redis and JSON entries usable without read-time migration or TTL
   changes.
+- JWE decryption now requires protected `alg` and `enc` values to match the
+  configured recipient algorithms. Facade authentication through `via="jwe"`
+  requires a nested JWS and validates its registered time claims.
 
 ---
 
