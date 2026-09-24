@@ -124,7 +124,15 @@ class Jam(BaseJam):
                     .get("session", {})
                     .get("session_key", "auth")
                 )
-                credential = session.create(session_key, payload)
+                session_payload = self._prepare_session_payload(
+                    payload,
+                    exp,
+                    iss,
+                    aud,
+                    nbf,
+                    jti,
+                )
+                credential = session.create(session_key, session_payload)
                 logger.info("Issued credential via=session")
                 return credential
             case _:
@@ -184,6 +192,7 @@ class Jam(BaseJam):
                         "Session authentication failed: session not found"
                     )
                     raise JamSessionNotFound(details={"session_id": token})
+                self._validate_session_payload(data)
                 payload = data
             case _:
                 logger.warning(
