@@ -31,6 +31,7 @@ from .oauth2 import (
     JamOAuth2ProviderNotConfigured,
 )
 from .paseto import (
+    JamPASETOImplicitAssertionUnsupported,
     JamPASETOInvalidED25519Key,
     JamPASETOInvalidPurpose,
     JamPASETOInvalidRSAKey,
@@ -63,7 +64,10 @@ from .saml import (
 )
 from .sessions import (
     JamSessionEmptyAESKey,
+    JamSessionExpired,
+    JamSessionInvalidClaim,
     JamSessionNotFound,
+    JamSessionNotYetValid,
 )
 
 
@@ -96,6 +100,7 @@ __all__ = [
     "JamPASETOInvalidED25519Key",
     "JamPASETOInvalidSecp384r1Key",
     "JamPASETOInvalidPurpose",
+    "JamPASETOImplicitAssertionUnsupported",
     "JamPASETOInvalidTokenFormat",
     "JamPASETOKeyVerificationError",
     "JamLitestarPluginConfigError",
@@ -105,6 +110,9 @@ __all__ = [
     "JamStarlettePluginConfigError",
     "JamStarlettePluginError",
     "JamSessionNotFound",
+    "JamSessionExpired",
+    "JamSessionNotYetValid",
+    "JamSessionInvalidClaim",
     "JamSessionEmptyAESKey",
     "JamSAMLError",
     "JamSAMLExpired",

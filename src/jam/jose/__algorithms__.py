@@ -9,6 +9,7 @@ import logging
 import os
 from typing import Any, Union
 
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.hazmat.primitives.asymmetric.utils import (
@@ -448,7 +449,7 @@ class PSAlgorithm(BaseAlgorithm):
                 data,
                 padding.PSS(
                     mgf=padding.MGF1(hash_alg),
-                    salt_length=padding.PSS.MAX_LENGTH,
+                    salt_length=hash_alg.digest_size,
                 ),
                 hash_alg,
             )
@@ -475,15 +476,30 @@ class PSAlgorithm(BaseAlgorithm):
         try:
             pub_key = self._load_public_key_auto(key)
             hash_alg = getattr(hashes, f"SHA{self.alg[2:]}")()
-            pub_key.verify(
-                sig,
-                data,
-                padding.PSS(
-                    mgf=padding.MGF1(hash_alg),
-                    salt_length=padding.PSS.MAX_LENGTH,
-                ),
-                hash_alg,
-            )
+            try:
+                pub_key.verify(
+                    sig,
+                    data,
+                    padding.PSS(
+                        mgf=padding.MGF1(hash_alg),
+                        salt_length=hash_alg.digest_size,
+                    ),
+                    hash_alg,
+                )
+            except InvalidSignature:
+                pub_key.verify(
+                    sig,
+                    data,
+                    padding.PSS(
+                        mgf=padding.MGF1(hash_alg),
+                        salt_length=padding.PSS.MAX_LENGTH,
+                    ),
+                    hash_alg,
+                )
+                logger.warning(
+                    "Accepted legacy %s signature with maximum-length PSS salt",
+                    self.alg,
+                )
         except Exception as e:
             logger.warning(
                 f"RSA PSS signature verification failed: {e}",
@@ -643,6 +659,12 @@ class BaseKeyAlgorithm(ABC):
         )
 
 
+_RSA_OAEP_SHA1 = padding.OAEP(
+    mgf=padding.MGF1(algorithm=hashes.SHA1()),
+    algorithm=hashes.SHA1(),
+    label=b"",
+)
+
 _RSA_OAEP_SHA256 = padding.OAEP(
     mgf=padding.MGF1(algorithm=hashes.SHA256()),
     algorithm=hashes.SHA256(),
@@ -655,7 +677,7 @@ class RSAKeyAlgorithm(BaseKeyAlgorithm):
 
     _PADDING_MAP = {
         "RSA1_5": padding.PKCS1v15(),
-        "RSA-OAEP": _RSA_OAEP_SHA256,
+        "RSA-OAEP": _RSA_OAEP_SHA1,
         "RSA-OAEP-256": _RSA_OAEP_SHA256,
     }
 
@@ -676,13 +698,22 @@ class RSAKeyAlgorithm(BaseKeyAlgorithm):
         """Unwrap CEK using RSA."""
         logger.debug("Unwrapping key with %s", self.alg)
         private_key = self._load_private_key()
-        padding = self._PADDING_MAP.get(self.alg)
-        if not padding:
+        algorithm_padding = self._PADDING_MAP.get(self.alg)
+        if not algorithm_padding:
             raise JamAlgorithmError(
                 message=f"Unsupported RSA algorithm: {self.alg}"
             )
 
-        return private_key.decrypt(encrypted_key, padding)
+        try:
+            return private_key.decrypt(encrypted_key, algorithm_padding)
+        except ValueError:
+            if self.alg != "RSA-OAEP":
+                raise
+            cek = private_key.decrypt(encrypted_key, _RSA_OAEP_SHA256)
+            logger.warning(
+                "Accepted legacy RSA-OAEP encrypted key using SHA-256"
+            )
+            return cek
 
 
 class AESKeyWrapAlgorithm(BaseKeyAlgorithm):

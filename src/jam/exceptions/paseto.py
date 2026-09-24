@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 
-from .base import JamError, JamConfigurationError, JamValidationError
+from .base import JamConfigurationError, JamError, JamValidationError
 
 
 class JamPASETOInvalidSymmetricKey(JamConfigurationError):
     default_message = "Invalid symmetric key."
     default_code = "paseto.configuration.invalid_symmetric_key"
+
 
 class JamPASETOInvalidRSAKey(JamConfigurationError):
     default_message = "Invalid RSA key."
@@ -25,6 +26,15 @@ class JamPASETOInvalidSecp384r1Key(JamConfigurationError):
 class JamPASETOInvalidPurpose(JamConfigurationError):
     default_message = "Invalid purpose."
     default_code = "paseto.configuration.invalid_purpose"
+
+
+class JamPASETOImplicitAssertionUnsupported(JamValidationError):
+    """Raised when a PASETO version cannot authenticate an assertion."""
+
+    default_message = (
+        "This PASETO version does not support implicit assertions."
+    )
+    default_code = "paseto.validation.implicit_assertion_unsupported"
 
 
 class JamPASETOInvalidTokenFormat(JamValidationError):
