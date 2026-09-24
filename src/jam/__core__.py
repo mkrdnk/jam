@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import math
 import time
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast
 
@@ -18,6 +19,9 @@ from jam.encoders import JsonEncoder
 from jam.exceptions import (
     JamConfigurationError,
     JamJWSVerificationError,
+    JamSessionExpired,
+    JamSessionInvalidClaim,
+    JamSessionNotYetValid,
     JamValidationError,
 )
 from jam.plugins.__base__ import BasePlugin
@@ -511,6 +515,7 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
         if isinstance(session_cfg, dict):
             cfg = session_cfg.copy()
             session_type = cfg.pop("type", None)
+            session_serializer = cfg.pop("serializer", self._serializer)
             if self._async:
                 from jam.aio.sessions import (
                     SUPPORTED_SESSION_TYPES,
@@ -527,7 +532,7 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
                     )
                 self.session = create_instance(
                     session_type=session_type,
-                    serializer=self._serializer,
+                    serializer=session_serializer,
                     **cfg,
                 )
             else:
@@ -545,6 +550,7 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
                 self.session = module_cls(
                     config=cfg,
                     session_type=session_type,
+                    serializer=session_serializer,
                 )
 
         oauth2_cfg = config.get("oauth2")
@@ -708,6 +714,59 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
                 error_code="configuration.authz.invalid_permissions",
             )
         return payload
+
+    @staticmethod
+    def _prepare_session_payload(
+        payload: dict[str, Any],
+        exp: int | None,
+        iss: str | None,
+        aud: str | None,
+        nbf: int | None,
+        jti: str | None,
+    ) -> dict[str, Any]:
+        """Add session metadata using the same relative-time API as tokens."""
+        data = dict(payload)
+        now = int(time.time())
+        if exp is not None:
+            data["exp"] = now + exp
+        if nbf is not None:
+            data["nbf"] = now + nbf
+        if iss is not None:
+            data["iss"] = iss
+        if aud is not None:
+            data["aud"] = aud
+        if jti is not None:
+            data["jti"] = jti
+        return data
+
+    @staticmethod
+    def _validate_session_payload(payload: dict[str, Any]) -> None:
+        """Reject sessions outside their validity window."""
+        now = int(time.time())
+
+        def numeric_date(claim: str) -> int | float:
+            value = payload[claim]
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, int | float)
+                or (isinstance(value, float) and not math.isfinite(value))
+            ):
+                raise JamSessionInvalidClaim(
+                    details={"claim": claim, "value": value}
+                )
+            return value
+
+        if "exp" in payload:
+            expires_at = numeric_date("exp")
+            if now >= expires_at:
+                raise JamSessionExpired(details={"exp": expires_at, "now": now})
+
+        if "nbf" in payload:
+            valid_from = numeric_date("nbf")
+            if valid_from > now:
+                raise JamSessionNotYetValid(
+                    details={"nbf": valid_from, "now": now}
+                )
 
     def _issue_paseto(
         self,

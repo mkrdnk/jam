@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from dataclasses import dataclass
+import json
 from typing import Any, cast
 from unittest.mock import Mock
 
@@ -9,10 +10,15 @@ import pytest
 from fakeredis import FakeRedis
 
 from jam import Jam
+from jam.__base_encoder__ import BaseEncoder
+from jam.encoders import JsonEncoder
 from jam.exceptions import (
     JamConfigurationError,
     JamJWTExpired,
     JamJWTInBlackList,
+    JamSessionExpired,
+    JamSessionInvalidClaim,
+    JamSessionNotYetValid,
     JamTokenInDenyList,
     JamTokenNotInAllowList,
 )
@@ -26,6 +32,21 @@ from jam.utils import generate_symmetric_key
 class User(BaseSubject):
     id: str
     name: str
+
+
+class SessionEncoder(BaseEncoder):
+    """Serializer used to verify facade session configuration."""
+
+    @classmethod
+    def dumps(cls, var: dict[str, Any]) -> bytes:
+        """Serialize values with a recognizable prefix."""
+        return f"session:{json.dumps(var)}".encode()
+
+    @classmethod
+    def loads(cls, var: str | bytes) -> dict[str, Any]:
+        """Deserialize values written by this encoder."""
+        value = var.decode() if isinstance(var, bytes) else var
+        return json.loads(value.removeprefix("session:"))
 
 
 @pytest.fixture
@@ -321,6 +342,46 @@ def test_session_instance(jam_session_instance):
     assert jam_session_instance.session.get(session_id) is None
 
 
+def test_session_uses_root_serializer(tmp_path):
+    jam = Jam(
+        config={
+            "serializer": SessionEncoder,
+            "session": {
+                "type": "json",
+                "json_path": str(tmp_path / "sessions.json"),
+            },
+        }
+    )
+
+    session_id = jam.session.create("user", {"id": "user123"})
+
+    assert jam.session._serializer is SessionEncoder
+    assert jam.session._db.all()[0]["data"].startswith("session:")
+    assert jam.session.get(session_id) == {"id": "user123"}
+
+
+def test_session_serializer_overrides_root_and_reads_persisted_data(tmp_path):
+    json_path = str(tmp_path / "sessions.json")
+    config = {
+        "serializer": JsonEncoder,
+        "session": {
+            "type": "json",
+            "json_path": json_path,
+            "serializer": SessionEncoder,
+        },
+    }
+    writer = Jam(config=config)
+    session_id = writer.session.create("user", {"id": "user123"})
+
+    assert writer.session._serializer is SessionEncoder
+    assert writer.session._db.all()[0]["data"].startswith("session:")
+    writer.session.close()
+
+    reader = Jam(config=config)
+    assert reader.session.get(session_id) == {"id": "user123"}
+    reader.session.close()
+
+
 def test_issue_via_session(jam_session_instance):
     session_id = jam_session_instance.issue(
         {"id": "user123", "role": "admin"}, via="session"
@@ -328,6 +389,67 @@ def test_issue_via_session(jam_session_instance):
     decoded = jam_session_instance.authenticate(session_id, via="session")
     assert decoded.subject["id"] == "user123"
     assert "jti" not in decoded.claims
+
+
+def test_session_registered_claims_and_expiration(
+    jam_session_instance,
+    monkeypatch,
+):
+    monkeypatch.setattr("jam.__core__.time.time", lambda: 100)
+    session_id = jam_session_instance.issue(
+        {"id": "user123"},
+        via="session",
+        exp=10,
+        iss="issuer",
+        aud="audience",
+        jti="session-id",
+    )
+
+    principal = jam_session_instance.authenticate(session_id, via="session")
+    assert principal.claims["exp"] == 110
+    assert principal.claims["iss"] == "issuer"
+    assert principal.claims["aud"] == "audience"
+    assert principal.claims["jti"] == "session-id"
+
+    monkeypatch.setattr("jam.__core__.time.time", lambda: 110)
+    with pytest.raises(JamSessionExpired) as exc_info:
+        jam_session_instance.authenticate(session_id, via="session")
+    assert exc_info.value.error_code == "sessions.expired"
+
+
+def test_session_not_before_and_invalid_time_claim(
+    jam_session_instance,
+    monkeypatch,
+):
+    monkeypatch.setattr("jam.__core__.time.time", lambda: 100)
+    session_id = jam_session_instance.issue(
+        {"id": "user123"},
+        via="session",
+        nbf=10,
+    )
+
+    with pytest.raises(JamSessionNotYetValid) as exc_info:
+        jam_session_instance.authenticate(session_id, via="session")
+    assert exc_info.value.error_code == "sessions.not_yet_valid"
+
+    malformed_id = jam_session_instance.session.create(
+        "auth",
+        {"sub": "user123", "exp": "tomorrow"},
+    )
+    with pytest.raises(JamSessionInvalidClaim) as exc_info:
+        jam_session_instance.authenticate(malformed_id, via="session")
+    assert exc_info.value.error_code == "sessions.invalid_claim"
+
+    large_exp_id = jam_session_instance.session.create(
+        "auth",
+        {"sub": "user123", "exp": 10**1000},
+    )
+    assert (
+        jam_session_instance.authenticate(large_exp_id, via="session").subject[
+            "id"
+        ]
+        == "user123"
+    )
 
 
 def test_saml_issue_and_authenticate(saml_configs):

@@ -83,7 +83,15 @@ class AsyncJam(BaseAsyncJam):
                     .get("session", {})
                     .get("session_key", "auth")
                 )
-                return await session.create(session_key, payload)
+                session_payload = self._prepare_session_payload(
+                    payload,
+                    exp,
+                    iss,
+                    aud,
+                    nbf,
+                    jti,
+                )
+                return await session.create(session_key, session_payload)
             case _:
                 raise JamConfigurationError(
                     message=f"Unknown 'via' type: {via}. "
@@ -122,6 +130,7 @@ class AsyncJam(BaseAsyncJam):
                 data = await self.session.get(token)
                 if data is None:
                     raise JamSessionNotFound(details={"session_id": token})
+                self._validate_session_payload(data)
                 payload = data
             case _:
                 raise JamConfigurationError(
