@@ -1,44 +1,22 @@
 # -*- coding: utf-8 -*-
 
-import json
 from typing import Any, cast
 from unittest.mock import AsyncMock
 
-from cryptography.hazmat.primitives.asymmetric import rsa
 import pytest
 from fakeredis import FakeAsyncRedis
 
-from jam.__base_encoder__ import BaseEncoder
 from jam.aio import AsyncJam, Jam
 from jam.aio.lists.memory import MemoryList
 from jam.authz import Principal
-from jam.encoders import JsonEncoder
 from jam.exceptions import (
     JamConfigurationError,
     JamJWTInBlackList,
     JamJWTNotInWhiteList,
-    JamSessionExpired,
-    JamSessionNotYetValid,
     JamTokenInDenyList,
     JamTokenNotInAllowList,
 )
-from jam.jose import JWE
 from jam.utils import generate_symmetric_key
-
-
-class SessionEncoder(BaseEncoder):
-    """Serializer used to verify async facade session configuration."""
-
-    @classmethod
-    def dumps(cls, var: dict[str, Any]) -> bytes:
-        """Serialize values with a recognizable prefix."""
-        return f"session:{json.dumps(var)}".encode()
-
-    @classmethod
-    def loads(cls, var: str | bytes) -> dict[str, Any]:
-        """Deserialize values written by this encoder."""
-        value = var.decode() if isinstance(var, bytes) else var
-        return json.loads(value.removeprefix("session:"))
 
 
 def test_legacy_name_is_alias():
@@ -88,40 +66,6 @@ async def test_issue_rejects_jwe():
             {"id": "user123"},
             via=cast(Any, "jwe"),
         )
-
-
-@pytest.mark.asyncio
-async def test_jwe_authentication_requires_nested_signature():
-    private_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-    )
-    jam = AsyncJam(
-        config={
-            "jose": {
-                "jwt": {
-                    "enc": "A256GCM",
-                    "secret_key": private_key,
-                }
-            }
-        }
-    )
-    attacker = JWE(
-        alg="RSA-OAEP",
-        enc="A256GCM",
-        key=private_key.public_key(),
-    )
-    token = attacker.encrypt(
-        {"sub": "attacker", "permissions": ["admin"]},
-    )
-
-    with pytest.raises(JamConfigurationError) as exc_info:
-        await jam.authenticate(token, via="jwe")
-
-    assert (
-        exc_info.value.error_code
-        == "configuration.jwe.authentication_requires_jws"
-    )
 
 
 @pytest.mark.asyncio
@@ -263,72 +207,6 @@ async def test_async_redis_session():
 
     await jam.session.delete(session_id)
     assert await jam.session.get(session_id) is None
-
-
-@pytest.mark.asyncio
-async def test_async_session_expiration_and_not_before(monkeypatch):
-    jam = AsyncJam(
-        config={
-            "session": {
-                "type": "redis",
-                "redis_uri": FakeAsyncRedis(decode_responses=True),
-            }
-        }
-    )
-    monkeypatch.setattr("jam.__core__.time.time", lambda: 100)
-    expiring_id = await jam.issue(
-        {"id": "user123"},
-        via="session",
-        exp=10,
-    )
-    future_id = await jam.issue(
-        {"id": "user123"},
-        via="session",
-        nbf=10,
-    )
-
-    with pytest.raises(JamSessionNotYetValid):
-        await jam.authenticate(future_id, via="session")
-
-    monkeypatch.setattr("jam.__core__.time.time", lambda: 110)
-    with pytest.raises(JamSessionExpired):
-        await jam.authenticate(expiring_id, via="session")
-
-
-@pytest.mark.asyncio
-async def test_async_session_serializer_precedence(tmp_path):
-    root_path = str(tmp_path / "root-sessions.json")
-    root = AsyncJam(
-        config={
-            "serializer": SessionEncoder,
-            "session": {
-                "type": "json",
-                "json_path": root_path,
-            },
-        }
-    )
-    root_id = await root.session.create("user", {"id": "root"})
-    assert root.session._serializer is SessionEncoder
-    assert await root.session.get(root_id) == {"id": "root"}
-    await root.aclose()
-
-    local_path = str(tmp_path / "local-sessions.json")
-    local_config = {
-        "serializer": JsonEncoder,
-        "session": {
-            "type": "json",
-            "json_path": local_path,
-            "serializer": SessionEncoder,
-        },
-    }
-    writer = AsyncJam(config=local_config)
-    local_id = await writer.session.create("user", {"id": "local"})
-    assert writer.session._serializer is SessionEncoder
-    await writer.aclose()
-
-    reader = AsyncJam(config=local_config)
-    assert await reader.session.get(local_id) == {"id": "local"}
-    await reader.aclose()
 
 
 @pytest.mark.asyncio

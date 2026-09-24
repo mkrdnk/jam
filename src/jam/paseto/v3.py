@@ -32,7 +32,6 @@ class PASETOv3(KeyLoadMixin, BasePASETO):
     """PASETO v3 factory."""
 
     _VERSION = "v3"
-    _SUPPORTS_IMPLICIT_ASSERTION = True
 
     def _encode_local(
         self,

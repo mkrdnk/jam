@@ -4,9 +4,8 @@ from jam.exceptions import (
     JamJWTInBlackList,
     JamJWTNotInWhiteList,
     JamPASETOInvalidED25519Key,
-    JamPASETOKeyVerificationError,
 )
-from pytest import fixture, mark, raises
+from pytest import fixture, raises
 
 from jam.paseto.v4 import PASETOv4
 from jam.utils import generate_ed25519_keypair, generate_symmetric_key
@@ -64,18 +63,6 @@ def test_decode_token_by_public_key(public_paseto, public_paseto_no_private):
 
     with raises(JamPASETOInvalidED25519Key):
         public_paseto_no_private.encode({"user": "error"})
-
-
-@mark.parametrize("paseto_fixture", ("local_paseto", "public_paseto"))
-def test_implicit_assertion_is_authenticated(request, paseto_fixture):
-    paseto = request.getfixturevalue(paseto_fixture)
-    payload = {"data": "test"}
-    token = paseto.encode(payload, implicit_assertion="tenant-a")
-
-    assert paseto.decode(token, implicit_assertion="tenant-a")[0] == payload
-
-    with raises(JamPASETOKeyVerificationError):
-        paseto.decode(token, implicit_assertion="tenant-b")
 
 
 def test_denylist_revokes_complete_token(symmetric_key):

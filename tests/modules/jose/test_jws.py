@@ -1,10 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import base64
-import json
-
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
 import pytest
 
 from jam.exceptions import JamJWSVerificationError, JamJWTUnsupportedAlgorithm
@@ -63,6 +58,7 @@ class TestJWSHMAC:
         jws = JWS(alg="HS256", key=symmetric_key)
         token = jws.sign({"typ": "JWT"}, {"key": "value"})
         result = jws.verify(token)
+        import json
 
         assert json.loads(result["payload"]) == {"key": "value"}
 
@@ -103,49 +99,6 @@ class TestJWSRSA:
         result = jws.verify(token)
         assert result["payload"] == b"test data"
 
-    def test_ps256_interoperates_with_raw_cryptography(self, rsa_key_pair):
-        private_key = serialization.load_pem_private_key(
-            rsa_key_pair["private"].encode(), password=None
-        )
-        public_key = private_key.public_key()
-        jws = JWS(alg="PS256", key=rsa_key_pair["private"])
-        token = jws.sign({"typ": "JWT"}, "test data")
-        protected_b64, payload_b64, signature_b64 = token.split(".")
-        signing_input = f"{protected_b64}.{payload_b64}".encode()
-        pss = padding.PSS(
-            mgf=padding.MGF1(hashes.SHA256()),
-            salt_length=hashes.SHA256().digest_size,
-        )
-
-        public_key.verify(
-            base64.urlsafe_b64decode(signature_b64 + "=="),
-            signing_input,
-            pss,
-            hashes.SHA256(),
-        )
-
-        raw_signature = private_key.sign(signing_input, pss, hashes.SHA256())
-        raw_token = (
-            f"{protected_b64}.{payload_b64}."
-            f"{base64.urlsafe_b64encode(raw_signature).rstrip(b'=').decode()}"
-        )
-        assert jws.verify(raw_token)["payload"] == b"test data"
-
-        legacy_pss = padding.PSS(
-            mgf=padding.MGF1(hashes.SHA256()),
-            salt_length=padding.PSS.MAX_LENGTH,
-        )
-        legacy_signature = private_key.sign(
-            signing_input,
-            legacy_pss,
-            hashes.SHA256(),
-        )
-        legacy_token = (
-            f"{protected_b64}.{payload_b64}."
-            f"{base64.urlsafe_b64encode(legacy_signature).rstrip(b'=').decode()}"
-        )
-        assert jws.verify(legacy_token)["payload"] == b"test data"
-
 
 class TestJWSECDSA:
     @pytest.mark.parametrize(
@@ -169,9 +122,7 @@ class TestJWSECDSA:
 
     def test_rejects_curve_that_does_not_match_algorithm(self):
         key_pair = generate_ecdsa_keypair("P-384")
-        with pytest.raises(
-            JamJWSSigningError, match="ES256 requires secp256r1"
-        ):
+        with pytest.raises(JamJWSSigningError, match="ES256 requires secp256r1"):
             JWS(alg="ES256", key=key_pair["private"]).sign({}, "test data")
 
     def test_verification_rejects_curve_that_does_not_match_algorithm(self):

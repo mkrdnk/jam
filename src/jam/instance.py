@@ -9,6 +9,7 @@ from jam.__core__ import JamAuthType, JamIssueType
 from jam.authz import AuthorizationContext, Principal
 from jam.exceptions import (
     JamConfigurationError,
+    JamJWSVerificationError,
     JamSessionNotFound,
     JamTokenInDenyList,
     JamTokenNotInAllowList,
@@ -124,15 +125,7 @@ class Jam(BaseJam):
                     .get("session", {})
                     .get("session_key", "auth")
                 )
-                session_payload = self._prepare_session_payload(
-                    payload,
-                    exp,
-                    iss,
-                    aud,
-                    nbf,
-                    jti,
-                )
-                credential = session.create(session_key, session_payload)
+                credential = session.create(session_key, payload)
                 logger.info("Issued credential via=session")
                 return credential
             case _:
@@ -179,7 +172,18 @@ class Jam(BaseJam):
             case "jwt":
                 payload = self.jwt.decode(token)["payload"]
             case "jwe":
-                payload = self._authenticate_jwe(token)
+                jwt = self.jwt
+                if jwt.jwe is None:
+                    raise JamConfigurationError(
+                        message="JWE module is not configured.",
+                        error_code="configuration.jwe.not_configured",
+                    )
+                decrypted = jwt.decrypt(token)
+                if not isinstance(decrypted, dict):
+                    raise JamJWSVerificationError(
+                        message="JWE payload is not a serialized object.",
+                    )
+                payload = decrypted
             case "paseto":
                 payload, _footer = self.paseto.decode(token)
             case "saml":
@@ -192,7 +196,6 @@ class Jam(BaseJam):
                         "Session authentication failed: session not found"
                     )
                     raise JamSessionNotFound(details={"session_id": token})
-                self._validate_session_payload(data)
                 payload = data
             case _:
                 logger.warning(

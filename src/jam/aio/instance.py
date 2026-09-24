@@ -8,6 +8,7 @@ from jam.aio.__base__ import BaseAsyncJam
 from jam.authz import AuthorizationContext, Principal
 from jam.exceptions import (
     JamConfigurationError,
+    JamJWSVerificationError,
     JamSessionNotFound,
     JamTokenInDenyList,
     JamTokenNotInAllowList,
@@ -83,15 +84,7 @@ class AsyncJam(BaseAsyncJam):
                     .get("session", {})
                     .get("session_key", "auth")
                 )
-                session_payload = self._prepare_session_payload(
-                    payload,
-                    exp,
-                    iss,
-                    aud,
-                    nbf,
-                    jti,
-                )
-                return await session.create(session_key, session_payload)
+                return await session.create(session_key, payload)
             case _:
                 raise JamConfigurationError(
                     message=f"Unknown 'via' type: {via}. "
@@ -119,7 +112,18 @@ class AsyncJam(BaseAsyncJam):
                 await self._check_token_list(self._jwt_list, token)
                 payload = self.jwt.decode(token, check_list=False)["payload"]
             case "jwe":
-                payload = self._authenticate_jwe(token)
+                jwt = self.jwt
+                if jwt.jwe is None:
+                    raise JamConfigurationError(
+                        message="JWE module is not configured.",
+                        error_code="configuration.jwe.not_configured",
+                    )
+                decrypted = jwt.decrypt(token)
+                if not isinstance(decrypted, dict):
+                    raise JamJWSVerificationError(
+                        message="JWE payload is not a serialized object.",
+                    )
+                payload = decrypted
             case "paseto":
                 await self._check_token_list(self._paseto_list, token)
                 payload, _footer = self.paseto.decode(token)
@@ -130,7 +134,6 @@ class AsyncJam(BaseAsyncJam):
                 data = await self.session.get(token)
                 if data is None:
                     raise JamSessionNotFound(details={"session_id": token})
-                self._validate_session_payload(data)
                 payload = data
             case _:
                 raise JamConfigurationError(

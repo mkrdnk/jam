@@ -16,7 +16,6 @@ from jam.__base_encoder__ import BaseEncoder
 from jam.encoders import JsonEncoder
 from jam.exceptions import (
     JamConfigurationError,
-    JamPASETOImplicitAssertionUnsupported,
     JamPASETOInvalidPurpose,
     JamPASETOInvalidTokenFormat,
     JamPASETOKeyVerificationError,
@@ -310,7 +309,6 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
 
     _VERSION: str
     _CONFIG_POINTER: str = "jam.paseto"
-    _SUPPORTS_IMPLICIT_ASSERTION = False
 
     def __init__(
         self,
@@ -551,35 +549,6 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
             except Exception:
                 return footer_decoded
 
-    def _normalize_implicit_assertion(
-        self, implicit_assertion: bytes | str
-    ) -> bytes:
-        """Validate support for and normalize an implicit assertion.
-
-        Args:
-            implicit_assertion (bytes | str): Additional authenticated data.
-
-        Returns:
-            bytes: UTF-8 encoded or original assertion bytes.
-
-        Raises:
-            JamPASETOImplicitAssertionUnsupported: If this version does not
-                support a non-empty assertion.
-        """
-        assertion = (
-            implicit_assertion.encode("utf-8")
-            if isinstance(implicit_assertion, str)
-            else implicit_assertion
-        )
-        if assertion and not self._SUPPORTS_IMPLICIT_ASSERTION:
-            raise JamPASETOImplicitAssertionUnsupported(
-                details={
-                    "version": self._VERSION,
-                    "parameter": "implicit_assertion",
-                }
-            )
-        return assertion
-
     def encode(
         self,
         payload: dict[str, Any],
@@ -600,11 +569,13 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
 
         Raises:
             JamPASETOInvalidPurpose: If the purpose is not "local" or "public".
-            JamPASETOImplicitAssertionUnsupported: If a non-empty assertion is
-                supplied for v1 or v2.
         """
         header = f"{self._VERSION}.{self._purpose}."
-        assertion = self._normalize_implicit_assertion(implicit_assertion)
+        assertion = (
+            implicit_assertion.encode("utf-8")
+            if isinstance(implicit_assertion, str)
+            else implicit_assertion
+        )
         payload_bytes = serializer.dumps(payload)
         material: Any = None
         if self._keychain is not None:
@@ -658,10 +629,12 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
 
         Raises:
             JamPASETOInvalidPurpose: If the purpose is not "local" or "public".
-            JamPASETOImplicitAssertionUnsupported: If a non-empty assertion is
-                supplied for v1 or v2.
         """
-        assertion = self._normalize_implicit_assertion(implicit_assertion)
+        assertion = (
+            implicit_assertion.encode("utf-8")
+            if isinstance(implicit_assertion, str)
+            else implicit_assertion
+        )
         self._list_check(token)
         if self._keychain is not None:
             try:

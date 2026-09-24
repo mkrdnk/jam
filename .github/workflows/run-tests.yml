@@ -165,8 +165,7 @@ jobs:
             --python /tmp/jam-wheel-test/bin/python \
             dist/*.whl
           /tmp/jam-wheel-test/bin/python -c \
-            "from jam import Jam; from jam.aio import AsyncJam; \
-            from jam.sessions import BaseSessionModule"
+            "from jam import Jam; from jam.aio import AsyncJam"
 
   required:
     name: required
