@@ -9,7 +9,6 @@ from jam.__core__ import JamAuthType, JamIssueType
 from jam.authz import AuthorizationContext, Principal
 from jam.exceptions import (
     JamConfigurationError,
-    JamJWSVerificationError,
     JamSessionNotFound,
     JamTokenInDenyList,
     JamTokenNotInAllowList,
@@ -172,18 +171,7 @@ class Jam(BaseJam):
             case "jwt":
                 payload = self.jwt.decode(token)["payload"]
             case "jwe":
-                jwt = self.jwt
-                if jwt.jwe is None:
-                    raise JamConfigurationError(
-                        message="JWE module is not configured.",
-                        error_code="configuration.jwe.not_configured",
-                    )
-                decrypted = jwt.decrypt(token)
-                if not isinstance(decrypted, dict):
-                    raise JamJWSVerificationError(
-                        message="JWE payload is not a serialized object.",
-                    )
-                payload = decrypted
+                payload = self._authenticate_jwe(token)
             case "paseto":
                 payload, _footer = self.paseto.decode(token)
             case "saml":

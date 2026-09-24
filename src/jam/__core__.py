@@ -15,7 +15,11 @@ from jam.authz import (
     Principal,
 )
 from jam.encoders import JsonEncoder
-from jam.exceptions import JamConfigurationError, JamValidationError
+from jam.exceptions import (
+    JamConfigurationError,
+    JamJWSVerificationError,
+    JamValidationError,
+)
 from jam.plugins.__base__ import BasePlugin
 from jam.subject import BaseSubject
 from jam.utils.config_maker import __config_maker__, __module_loader__
@@ -290,6 +294,49 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
                 except JamValidationError:
                     return False
         return self._policy.check(principal, permission, context)
+
+    def _authenticate_jwe(self, token: str) -> dict[str, Any]:
+        """Decrypt an encrypted, signed JWT for authentication.
+
+        JWE alone proves that a sender could encrypt to the recipient. With
+        asymmetric key management, that capability is intentionally public,
+        so an unsigned JWE cannot establish the identity of its issuer.
+
+        Args:
+            token: JWE compact serialization containing a nested JWS.
+
+        Returns:
+            dict[str, Any]: Verified claims from the nested JWS.
+
+        Raises:
+            JamConfigurationError: If JWE or nested JWS is not configured.
+            JamJWSVerificationError: If the authenticated payload is not an
+                object.
+        """
+        jwt = self.jwt
+        if jwt.jwe is None:
+            raise JamConfigurationError(
+                message="JWE module is not configured.",
+                error_code="configuration.jwe.not_configured",
+            )
+        if jwt.jws is None:
+            raise JamConfigurationError(
+                message=(
+                    "JWE authentication requires a nested JWS. "
+                    "Configure both 'alg' and 'enc'."
+                ),
+                error_code="configuration.jwe.authentication_requires_jws",
+            )
+
+        decrypted = jwt.decrypt(token)
+        if not isinstance(decrypted, dict):
+            raise JamJWSVerificationError(
+                message="JWE payload is not a serialized object.",
+            )
+        from jam.jose.jwt import _validate_registered_claims
+
+        _validate_registered_claims(decrypted)
+        return decrypted
 
     def __build_main_config(
         self,

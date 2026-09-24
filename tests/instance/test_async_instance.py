@@ -3,6 +3,7 @@
 from typing import Any, cast
 from unittest.mock import AsyncMock
 
+from cryptography.hazmat.primitives.asymmetric import rsa
 import pytest
 from fakeredis import FakeAsyncRedis
 
@@ -16,6 +17,7 @@ from jam.exceptions import (
     JamTokenInDenyList,
     JamTokenNotInAllowList,
 )
+from jam.jose import JWE
 from jam.utils import generate_symmetric_key
 
 
@@ -66,6 +68,40 @@ async def test_issue_rejects_jwe():
             {"id": "user123"},
             via=cast(Any, "jwe"),
         )
+
+
+@pytest.mark.asyncio
+async def test_jwe_authentication_requires_nested_signature():
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+    )
+    jam = AsyncJam(
+        config={
+            "jose": {
+                "jwt": {
+                    "enc": "A256GCM",
+                    "secret_key": private_key,
+                }
+            }
+        }
+    )
+    attacker = JWE(
+        alg="RSA-OAEP",
+        enc="A256GCM",
+        key=private_key.public_key(),
+    )
+    token = attacker.encrypt(
+        {"sub": "attacker", "permissions": ["admin"]},
+    )
+
+    with pytest.raises(JamConfigurationError) as exc_info:
+        await jam.authenticate(token, via="jwe")
+
+    assert (
+        exc_info.value.error_code
+        == "configuration.jwe.authentication_requires_jws"
+    )
 
 
 @pytest.mark.asyncio
