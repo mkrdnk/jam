@@ -121,6 +121,19 @@ class JWE(BaseJWE, metaclass=ConfigMeta):
             else:
                 plaintext_bytes = plaintext
 
+            if header and {"alg", "enc"} & header.keys():
+                reserved = sorted({"alg", "enc"} & header.keys())
+                raise JamJWEEncryptionError(
+                    message=(
+                        "JWE protected header must not override configured "
+                        "alg or enc"
+                    ),
+                    details={
+                        "reason": "reserved_header_override",
+                        "headers": reserved,
+                    },
+                )
+
             merged_header = {"alg": self._alg, "enc": self._enc}
             if header:
                 merged_header.update(header)
@@ -150,6 +163,8 @@ class JWE(BaseJWE, metaclass=ConfigMeta):
                 f"{protected_b64}.{__base64url_encode__(encrypted_key)}."
                 f"{iv_b64}.{ciphertext_b64}.{tag_b64}"
             )
+        except JamJWEEncryptionError:
+            raise
         except Exception as e:
             logger.error("JWE encryption failed: %s", e, exc_info=True)
             raise JamJWEEncryptionError(
@@ -185,8 +200,35 @@ class JWE(BaseJWE, metaclass=ConfigMeta):
 
             protected = json.loads(__base64url_decode__(protected_b64).decode())
 
-            alg = protected.get("alg", self._alg)
-            enc = protected.get("enc", self._enc)
+            alg = protected.get("alg")
+            if alg != self._alg:
+                logger.warning(
+                    "Rejected JWE because its key algorithm does not match "
+                    "configured alg=%s",
+                    self._alg,
+                )
+                raise JamJWEDecryptionError(
+                    details={
+                        "reason": "algorithm_mismatch",
+                        "expected": self._alg,
+                        "got": alg,
+                    }
+                )
+
+            enc = protected.get("enc")
+            if enc != self._enc:
+                logger.warning(
+                    "Rejected JWE because its content encryption algorithm "
+                    "does not match configured enc=%s",
+                    self._enc,
+                )
+                raise JamJWEDecryptionError(
+                    details={
+                        "reason": "content_encryption_mismatch",
+                        "expected": self._enc,
+                        "got": enc,
+                    }
+                )
 
             enc_alg = create_enc_algorithm(enc)
             key_alg = create_key_algorithm(alg, self._key, self._password)
@@ -202,6 +244,8 @@ class JWE(BaseJWE, metaclass=ConfigMeta):
             plaintext = enc_alg.decrypt(ciphertext, iv, tag, aad, cek)
 
             return plaintext
+        except JamJWEDecryptionError:
+            raise
         except Exception as e:
             logger.error("JWE decryption failed: %s", e, exc_info=True)
             raise JamJWEDecryptionError(

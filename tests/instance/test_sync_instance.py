@@ -4,16 +4,19 @@ from dataclasses import dataclass
 from typing import Any, cast
 from unittest.mock import Mock
 
+from cryptography.hazmat.primitives.asymmetric import rsa
 import pytest
 from fakeredis import FakeRedis
 
 from jam import Jam
 from jam.exceptions import (
     JamConfigurationError,
+    JamJWTExpired,
     JamJWTInBlackList,
     JamTokenInDenyList,
     JamTokenNotInAllowList,
 )
+from jam.jose import JWE
 from jam.lists.memory import MemoryList
 from jam.subject import BaseSubject
 from jam.utils import generate_symmetric_key
@@ -236,11 +239,62 @@ def test_jwe_authentication():
         },
         subject=User,
     )
-    user = User(id="user123", name="test")
+    user = User(id="user123", name="test.user")
     token = jam.jwt.encrypt({"id": user.id, "name": user.name})
     assert token.count(".") == 4
     decoded = jam.authenticate(token, via="jwe")
     assert decoded.subject == user
+
+
+def test_jwe_authentication_requires_nested_signature():
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+    )
+    jam = Jam(
+        config={
+            "jose": {
+                "jwt": {
+                    "enc": "A256GCM",
+                    "secret_key": private_key,
+                }
+            }
+        }
+    )
+    attacker = JWE(
+        alg="RSA-OAEP",
+        enc="A256GCM",
+        key=private_key.public_key(),
+    )
+    token = attacker.encrypt(
+        {"sub": "attacker", "permissions": ["admin"]},
+    )
+
+    with pytest.raises(JamConfigurationError) as exc_info:
+        jam.authenticate(token, via="jwe")
+
+    assert (
+        exc_info.value.error_code
+        == "configuration.jwe.authentication_requires_jws"
+    )
+
+
+def test_jwe_authentication_validates_nested_claims():
+    jam = Jam(
+        config={
+            "jose": {
+                "jwt": {
+                    "alg": "HS256",
+                    "enc": "A256GCM",
+                    "secret_key": "SECRET",
+                }
+            }
+        }
+    )
+    token = jam.jwt.encrypt({"sub": "user123", "exp": 0})
+
+    with pytest.raises(JamJWTExpired):
+        jam.authenticate(token, via="jwe")
 
 
 def test_issue_rejects_jwe(jam_jwt_instance):

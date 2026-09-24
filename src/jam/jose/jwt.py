@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import base64
+import binascii
 import json
 import logging
 import math
@@ -57,10 +58,36 @@ def _validate_numeric_date(claim: str, value: Any) -> int | float:
     if (
         isinstance(value, bool)
         or not isinstance(value, int | float)
-        or not math.isfinite(value)
+        or (isinstance(value, float) and not math.isfinite(value))
     ):
         raise JamJWTInvalidClaim(details={"claim": claim, "value": value})
     return value
+
+
+def _validate_registered_claims(payload: dict[str, Any]) -> None:
+    """Validate the time-based registered claims in a JWT payload.
+
+    Args:
+        payload: JWT payload dict.
+
+    Raises:
+        JamJWTExpired: If the token is expired.
+        JamJWTNotYetValid: If the token is not yet valid.
+        JamJWTInvalidClaim: If exp or nbf is not a valid NumericDate.
+    """
+    now = int(time.time())
+
+    if "exp" in payload:
+        exp = _validate_numeric_date("exp", payload["exp"])
+        if now >= exp:
+            logger.warning("Rejected expired JWT")
+            raise JamJWTExpired(details={"exp": exp, "now": now})
+
+    if "nbf" in payload:
+        nbf = _validate_numeric_date("nbf", payload["nbf"])
+        if nbf > now:
+            logger.warning("Rejected JWT that is not yet valid")
+            raise JamJWTNotYetValid(details={"nbf": nbf, "now": now})
 
 
 if TYPE_CHECKING:
@@ -617,19 +644,7 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
             JamJWTNotYetValid: If token is not yet valid.
             JamJWTInvalidClaim: If exp or nbf is not a valid NumericDate.
         """
-        now = int(time.time())
-
-        if "exp" in payload:
-            exp = _validate_numeric_date("exp", payload["exp"])
-            if now >= exp:
-                logger.warning("Rejected expired JWT")
-                raise JamJWTExpired(details={"exp": exp, "now": now})
-
-        if "nbf" in payload:
-            nbf = _validate_numeric_date("nbf", payload["nbf"])
-            if nbf > now:
-                logger.warning("Rejected JWT that is not yet valid")
-                raise JamJWTNotYetValid(details={"nbf": nbf, "now": now})
+        _validate_registered_claims(payload)
 
     def encrypt(
         self,
@@ -727,30 +742,32 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
                     message="Invalid JWS payload in nested token.",
                 )
 
-            if "." in payload_str:
-                inner_parts = payload_str.split(".")
-                inner_header_b64 = inner_parts[0]
-                inner_header = json.loads(
-                    base64.urlsafe_b64decode(inner_header_b64 + "==").decode()
-                )
-                inner_alg = inner_header.get("alg")
-
-                if inner_alg and inner_alg != self._alg:
-                    temp_jws = JWS(
-                        alg=inner_alg,
-                        key=self.jws._key,
-                        password=self.jws._password,
+            inner_parts = payload_str.split(".")
+            if len(inner_parts) == 3 and all(inner_parts):
+                try:
+                    inner_header = json.loads(
+                        base64.urlsafe_b64decode(
+                            inner_parts[0] + "==="
+                        ).decode()
                     )
-                    inner_decoded = temp_jws.verify(payload_str, True)
-                else:
-                    inner_decoded = self.jws.verify(payload_str, True)
+                except (
+                    binascii.Error,
+                    UnicodeDecodeError,
+                    ValueError,
+                ):
+                    inner_header = None
 
-                inner_payload = inner_decoded.get("payload")
-                if isinstance(inner_payload, bytes | str):
-                    return self._serializer.loads(inner_payload)
-                raise JamJWSVerificationError(
-                    message="Invalid inner JWS payload.",
-                )
+                if (
+                    isinstance(inner_header, dict)
+                    and inner_header.get("typ") == "JWT"
+                ):
+                    inner_decoded = self.jws.verify(payload_str, True)
+                    inner_payload = inner_decoded.get("payload")
+                    if isinstance(inner_payload, bytes | str):
+                        return self._serializer.loads(inner_payload)
+                    raise JamJWSVerificationError(
+                        message="Invalid inner JWS payload.",
+                    )
 
             return self._serializer.loads(payload_str)
 
