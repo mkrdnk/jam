@@ -32,7 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   JSON sessions through `close()` and context managers. Asynchronous JSON token
   lists now support `aclose()` and asynchronous context managers.
 - Added public validation exceptions for invalid JWT NumericDates, unsupported
-  PASETO implicit assertions, and expired, premature, or malformed sessions.
+  PASETO implicit assertions, expired, premature, or malformed PASETO
+  credentials, and expired, premature, or malformed sessions.
 
 ### Changed
 
@@ -49,6 +50,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - RSA-PSS signatures now use the JOSE/PASETO digest-size salt, and `RSA-OAEP`
   now uses the RFC 7518 SHA-1 parameters. Verification and decryption retain
   compatibility fallbacks for tokens produced by earlier Jam releases.
+- Newly issued PASETO credentials now encode `exp` and `nbf` as RFC 3339 UTC
+  DateTime strings. The facade continues to accept relative durations in
+  seconds, and decoding retains compatibility with finite NumericDate values
+  issued by earlier Jam releases.
 
 ### Deprecated
 
@@ -87,6 +92,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JWE decryption now requires protected `alg` and `enc` values to match the
   configured recipient algorithms. Facade authentication through `via="jwe"`
   requires a nested JWS and validates its registered time claims.
+- PASETO decoding now validates `exp` and `nbf` after cryptographic verification
+  by default for every supported version and purpose. Expired, premature, and
+  malformed claims fail closed; `validate_claims=False` remains available for
+  explicit authenticated inspection.
 - SAML SP authentication now rejects unsolicited responses by default,
   correlates `InResponseTo` with the current login session's one-time pending
   AuthnRequest, and atomically tracks signed assertion IDs through their full
