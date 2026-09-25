@@ -15,6 +15,7 @@ def saml_configs() -> tuple[dict, dict]:
             "private_key": keys["private"],
             "entity_id": "https://idp.test",
             "audience": "https://sp.test",
+            "acs_url": "https://sp.test/acs",
         }
     }
     sp = {
@@ -22,7 +23,9 @@ def saml_configs() -> tuple[dict, dict]:
             "role": "sp",
             "entity_id": "https://sp.test",
             "expected_issuer": "https://idp.test",
+            "acs_url": "https://sp.test/acs",
             "idp_public_key": keys["public"],
+            "allow_unsolicited": True,
         }
     }
     return idp, sp

@@ -29,10 +29,12 @@ class TestEncryptAssertion:
             attributes={"email": "user@test.com"},
             issuer="https://idp.test",
             audience="https://sp.test",
+            destination="https://sp.test/acs",
             encrypt=True,
         )
 
         from jam.saml.binding import encode_post
+
         encoded = encode_post(xml_str)
 
         result = sp.parse_response(
@@ -40,6 +42,7 @@ class TestEncryptAssertion:
             binding="post",
             audience="https://sp.test",
             issuer="https://idp.test",
+            allow_unsolicited=True,
         )
 
         assert result.assertion is not None
@@ -65,8 +68,14 @@ class TestEncryptAssertion:
             encrypt=True,
         )
 
-        assert "<saml:EncryptedAssertion" in xml_str or "EncryptedAssertion" in xml_str
-        assert "<saml:Assertion" not in xml_str or "Assertion" not in xml_str.replace("Encrypted", "")
+        assert (
+            "<saml:EncryptedAssertion" in xml_str
+            or "EncryptedAssertion" in xml_str
+        )
+        assert (
+            "<saml:Assertion" not in xml_str
+            or "Assertion" not in xml_str.replace("Encrypted", "")
+        )
         assert "EncryptionMethod" in xml_str
 
     def test_encrypted_without_encryption_key_raises(self, key_pair):
@@ -105,6 +114,7 @@ class TestEncryptAssertion:
         )
 
         from jam.saml.binding import encode_post
+
         encoded = encode_post(xml_str)
 
         wrong_pair = generate_rsa_key_pair(2048)
@@ -118,6 +128,7 @@ class TestEncryptAssertion:
                 encoded,
                 binding="post",
                 audience="https://sp.test",
+                allow_unsolicited=True,
             )
 
     def test_encrypted_without_private_key_raises(self, key_pair):
@@ -139,6 +150,7 @@ class TestEncryptAssertion:
         )
 
         from jam.saml.binding import encode_post
+
         encoded = encode_post(xml_str)
 
         sp_no_key = SAML(
@@ -150,4 +162,5 @@ class TestEncryptAssertion:
                 encoded,
                 binding="post",
                 audience="https://sp.test",
+                allow_unsolicited=True,
             )

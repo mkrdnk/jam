@@ -370,6 +370,44 @@ async def test_saml_issue_and_authenticate(saml_configs):
 
 
 @pytest.mark.asyncio
+async def test_saml_authenticate_correlates_current_login_session(
+    saml_configs,
+):
+    from jam.saml.binding import encode_post
+
+    idp_config, configured_sp = saml_configs
+    sp_config = {
+        "saml": {
+            key: value
+            for key, value in configured_sp["saml"].items()
+            if key != "allow_unsolicited"
+        }
+    }
+    idp = AsyncJam(config=idp_config)
+    sp = AsyncJam(config=sp_config)
+    request_id = "_current-login-request"
+    sp.saml.prepare_authn_request(
+        "https://idp.test/sso",
+        request_id=request_id,
+    )
+    response = idp.saml.build_response(
+        subject="user123",
+        attributes={},
+        issuer="https://idp.test",
+        audience="https://sp.test",
+        in_response_to=request_id,
+    )
+
+    principal = await sp.authenticate(
+        encode_post(response),
+        via="saml",
+        expected_in_response_to=request_id,
+    )
+
+    assert principal.subject["id"] == "user123"
+
+
+@pytest.mark.asyncio
 async def test_saml_shared_async_allowlist(saml_configs):
     idp_config, sp_config = saml_configs
     token_list = MemoryList(type="white")
