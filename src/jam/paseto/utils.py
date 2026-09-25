@@ -1,14 +1,32 @@
 # -*- coding: utf-8 -*-
 
 import base64
-from datetime import datetime
+from datetime import datetime, timezone
 import hashlib
 import hmac
+import logging
+import math
+import re
 import struct
+import time
 from typing import Any
-from uuid import uuid4
 
-from jam.exceptions import JamPASETOInvalidTokenFormat
+from jam.exceptions import (
+    JamPASETOExpired,
+    JamPASETOInvalidClaim,
+    JamPASETOInvalidTokenFormat,
+    JamPASETONotYetValid,
+)
+
+
+logger = logging.getLogger(__name__)
+
+
+_RFC3339_DATETIME = re.compile(
+    r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T"
+    r"[0-9]{2}:[0-9]{2}:[0-9]{2}"
+    r"(?:\.[0-9]+)?(?:Z|[+-][0-9]{2}:[0-9]{2})$"
+)
 
 
 def __gen_hash__(key: bytes, msg: bytes, hash_size: int = 0) -> bytes:
@@ -69,32 +87,72 @@ def base64url_encode(data: bytes | str) -> bytes:
     return base64.urlsafe_b64encode(bv).replace(b"=", b"")
 
 
-def payload_maker(expire: int | None, data: dict[str, Any]) -> dict[str, Any]:
-    """Generate PASETO payload.
+def _format_registered_datetime(timestamp: int | float) -> str:
+    """Format a timestamp as the preferred PASETO RFC 3339 DateTime."""
+    value = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+    return value.isoformat(timespec="seconds").replace("+00:00", "Z")
 
-    ```json
-    {
-        'iat': 1761326685.45693,
-        'exp': 1761328485.45693,
-        'pit': '52aeaf12-0825-4bc1-aa45-5ded41df2463',
-        # custom data
-        'user': 1,
-        'role': 'admin'
-    }
-    ```
+
+def _parse_registered_datetime(claim: str, value: Any) -> int | float:
+    """Parse a PASETO DateTime, accepting legacy NumericDate values.
 
     Args:
-        expire (int | None): Token lifetime
-        data (dict[str, Any]): Custom data
+        claim: Registered claim name.
+        value: Claim value to parse.
 
     Returns:
-        dict: Payload
-    """
-    now = datetime.now().timestamp()
-    _payload = {
-        "iat": now,
-        "exp": (expire + now) if expire else None,
-        "pit": str(uuid4()),
-    }
+        int | float: Comparable Unix timestamp.
 
-    return _payload | data
+    Raises:
+        JamPASETOInvalidClaim: If the value is not an RFC 3339 DateTime or a
+            finite legacy NumericDate.
+    """
+    if (
+        not isinstance(value, bool)
+        and isinstance(value, int | float)
+        and (not isinstance(value, float) or math.isfinite(value))
+    ):
+        return value
+
+    if isinstance(value, str) and _RFC3339_DATETIME.fullmatch(value):
+        iso_value = value[:-1] + "+00:00" if value.endswith("Z") else value
+        try:
+            return datetime.fromisoformat(iso_value).timestamp()
+        except (OSError, OverflowError, ValueError):
+            pass
+
+    raise JamPASETOInvalidClaim(
+        details={
+            "claim": claim,
+            "value": value,
+            "expected": "RFC 3339 DateTime or finite legacy NumericDate",
+        }
+    )
+
+
+def _validate_registered_claims(payload: dict[str, Any]) -> None:
+    """Validate PASETO time-based registered claims.
+
+    RFC 3339 DateTime strings are the standard PASETO representation. Finite
+    NumericDate values remain accepted for tokens issued by older Jam versions.
+
+    Args:
+        payload: Authenticated PASETO payload.
+
+    Raises:
+        JamPASETOExpired: If the current time is later than ``exp``.
+        JamPASETONotYetValid: If the current time is earlier than ``nbf``.
+        JamPASETOInvalidClaim: If a claim has an invalid representation.
+    """
+    now = time.time()
+    if "exp" in payload:
+        expires_at = _parse_registered_datetime("exp", payload["exp"])
+        if now > expires_at:
+            logger.warning("Rejected expired PASETO")
+            raise JamPASETOExpired(details={"exp": expires_at, "now": now})
+
+    if "nbf" in payload:
+        valid_from = _parse_registered_datetime("nbf", payload["nbf"])
+        if now < valid_from:
+            logger.warning("Rejected PASETO that is not yet valid")
+            raise JamPASETONotYetValid(details={"nbf": valid_from, "now": now})

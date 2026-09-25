@@ -27,6 +27,7 @@ from jam.lists import BaseList, build_list
 from jam.paseto.utils import (
     __gen_hash__,
     __pae__,
+    _validate_registered_claims,
     base64url_decode,
     base64url_encode,
 )
@@ -645,6 +646,7 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
         token: str,
         serializer: type[BaseEncoder] | BaseEncoder = JsonEncoder,
         implicit_assertion: bytes | str = b"",
+        validate_claims: bool = True,
     ) -> tuple[dict[str, Any], Any]:
         """Decode a PASETO token.
 
@@ -652,6 +654,8 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
             token (str): Token.
             serializer (type[BaseEncoder] | BaseEncoder): JSON serializer.
             implicit_assertion (bytes | str): Additional authenticated data.
+            validate_claims (bool): Whether to validate ``exp`` and ``nbf``.
+                Defaults to True.
 
         Returns:
             tuple[dict[str, Any], Any]: Payload and footer.
@@ -660,6 +664,10 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
             JamPASETOInvalidPurpose: If the purpose is not "local" or "public".
             JamPASETOImplicitAssertionUnsupported: If a non-empty assertion is
                 supplied for v1 or v2.
+            JamPASETOExpired: If the token has passed its ``exp`` time.
+            JamPASETONotYetValid: If the token is used before its ``nbf`` time.
+            JamPASETOInvalidClaim: If ``exp`` or ``nbf`` is neither an RFC 3339
+                DateTime nor a finite legacy NumericDate.
         """
         assertion = self._normalize_implicit_assertion(implicit_assertion)
         self._list_check(token)
@@ -697,10 +705,32 @@ class BasePASETO(ABC, metaclass=ConfigMeta):
                     message="Invalid KeyChain footer."
                 )
             footer = footer.get("footer")
+        if validate_claims:
+            self._validate_claims(payload)
         logger.debug(
-            "Verified PASETO version=%s purpose=%s with_keychain=%s",
+            "Verified PASETO version=%s purpose=%s validate_claims=%s "
+            "with_keychain=%s",
             self._VERSION,
             self._purpose,
+            validate_claims,
             self._keychain is not None,
         )
         return payload, footer
+
+    @staticmethod
+    def _validate_claims(payload: dict[str, Any]) -> None:
+        """Validate PASETO time-based registered claims.
+
+        RFC 3339 DateTime strings are the standard PASETO representation.
+        Finite NumericDate values remain accepted for tokens issued by older
+        Jam versions.
+
+        Args:
+            payload: Authenticated PASETO payload.
+
+        Raises:
+            JamPASETOExpired: If the current time is later than ``exp``.
+            JamPASETONotYetValid: If the current time is earlier than ``nbf``.
+            JamPASETOInvalidClaim: If a claim has an invalid representation.
+        """
+        _validate_registered_claims(payload)
