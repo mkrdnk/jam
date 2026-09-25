@@ -87,6 +87,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JWE decryption now requires protected `alg` and `enc` values to match the
   configured recipient algorithms. Facade authentication through `via="jwe"`
   requires a nested JWS and validates its registered time claims.
+- SAML SP authentication now rejects unsolicited responses by default,
+  correlates `InResponseTo` with the current login session's one-time pending
+  AuthnRequest, and atomically tracks signed assertion IDs through their full
+  acceptance window. It also validates bearer SubjectConfirmation constraints
+  across all available confirmations and requires configured destination,
+  every audience restriction, and recipient expectations. Replay storage keeps
+  legacy timestamp entries valid during rolling upgrades and requires a shared
+  lock for shared stores. IdP-initiated SSO requires the explicit
+  `allow_unsolicited=true` compatibility setting.
 
 ---
 
