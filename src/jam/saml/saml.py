@@ -5,19 +5,23 @@ from __future__ import annotations
 import base64
 from datetime import datetime, timedelta, timezone
 import os
+from threading import RLock
 from typing import TYPE_CHECKING, Any
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 
+from jam.exceptions.base import JamConfigurationError
 from jam.exceptions.saml import (
     JamSAMLEmptyPrivateKey,
     JamSAMLExpired,
     JamSAMLInvalidAudience,
+    JamSAMLInvalidDestination,
     JamSAMLInvalidIssuer,
     JamSAMLInvalidRecipient,
     JamSAMLNotYetValid,
     JamSAMLReplayDetected,
+    JamSAMLResponseCorrelationError,
     JamSAMLSOAPError,
     JamSAMLValidationError,
 )
@@ -61,6 +65,7 @@ from jam.saml.types import (
     SAMLRequest,
     SAMLResponse,
     SAMLSubject,
+    SAMLSubjectConfirmation,
 )
 from jam.saml.types import (
     SAMLAssertion as SAMLAssertionData,
@@ -112,7 +117,9 @@ class SAML(BaseSAML, metaclass=ConfigMeta):
         default_exp: int = 300,
         allowed_clock_skew: int = 120,
         want_assertions_signed: bool = True,
+        allow_unsolicited: bool = False,
         id_store: dict | None = None,
+        id_store_lock: Any | None = None,
         replay_ttl: int = 300,
         keychain: BaseKeyChain | None = None,
         config: str | dict[str, Any] | None = None,
@@ -134,13 +141,30 @@ class SAML(BaseSAML, metaclass=ConfigMeta):
             default_exp: Default assertion lifetime in seconds.
             allowed_clock_skew: Clock skew tolerance in seconds (default 120).
             want_assertions_signed: Require signed assertions (``sp``, default True).
+            allow_unsolicited: Accept IdP-initiated responses that are not
+                correlated with a pending AuthnRequest. Defaults to False.
             id_store: Dict for replay attack protection. Auto-created if None.
+            id_store_lock: Lock shared by every instance that uses id_store.
+                Required when id_store is provided.
             replay_ttl: Seconds before a consumed ID is eligible for cleanup.
             keychain: Key lifecycle manager for SAML signing and verification.
             config: Configuration dict or file path.
             pointer: Config pointer. Defaults to ``"jam.saml"``.
         """
         register_namespaces()
+
+        if not isinstance(allow_unsolicited, bool):
+            raise JamConfigurationError(
+                message="'allow_unsolicited' must be a boolean.",
+                error_code="configuration.saml.invalid_allow_unsolicited",
+            )
+        if id_store is not None and id_store_lock is None:
+            raise JamConfigurationError(
+                message=(
+                    "'id_store_lock' is required when 'id_store' is shared."
+                ),
+                error_code="configuration.saml.missing_id_store_lock",
+            )
 
         self.role = role.lower()
         self._entity_id = entity_id
@@ -149,10 +173,14 @@ class SAML(BaseSAML, metaclass=ConfigMeta):
         self._default_exp = default_exp
         self._allowed_clock_skew = allowed_clock_skew
         self._want_assertions_signed = want_assertions_signed
+        self._allow_unsolicited = allow_unsolicited
         self._replay_ttl = replay_ttl
         self.keychain = keychain
         self._id_store: dict[str, float] = (
             id_store if id_store is not None else {}
+        )
+        self._id_store_lock = (
+            id_store_lock if id_store_lock is not None else RLock()
         )
 
         self._private_key: Any = None
@@ -215,6 +243,29 @@ class SAML(BaseSAML, metaclass=ConfigMeta):
 
     # ── Replay protection ──
 
+    @staticmethod
+    def _consumed_key(msg_id: str) -> str:
+        """Return the versioned storage key for a consumed message."""
+        return f"jam:saml:v2:consumed:{msg_id}"
+
+    @staticmethod
+    def _pending_request_key(msg_id: str) -> str:
+        """Return the internal storage key for a pending AuthnRequest."""
+        return f"jam:saml:v2:pending:{msg_id}"
+
+    def _assert_not_replayed(self, msg_id: str) -> None:
+        """Validate that a non-empty message ID has not been consumed."""
+        if not msg_id:
+            raise JamSAMLValidationError(
+                message="SAML message is missing its required ID."
+            )
+        self._purge_stale_ids()
+        if (
+            msg_id in self._id_store
+            or self._consumed_key(msg_id) in self._id_store
+        ):
+            raise JamSAMLReplayDetected
+
     def _check_replay(self, msg_id: str) -> None:
         """Check if a message ID has already been consumed (replay attack).
 
@@ -224,27 +275,142 @@ class SAML(BaseSAML, metaclass=ConfigMeta):
         Raises:
             JamSAMLReplayDetected: If the ID was already seen.
         """
-        self._purge_stale_ids()
-        if msg_id in self._id_store:
-            raise JamSAMLReplayDetected
-        self._id_store[msg_id] = datetime.now(timezone.utc).timestamp()
+        with self._id_store_lock:
+            self._assert_not_replayed(msg_id)
+            self._mark_consumed(msg_id)
 
-    def _mark_consumed(self, msg_id: str) -> None:
-        """Mark a locally-generated message ID as consumed.
+    def _mark_consumed(
+        self,
+        msg_id: str,
+        *,
+        expires_at: float | None = None,
+    ) -> None:
+        """Mark a message ID as consumed.
 
         Args:
             msg_id: SAML message ID.
+            expires_at: Unix timestamp after which the marker may be removed.
         """
-        self._id_store[msg_id] = datetime.now(timezone.utc).timestamp()
+        if expires_at is None:
+            expires_at = (
+                datetime.now(timezone.utc).timestamp() + self._replay_ttl
+            )
+        self._id_store[self._consumed_key(msg_id)] = expires_at
+
+    def _mark_pending_request(self, msg_id: str) -> None:
+        """Record an AuthnRequest that may be consumed by one response."""
+        with self._id_store_lock:
+            self._id_store[self._pending_request_key(msg_id)] = (
+                datetime.now(timezone.utc).timestamp() + self._replay_ttl
+            )
+
+    def _validate_response_correlation(
+        self,
+        in_response_to: str | None,
+        *,
+        expected_in_response_to: str | None,
+        allow_unsolicited: bool,
+    ) -> None:
+        """Require a response to reference a live AuthnRequest by default."""
+        if not isinstance(allow_unsolicited, bool):
+            raise JamConfigurationError(
+                message="'allow_unsolicited' must be a boolean.",
+                error_code="configuration.saml.invalid_allow_unsolicited",
+            )
+        with self._id_store_lock:
+            self._purge_stale_ids()
+            request_is_pending = in_response_to is not None and (
+                self._pending_request_key(in_response_to) in self._id_store
+            )
+        if in_response_to is None:
+            if allow_unsolicited:
+                return
+            raise JamSAMLResponseCorrelationError(
+                details={"reason": "missing_in_response_to"}
+            )
+        if expected_in_response_to is None:
+            raise JamSAMLResponseCorrelationError(
+                details={"reason": "missing_expected_in_response_to"}
+            )
+        if in_response_to != expected_in_response_to:
+            raise JamSAMLResponseCorrelationError(
+                details={"reason": "in_response_to_mismatch"}
+            )
+        if not request_is_pending:
+            raise JamSAMLResponseCorrelationError(
+                details={"reason": "unknown_in_response_to"}
+            )
+
+    def _consume_response_state(
+        self,
+        response_id: str,
+        assertion_id: str | None,
+        in_response_to: str | None,
+        *,
+        expires_at: float,
+    ) -> None:
+        """Consume request state before recording accepted message IDs."""
+        with self._id_store_lock:
+            self._assert_not_replayed(response_id)
+            if assertion_id is not None:
+                self._assert_not_replayed(assertion_id)
+            if in_response_to is not None:
+                pending_key = self._pending_request_key(in_response_to)
+                try:
+                    del self._id_store[pending_key]
+                except KeyError as exc:
+                    raise JamSAMLResponseCorrelationError(
+                        details={"reason": "request_already_consumed"}
+                    ) from exc
+            self._mark_consumed(response_id, expires_at=expires_at)
+            if assertion_id is not None:
+                self._mark_consumed(assertion_id, expires_at=expires_at)
 
     def _purge_stale_ids(self, now: float | None = None) -> None:
-        """Remove consumed IDs older than ``replay_ttl``."""
+        """Remove expired v2 entries and stale legacy consumed timestamps."""
         if now is None:
             now = datetime.now(timezone.utc).timestamp()
-        cutoff = now - self._replay_ttl
-        stale = [k for k, ts in self._id_store.items() if ts < cutoff]
+        stale = [
+            key
+            for key, stored_at in self._id_store.items()
+            if (
+                stored_at
+                if key.startswith("jam:saml:v2:")
+                else stored_at + self._replay_ttl
+            )
+            <= now
+        ]
         for k in stale:
             del self._id_store[k]
+
+    def _response_replay_expiry(
+        self,
+        assertion: SAMLAssertionData,
+    ) -> float:
+        """Retain replay markers through the assertion's acceptance window."""
+        expires_at = datetime.now(timezone.utc).timestamp() + self._replay_ttl
+        skew = self._allowed_clock_skew
+        if (
+            assertion.conditions is not None
+            and assertion.conditions.not_on_or_after is not None
+        ):
+            expires_at = max(
+                expires_at,
+                assertion.conditions.not_on_or_after.timestamp() + skew,
+            )
+        if (
+            assertion.subject is not None
+            and assertion.subject.subject_confirmation_data is not None
+        ):
+            confirmation_expiry = (
+                assertion.subject.subject_confirmation_data.get("NotOnOrAfter")
+            )
+            if confirmation_expiry:
+                expires_at = max(
+                    expires_at,
+                    parse_instant(confirmation_expiry).timestamp() + skew,
+                )
+        return expires_at
 
     # ── SP operations ──
 
@@ -254,6 +420,7 @@ class SAML(BaseSAML, metaclass=ConfigMeta):
         *,
         acs_url: str | None = None,
         binding: str = "redirect",
+        request_id: str | None = None,
         **kwargs: Any,
     ) -> str:
         """Build AuthnRequest and return IdP redirect URL or POST form data.
@@ -262,12 +429,14 @@ class SAML(BaseSAML, metaclass=ConfigMeta):
             idp_sso_url: IdP SSO endpoint URL.
             acs_url: SP ACS URL.
             binding: ``"redirect"`` or ``"post"``.
+            request_id: Caller-generated ID stored in the login session. A
+                secure random ID is generated when omitted.
             **kwargs: relay_state, issuer, etc.
 
         Returns:
             Redirect URL (``binding="redirect"``) or Base64 form data (``"post"``).
         """
-        request_id = make_id()
+        request_id = request_id or make_id()
         now = fmt_instant()
 
         authn = make_element("AuthnRequest", NS_SAMLP)
@@ -291,27 +460,29 @@ class SAML(BaseSAML, metaclass=ConfigMeta):
 
         relay_state = kwargs.get("relay_state") or ""
 
-        self._mark_consumed(request_id)
         xml_str = ET.tostring(authn, encoding="unicode")
 
         if binding == "post":
-            return encode_post(xml_str)
+            result = encode_post(xml_str)
+        else:
+            params = {"SAMLRequest": encode_redirect(xml_str)}
+            if relay_state:
+                params["RelayState"] = relay_state
 
-        params = {"SAMLRequest": encode_redirect(xml_str)}
-        if relay_state:
-            params["RelayState"] = relay_state
-
-        return build_redirect_url(
-            idp_sso_url,
-            params,
-            signing_key=self._signing_key()[0],
-        )
+            result = build_redirect_url(
+                idp_sso_url,
+                params,
+                signing_key=self._signing_key()[0],
+            )
+        self._mark_pending_request(request_id)
+        return result
 
     def parse_response(
         self,
         saml_response: str,
         *,
         binding: str = "post",
+        expected_in_response_to: str | None = None,
         **kwargs: Any,
     ) -> SAMLResponse:
         """Parse and validate a SAML Response from an IdP.
@@ -319,7 +490,9 @@ class SAML(BaseSAML, metaclass=ConfigMeta):
         Args:
             saml_response: Raw SAMLResponse (Base64 POST or query-string).
             binding: ``"post"`` or ``"redirect"``.
-            **kwargs: audience, issuer, verify_signature.
+            expected_in_response_to: AuthnRequest ID stored for this login flow.
+            **kwargs: audience, issuer, acs_url, verify_signature, and
+                allow_unsolicited.
 
         Returns:
             SAMLResponse with parsed assertion data.
@@ -340,7 +513,35 @@ class SAML(BaseSAML, metaclass=ConfigMeta):
         destination = root.get("Destination")
         in_response_to = root.get("InResponseTo")
 
-        self._check_replay(response_id)
+        with self._id_store_lock:
+            self._assert_not_replayed(response_id)
+        allow_unsolicited = kwargs.get(
+            "allow_unsolicited", self._allow_unsolicited
+        )
+        self._validate_response_correlation(
+            in_response_to,
+            expected_in_response_to=expected_in_response_to,
+            allow_unsolicited=allow_unsolicited,
+        )
+
+        expected_acs = kwargs.get("acs_url") or self._acs_url
+        if not expected_acs:
+            raise JamConfigurationError(
+                message=(
+                    "SAML response validation requires an expected ACS URL."
+                ),
+                error_code="configuration.saml.missing_acs_url",
+            )
+        if destination != expected_acs:
+            raise JamSAMLInvalidDestination(
+                details={
+                    "reason": (
+                        "missing_destination"
+                        if destination is None
+                        else "destination_mismatch"
+                    )
+                }
+            )
 
         status_code = _parse_status(root)
 
@@ -366,6 +567,7 @@ class SAML(BaseSAML, metaclass=ConfigMeta):
         if assertion_elem is not None:
             assertion_data = self._parse_assertion(
                 assertion_elem,
+                in_response_to,
                 **kwargs,
             )
 
@@ -383,11 +585,34 @@ class SAML(BaseSAML, metaclass=ConfigMeta):
         if expected_issuer and response_iss != expected_issuer:
             raise JamSAMLInvalidIssuer
 
+        if assertion_data is None:
+            raise JamSAMLValidationError(
+                message="SAML response has no signed assertion."
+            )
+
+        assertion_id = assertion_data.id
+        assertion_in_response_to = None
+        if assertion_data.subject is not None:
+            confirmation_data = assertion_data.subject.subject_confirmation_data
+            if confirmation_data is not None:
+                assertion_in_response_to = confirmation_data.get("InResponseTo")
+        if assertion_in_response_to != in_response_to:
+            raise JamSAMLResponseCorrelationError(
+                details={"reason": "assertion_in_response_to_mismatch"}
+            )
+
+        self._consume_response_state(
+            response_id,
+            assertion_id,
+            in_response_to,
+            expires_at=self._response_replay_expiry(assertion_data),
+        )
         return result
 
     def _parse_assertion(
         self,
         assertion_elem: ET.Element,
+        response_in_response_to: str | None,
         **kwargs: Any,
     ) -> SAMLAssertionData:
         assertion_id = assertion_elem.get("ID", "")
@@ -412,6 +637,98 @@ class SAML(BaseSAML, metaclass=ConfigMeta):
         skew = timedelta(seconds=self._allowed_clock_skew)
         now = datetime.now(timezone.utc)
 
+        if subject is None:
+            raise JamSAMLValidationError(
+                message="SAML assertion requires bearer subject confirmation."
+            )
+
+        expected_acs = kwargs.get("acs_url") or self._acs_url
+        if not expected_acs:
+            raise JamConfigurationError(
+                message=(
+                    "SAML assertion validation requires an expected ACS URL."
+                ),
+                error_code="configuration.saml.missing_acs_url",
+            )
+        bearer_confirmations = [
+            confirmation
+            for confirmation in subject.confirmations
+            if confirmation.method == CM_BEARER
+        ]
+        if not bearer_confirmations:
+            raise JamSAMLValidationError(
+                message="SAML assertion requires bearer subject confirmation."
+            )
+
+        confirmation_data = None
+        first_confirmation_error: Exception | None = None
+        for confirmation in bearer_confirmations:
+            try:
+                candidate = confirmation.data
+                if candidate is None:
+                    raise JamSAMLValidationError(
+                        message="SAML bearer confirmation data is missing."
+                    )
+                confirmation_not_before = candidate.get("NotBefore")
+                confirmation_not_on_or_after = candidate.get("NotOnOrAfter")
+                if not confirmation_not_on_or_after:
+                    raise JamSAMLValidationError(
+                        message=(
+                            "SAML bearer confirmation requires a "
+                            "NotOnOrAfter value."
+                        )
+                    )
+                try:
+                    parsed_confirmation_not_before = (
+                        parse_instant(confirmation_not_before)
+                        if confirmation_not_before
+                        else None
+                    )
+                    parsed_confirmation_expiry = parse_instant(
+                        confirmation_not_on_or_after
+                    )
+                except (TypeError, ValueError) as exc:
+                    raise JamSAMLValidationError(
+                        message=(
+                            "SAML bearer confirmation contains an "
+                            "invalid instant."
+                        )
+                    ) from exc
+                if (
+                    parsed_confirmation_not_before is not None
+                    and now + skew < parsed_confirmation_not_before
+                ):
+                    raise JamSAMLNotYetValid
+                if now - skew >= parsed_confirmation_expiry:
+                    raise JamSAMLExpired
+                if candidate.get("Recipient") != expected_acs:
+                    raise JamSAMLInvalidRecipient
+                if candidate.get("InResponseTo") != response_in_response_to:
+                    raise JamSAMLResponseCorrelationError(
+                        details={"reason": "assertion_in_response_to_mismatch"}
+                    )
+            except (
+                JamSAMLExpired,
+                JamSAMLInvalidRecipient,
+                JamSAMLNotYetValid,
+                JamSAMLResponseCorrelationError,
+                JamSAMLValidationError,
+            ) as exc:
+                if first_confirmation_error is None:
+                    first_confirmation_error = exc
+                continue
+            confirmation_data = candidate
+            subject.subject_confirmation_method = confirmation.method
+            subject.subject_confirmation_data = candidate
+            break
+
+        if confirmation_data is None:
+            if first_confirmation_error is not None:
+                raise first_confirmation_error
+            raise JamSAMLValidationError(
+                message="SAML assertion has no valid bearer confirmation."
+            )
+
         if conditions:
             if conditions.not_before and now + skew < conditions.not_before:
                 raise JamSAMLNotYetValid
@@ -421,16 +738,21 @@ class SAML(BaseSAML, metaclass=ConfigMeta):
             ):
                 raise JamSAMLExpired
 
-            expected_audience = kwargs.get("audience")
-            if expected_audience and conditions.audience_restriction:
-                if expected_audience not in conditions.audience_restriction:
-                    raise JamSAMLInvalidAudience
-
-        expected_acs = kwargs.get("acs_url") or self._acs_url
-        if expected_acs and subject and subject.subject_confirmation_data:
-            recipient = subject.subject_confirmation_data.get("Recipient")
-            if recipient and recipient != expected_acs:
-                raise JamSAMLInvalidRecipient
+        expected_audience = kwargs.get("audience") or self._entity_id
+        if not expected_audience:
+            raise JamConfigurationError(
+                message=(
+                    "SAML assertion validation requires an expected audience."
+                ),
+                error_code="configuration.saml.missing_audience",
+            )
+        restrictions = (
+            conditions.audience_restrictions if conditions is not None else []
+        )
+        if not restrictions or any(
+            expected_audience not in restriction for restriction in restrictions
+        ):
+            raise JamSAMLInvalidAudience
 
         expected_issuer = kwargs.get("issuer")
         if expected_issuer and issuer != expected_issuer:
@@ -762,22 +1084,23 @@ class SAML(BaseSAML, metaclass=ConfigMeta):
 
         self._sign_element(query)
 
-        self._mark_consumed(query_id)
         xml_str = ET.tostring(query, encoding="unicode")
 
         if binding == "post":
-            return encode_post(xml_str)
+            result = encode_post(xml_str)
+        else:
+            relay_state = kwargs.get("relay_state") or ""
+            params = {"SAMLRequest": encode_redirect(xml_str)}
+            if relay_state:
+                params["RelayState"] = relay_state
 
-        relay_state = kwargs.get("relay_state") or ""
-        params = {"SAMLRequest": encode_redirect(xml_str)}
-        if relay_state:
-            params["RelayState"] = relay_state
-
-        return build_redirect_url(
-            destination,
-            params,
-            signing_key=self._signing_key()[0],
-        )
+            result = build_redirect_url(
+                destination,
+                params,
+                signing_key=self._signing_key()[0],
+            )
+        self._mark_pending_request(query_id)
+        return result
 
     def parse_attribute_query(
         self,
@@ -1918,24 +2241,29 @@ def _parse_subject(assertion_elem: ET.Element) -> SAMLSubject | None:
         else NAMEID_UNSPECIFIED
     )
 
-    subj_conf = subj.find(f"{{{NS_SAML}}}SubjectConfirmation")
-    scm = (
-        subj_conf.get("Method", CM_BEARER)
-        if subj_conf is not None
-        else CM_BEARER
-    )
-    scd = (
-        subj_conf.find(f"{{{NS_SAML}}}SubjectConfirmationData")
-        if subj_conf is not None
-        else None
-    )
-    scd_data = scd.attrib if scd is not None else None
+    confirmations = []
+    for subj_conf in subj.findall(f"{{{NS_SAML}}}SubjectConfirmation"):
+        scd = subj_conf.find(f"{{{NS_SAML}}}SubjectConfirmationData")
+        confirmations.append(
+            SAMLSubjectConfirmation(
+                method=subj_conf.get("Method"),
+                data=dict(scd.attrib) if scd is not None else None,
+            )
+        )
+    first_confirmation = confirmations[0] if confirmations else None
 
     return SAMLSubject(
         name_id=name_id_text,
         format=name_id_format,
-        subject_confirmation_method=scm,
-        subject_confirmation_data=scd_data,
+        subject_confirmation_method=(
+            first_confirmation.method
+            if first_confirmation is not None
+            else None
+        ),
+        subject_confirmation_data=(
+            first_confirmation.data if first_confirmation is not None else None
+        ),
+        confirmations=confirmations,
     )
 
 
@@ -1947,17 +2275,23 @@ def _parse_conditions(assertion_elem: ET.Element) -> SAMLConditions | None:
     nb = conds.get("NotBefore")
     noa = conds.get("NotOnOrAfter")
 
-    audience_restriction = []
-    ar = conds.find(f"{{{NS_SAML}}}AudienceRestriction")
-    if ar is not None:
+    audience_restrictions: list[list[str]] = []
+    for ar in conds.findall(f"{{{NS_SAML}}}AudienceRestriction"):
+        restriction: list[str] = []
         for aud in ar.findall(f"{{{NS_SAML}}}Audience"):
             if aud.text:
-                audience_restriction.append(aud.text)
+                restriction.append(aud.text)
+        audience_restrictions.append(restriction)
 
     return SAMLConditions(
         not_before=parse_instant(nb) if nb else None,
         not_on_or_after=parse_instant(noa) if noa else None,
-        audience_restriction=audience_restriction,
+        audience_restriction=[
+            audience
+            for restriction in audience_restrictions
+            for audience in restriction
+        ],
+        audience_restrictions=audience_restrictions,
     )
 
 

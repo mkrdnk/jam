@@ -8,6 +8,7 @@ from typing import Any
 
 
 __all__ = [
+    "SAMLSubjectConfirmation",
     "SAMLSubject",
     "SAMLConditions",
     "SAMLAuthnStatement",
@@ -26,13 +27,22 @@ __all__ = [
 
 
 @dataclass
+class SAMLSubjectConfirmation:
+    """One SAML subject confirmation method and its constraint data."""
+
+    method: str | None
+    data: dict[str, Any] | None = None
+
+
+@dataclass
 class SAMLSubject:
     """SAML assertion subject (NameID + confirmation)."""
 
     name_id: str
     format: str = "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified"
-    subject_confirmation_method: str = "urn:oasis:names:tc:SAML:2.0:cm:bearer"
+    subject_confirmation_method: str | None = None
     subject_confirmation_data: dict[str, Any] | None = None
+    confirmations: list[SAMLSubjectConfirmation] = field(default_factory=list)
 
 
 @dataclass
@@ -42,6 +52,7 @@ class SAMLConditions:
     not_before: datetime | None = None
     not_on_or_after: datetime | None = None
     audience_restriction: list[str] = field(default_factory=list)
+    audience_restrictions: list[list[str]] = field(default_factory=list)
 
 
 @dataclass
