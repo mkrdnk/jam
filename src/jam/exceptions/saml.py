@@ -48,6 +48,20 @@ class JamSAMLValidationError(JamValidationError):
     default_code = "saml.validation.assertion_error"
 
 
+class JamSAMLResponseCorrelationError(JamValidationError):
+    """Raised when a SAML response is not bound to a pending request."""
+
+    default_message = "SAML response correlation failed."
+    default_code = "saml.response_correlation_failed"
+
+
+class JamSAMLInvalidDestination(JamValidationError):
+    """Raised when a SAML response targets an unexpected destination."""
+
+    default_message = "SAML response destination validation failed."
+    default_code = "saml.invalid_destination"
+
+
 class JamSAMLInvalidRecipient(JamError):
     default_message = (
         "SAML assertion SubjectConfirmationData Recipient "
@@ -57,7 +71,9 @@ class JamSAMLInvalidRecipient(JamError):
 
 
 class JamSAMLReplayDetected(JamError):
-    default_message = "SAML message ID has already been consumed (replay attack)."
+    default_message = (
+        "SAML message ID has already been consumed (replay attack)."
+    )
     default_code = "saml.replay_detected"
 
 
