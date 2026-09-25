@@ -24,6 +24,7 @@ from jam.exceptions import (
     JamSessionNotYetValid,
     JamValidationError,
 )
+from jam.paseto.utils import _format_registered_datetime
 from jam.plugins.__base__ import BasePlugin
 from jam.subject import BaseSubject
 from jam.utils.config_maker import __config_maker__, __module_loader__
@@ -780,10 +781,11 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
         """Encode a payload with the configured PASETO module."""
         paseto = self.paseto
         data = dict(payload)
+        now = int(time.time())
         if exp is not None:
-            data["exp"] = int(time.time()) + exp
+            data["exp"] = _format_registered_datetime(now + exp)
         if nbf is not None:
-            data["nbf"] = int(time.time()) + nbf
+            data["nbf"] = _format_registered_datetime(now + nbf)
         if iss is not None:
             data["iss"] = iss
         if aud is not None:
