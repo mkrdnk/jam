@@ -17,6 +17,7 @@ from jam.exceptions import (
     JamConfigurationError,
     JamJWTInBlackList,
     JamJWTNotInWhiteList,
+    JamPASETONotYetValid,
     JamSessionExpired,
     JamSessionNotYetValid,
     JamTokenInDenyList,
@@ -196,6 +197,32 @@ async def test_paseto_async_denylist():
     await jam.paseto_list.add(token)
 
     with pytest.raises(JamJWTInBlackList):
+        await jam.authenticate(token, via="paseto")
+
+
+@pytest.mark.asyncio
+async def test_paseto_async_facade_enforces_nbf(monkeypatch):
+    now = 1_700_000_000
+    monkeypatch.setattr("jam.__core__.time.time", lambda: now)
+    jam = AsyncJam(
+        config={
+            "paseto": {
+                "version": "v4",
+                "purpose": "local",
+                "secret_key": generate_symmetric_key(32),
+            }
+        }
+    )
+
+    token = await jam.issue(
+        {"id": "user123"},
+        via="paseto",
+        nbf=60,
+    )
+    payload, _ = jam.paseto.decode(token, validate_claims=False)
+
+    assert payload["nbf"] == "2023-11-14T22:14:20Z"
+    with pytest.raises(JamPASETONotYetValid):
         await jam.authenticate(token, via="paseto")
 
 

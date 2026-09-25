@@ -16,6 +16,7 @@ from jam.exceptions import (
     JamConfigurationError,
     JamJWTExpired,
     JamJWTInBlackList,
+    JamPASETOExpired,
     JamSessionExpired,
     JamSessionInvalidClaim,
     JamSessionNotYetValid,
@@ -119,6 +120,37 @@ def test_paseto_denylist_through_facade():
     jam.paseto_list.add(token)
 
     with pytest.raises(JamJWTInBlackList):
+        jam.authenticate(token, via="paseto")
+
+
+def test_paseto_facade_issues_rfc3339_claims_and_rejects_expiration(
+    monkeypatch,
+):
+    now = 1_700_000_000
+    monkeypatch.setattr("jam.__core__.time.time", lambda: now)
+    jam = Jam(
+        config={
+            "paseto": {
+                "version": "v4",
+                "purpose": "local",
+                "secret_key": generate_symmetric_key(32),
+            }
+        }
+    )
+
+    token = jam.issue(
+        {"id": "user123"},
+        via="paseto",
+        exp=60,
+        nbf=-60,
+    )
+    payload, _ = jam.paseto.decode(token, validate_claims=False)
+
+    assert payload["exp"] == "2023-11-14T22:14:20Z"
+    assert payload["nbf"] == "2023-11-14T22:12:20Z"
+
+    monkeypatch.setattr("jam.__core__.time.time", lambda: now + 61)
+    with pytest.raises(JamPASETOExpired):
         jam.authenticate(token, via="paseto")
 
 

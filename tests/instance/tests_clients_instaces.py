@@ -3,7 +3,7 @@
 import pytest
 from pytest_asyncio import fixture
 
-from jam.exceptions import JamJWSVerificationError
+from jam.exceptions import JamJWSVerificationError, JamPASETOExpired
 from jam.tests import TestAsyncJam, TestJam
 from jam.tests.fakers import invalid_token
 
@@ -79,6 +79,19 @@ def test_client_exposes_current_module_api():
         "refresh_token": "test-refresh-token",
         "token_type": "bearer",
     }
+
+
+def test_client_paseto_enforces_registered_claims():
+    client = TestJam()
+    token = client.paseto.encode(
+        {"id": "user-1", "exp": "2000-01-01T00:00:00Z"}
+    )
+
+    with pytest.raises(JamPASETOExpired):
+        client.authenticate(token, via="paseto")
+
+    payload, _ = client.paseto.decode(token, validate_claims=False)
+    assert payload["id"] == "user-1"
 
 
 @pytest.mark.asyncio
