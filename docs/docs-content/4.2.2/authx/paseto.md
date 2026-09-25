@@ -51,8 +51,15 @@ principal = jam.authenticate(token, via="paseto")
 print(principal.subject["role"])
 >>> admin
 print(principal.claims["exp"])
->>> 1772132706
+>>> 2026-02-26T22:05:06Z
 ```
+
+`exp` and `nbf` passed to `jam.issue` are relative durations in seconds.
+PASETO stores the resulting instants as RFC 3339 UTC DateTime strings, as
+required by the PASETO registered-claims specification.
+
+Authentication validates both claims by default. A token is rejected after
+its `exp` instant or before its `nbf` instant.
 
 #### Access the module directly
 
@@ -139,6 +146,8 @@ Args:
 * `implicit_assertion`: `bytes | str = b""` - Assertion that must match the
   value used while encoding a v3 or v4 token.
 * `serializer`: `type[BaseEncoder] | BaseEncoder = JamEncoder` - JSON serializer.
+* `validate_claims`: `bool = True` - Validate `exp` and `nbf` after
+  cryptographic verification.
 
 Returns:
 
@@ -147,8 +156,7 @@ Returns:
 ```python
 payload, footer = paseto.decode(
     token=token,
-    check_exp=True,
-    check_list=False
+    validate_claims=True,
 )
 print(payload)
 >>> {
@@ -157,6 +165,30 @@ print(payload)
     }
 print(footer)
 >>> "some_footer_as_string"
+```
+
+PASETO `exp` and `nbf` values are RFC 3339 DateTime strings:
+
+```python
+token = paseto.encode(
+    {
+        "id": 1,
+        "exp": "2039-01-01T00:00:00Z",
+        "nbf": "2038-12-31T23:00:00+00:00",
+    }
+)
+payload, footer = paseto.decode(token)
+```
+
+Malformed claim values fail closed with `JamPASETOInvalidClaim`. Jam accepts
+finite numeric Unix timestamps while decoding tokens issued by older Jam
+versions, but newly issued PASETO credentials use RFC 3339.
+
+Use `validate_claims=False` only when an application needs to inspect an
+authenticated token regardless of its validity window:
+
+```python
+payload, footer = paseto.decode(token, validate_claims=False)
 ```
 
 ### Implicit assertions

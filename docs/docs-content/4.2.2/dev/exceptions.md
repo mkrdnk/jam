@@ -160,6 +160,9 @@ Import these exceptions from `jam.exceptions`.
 | `JamPASETOInvalidTokenFormat` | `paseto.validation.invalid_token_format` | The token has an invalid PASETO format. |
 | `JamPASETOKeyVerificationError` | `paseto.key_verification_failed` | PASETO key verification failed. |
 | `JamPASETOImplicitAssertionUnsupported` | `paseto.validation.implicit_assertion_unsupported` | A non-empty implicit assertion was supplied to PASETO v1 or v2. |
+| `JamPASETOExpired` | `paseto.token_expired` | The token has passed its `exp` DateTime. |
+| `JamPASETONotYetValid` | `paseto.token_not_yet_valid` | The token is not valid yet according to its `nbf` DateTime. |
+| `JamPASETOInvalidClaim` | `paseto.invalid_claim` | An `exp` or `nbf` claim is not an RFC 3339 DateTime or finite legacy NumericDate. |
 
 `JamPASETOInvalidTokenFormat` may provide a more specific validation code:
 
