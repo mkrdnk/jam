@@ -32,6 +32,7 @@ from jam.jose.utils import (
 from jam.jose.utils import (
     __base64url_encode__ as base64url_encode,
 )
+from jam.paseto.utils import _validate_registered_claims
 from jam.subject import BaseSubject
 
 
@@ -271,7 +272,11 @@ class FakePaseto:
         return token
 
     def decode(
-        self, token: str, serializer: Any = None
+        self,
+        token: str,
+        serializer: Any = None,
+        implicit_assertion: bytes | str = b"",
+        validate_claims: bool = True,
     ) -> tuple[dict[str, Any], Any]:
         """Decode a test PASETO token."""
         try:
@@ -288,6 +293,8 @@ class FakePaseto:
                     footer = footer_bytes.decode()
             if not isinstance(payload, dict):
                 raise ValueError
+            if validate_claims:
+                _validate_registered_claims(payload)
             return payload, footer
         except (
             binascii.Error,
