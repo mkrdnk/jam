@@ -151,6 +151,7 @@ class Jam(BaseJam):
         via: JamAuthType,
         *,
         discharges: Sequence[str | bytes] | None = None,
+        expected_in_response_to: str | None = None,
     ) -> Principal[Any]:
         """Authenticate a token or session and return a subject.
 
@@ -159,6 +160,7 @@ class Jam(BaseJam):
             via (JamAuthType): Token type: "jwt", "jwe", "paseto",
                 "session", "macaroon", or "saml".
             discharges: Bound discharges for third-party caveats.
+            expected_in_response_to: Pending AuthnRequest ID for SAML.
 
         Returns:
             Principal: Authenticated subject and credential claims.
@@ -184,7 +186,10 @@ class Jam(BaseJam):
                 payload, _footer = self.paseto.decode(token)
             case "saml":
                 self._check_token_list(self._saml_list, token)
-                payload = self._authenticate_saml(token)
+                payload = self._authenticate_saml(
+                    token,
+                    expected_in_response_to=expected_in_response_to,
+                )
             case "session":
                 data = self.session.get(token)
                 if data is None:

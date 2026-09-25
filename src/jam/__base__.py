@@ -88,6 +88,7 @@ class BaseJam(_JamCore[BaseSessionModule, BaseOAuth2Client], ABC):
         via: JamAuthType,
         *,
         discharges: Sequence[str | bytes] | None = None,
+        expected_in_response_to: str | None = None,
     ) -> Principal[Any]:
         """Authenticate a token or session and return a subject.
 
@@ -96,6 +97,7 @@ class BaseJam(_JamCore[BaseSessionModule, BaseOAuth2Client], ABC):
             via (JamAuthType): Token type: "jwt", "jwe", "paseto",
                 "session", "macaroon", or "saml".
             discharges: Bound discharges for third-party caveats.
+            expected_in_response_to: Pending AuthnRequest ID for SAML.
 
         Returns:
             Principal: Authenticated subject and credential claims.

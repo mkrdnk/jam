@@ -62,6 +62,7 @@ class BaseAsyncJam(
         via: JamAuthType,
         *,
         discharges: Sequence[str | bytes] | None = None,
+        expected_in_response_to: str | None = None,
     ) -> Principal[Any]:
         """Authenticate a token or session."""
         raise NotImplementedError

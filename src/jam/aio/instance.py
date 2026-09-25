@@ -105,6 +105,7 @@ class AsyncJam(BaseAsyncJam):
         via: JamAuthType,
         *,
         discharges: Sequence[str | bytes] | None = None,
+        expected_in_response_to: str | None = None,
     ) -> Principal[Any]:
         """Authenticate a token or session and return its principal."""
         constraints = ()
@@ -125,7 +126,10 @@ class AsyncJam(BaseAsyncJam):
                 payload, _footer = self.paseto.decode(token)
             case "saml":
                 await self._check_token_list(self._saml_list, token)
-                payload = self._authenticate_saml(token)
+                payload = self._authenticate_saml(
+                    token,
+                    expected_in_response_to=expected_in_response_to,
+                )
             case "session":
                 data = await self.session.get(token)
                 if data is None:

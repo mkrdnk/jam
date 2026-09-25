@@ -808,6 +808,7 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
         saml_config = (self.config or {}).get("saml") or {}
         issuer = iss or saml_config.get("entity_id")
         audience = aud or saml_config.get("audience")
+        destination = saml_config.get("acs_url")
         if not issuer:
             raise JamConfigurationError(
                 message="SAML issuance requires 'iss' or 'saml.entity_id'.",
@@ -817,6 +818,11 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
             raise JamConfigurationError(
                 message="SAML issuance requires 'aud' or 'saml.audience'.",
                 error_code="configuration.saml.missing_audience",
+            )
+        if not destination:
+            raise JamConfigurationError(
+                message="SAML issuance requires 'saml.acs_url'.",
+                error_code="configuration.saml.missing_acs_url",
             )
 
         attributes = dict(payload)
@@ -831,13 +837,19 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
             attributes=attributes,
             issuer=issuer,
             audience=audience,
+            destination=destination,
             expires_in=exp,
             not_before=nbf,
             assertion_id=jti,
         )
         return encode_post(response)
 
-    def _authenticate_saml(self, token: str) -> dict[str, Any]:
+    def _authenticate_saml(
+        self,
+        token: str,
+        *,
+        expected_in_response_to: str | None = None,
+    ) -> dict[str, Any]:
         """Validate a SAML response and convert its assertion to claims."""
         from jam.exceptions import JamSAMLValidationError
         from jam.saml.xml import STATUS_SUCCESS
@@ -850,6 +862,7 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
             audience=saml_config.get("audience")
             or saml_config.get("entity_id"),
             issuer=saml_config.get("expected_issuer"),
+            expected_in_response_to=expected_in_response_to,
         )
         assertion = response.assertion
         if (
