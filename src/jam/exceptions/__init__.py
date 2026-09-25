@@ -31,7 +31,9 @@ from .oauth2 import (
     JamOAuth2ProviderNotConfigured,
 )
 from .paseto import (
+    JamPASETOExpired,
     JamPASETOImplicitAssertionUnsupported,
+    JamPASETOInvalidClaim,
     JamPASETOInvalidED25519Key,
     JamPASETOInvalidPurpose,
     JamPASETOInvalidRSAKey,
@@ -39,6 +41,7 @@ from .paseto import (
     JamPASETOInvalidSymmetricKey,
     JamPASETOInvalidTokenFormat,
     JamPASETOKeyVerificationError,
+    JamPASETONotYetValid,
 )
 from .plugins import (
     JamFlaskPluginConfigError,
@@ -103,6 +106,9 @@ __all__ = [
     "JamPASETOInvalidSecp384r1Key",
     "JamPASETOInvalidPurpose",
     "JamPASETOImplicitAssertionUnsupported",
+    "JamPASETOExpired",
+    "JamPASETONotYetValid",
+    "JamPASETOInvalidClaim",
     "JamPASETOInvalidTokenFormat",
     "JamPASETOKeyVerificationError",
     "JamLitestarPluginConfigError",
