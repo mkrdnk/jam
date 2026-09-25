@@ -200,6 +200,8 @@ are also exported from `jam.exceptions`.
 | `JamSAMLEmptyPublicKey` | `saml.config.empty_public_key` | A public key required for SAML verification is missing. |
 | `JamSAMLUnsupportedAlgorithm` | `saml.config.unsupported_algorithm` | The configured SAML algorithm is unsupported. |
 | `JamSAMLValidationError` | `saml.validation.assertion_error` | SAML assertion validation failed. |
+| `JamSAMLResponseCorrelationError` | `saml.response_correlation_failed` | The response does not match a pending AuthnRequest. |
+| `JamSAMLInvalidDestination` | `saml.invalid_destination` | The response destination does not match the expected ACS URL. |
 | `JamSAMLInvalidRecipient` | `saml.invalid_recipient` | The assertion recipient does not match the expected ACS URL. |
 | `JamSAMLReplayDetected` | `saml.replay_detected` | A previously consumed SAML message ID was reused. |
 | `JamSAMLSOAPError` | `saml.soap_error` | SAML SOAP or artifact resolution failed. |

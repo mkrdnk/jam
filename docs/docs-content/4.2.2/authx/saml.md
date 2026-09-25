@@ -48,12 +48,17 @@ Args:
   IdP to verify protocol messages.
 * `encryption_key`: `str | None` - SP public key used by an IdP to encrypt
   assertions.
-* `acs_url`: `str | None` - SP Assertion Consumer Service URL.
+* `acs_url`: `str | None` - SP Assertion Consumer Service URL. Required by an
+  SP as its expected destination and by facade-based IdP issuance as the target
+  destination.
 * `sso_url`: `str | None` - IdP Single Sign-On URL.
 * `default_exp`: `int = 300` - Default assertion lifetime in seconds.
 * `allowed_clock_skew`: `int = 120` - Clock skew tolerance in seconds.
 * `want_assertions_signed`: `bool = True` - Require signed assertions.
-* `replay_ttl`: `int = 300` - Retention period for consumed message IDs.
+* `allow_unsolicited`: `bool = False` - Accept IdP-initiated responses without
+  a matching pending AuthnRequest. Keep this disabled for SP-initiated SSO.
+* `replay_ttl`: `int = 300` - Retention period for consumed IDs and pending
+  requests.
 * `keychain`: `str | None` - Name of a KeyChain used instead of a fixed
   signing or verification key.
 * `list`: `str | dict[str, Any] | None` - Named or inline token list.
@@ -67,6 +72,7 @@ role = "idp"
 list = "credentials"
 entity_id = "https://idp.example.com"
 audience = "https://sp.example.com"
+acs_url = "https://sp.example.com/acs"
 private_key = "path/to/idp_private_key.pem"
 certificate = "path/to/idp_cert.pem"
 ```
@@ -121,6 +127,11 @@ token = idp.issue(
 )
 ```
 
+`Jam.issue(..., via="saml")` creates an IdP-initiated response without an
+`InResponseTo` value. An SP accepts this flow only when its configuration
+explicitly sets `allow_unsolicited = true`. The safer default requires the
+SP-initiated flow described below.
+
 #### Authenticate a SAML response
 
 Method: `jam.authenticate` with `via="saml"`
@@ -128,13 +139,28 @@ Method: `jam.authenticate` with `via="saml"`
 Args:
 
 * `token`: `str` - Base64-encoded HTTP-POST `SAMLResponse`.
+* `expected_in_response_to`: `str | None` - AuthnRequest ID saved in the
+  current browser's login session. Required for SP-initiated SSO.
 
 Returns:
 
 `Principal`: Authenticated subject, assertion claims and token type.
 
 ```python
-principal = sp.authenticate(token, via="saml")
+import secrets
+
+request_id = "_" + secrets.token_urlsafe(32)
+redirect_url = sp.saml.prepare_authn_request(
+    "https://idp.example.com/sso",
+    request_id=request_id,
+)
+# Save request_id in the current browser's server-side login session, then
+# redirect to redirect_url. At the ACS endpoint:
+principal = sp.authenticate(
+    token,
+    via="saml",
+    expected_in_response_to=request_id_from_session,
+)
 print(principal.subject["id"])
 >>> user-123
 print(principal.claims["email"])
@@ -142,9 +168,19 @@ print(principal.claims["email"])
 ```
 
 Authentication validates the response status, signature, configured issuer,
-audience and recipient, time conditions, and replay protection. Claims
-include `sub`, `iss`, `aud`, `jti`, `nbf`, `exp`, permissions and assertion
-attributes.
+destination, audience and recipient, time conditions, and replay protection.
+SP authentication requires both an expected audience (`audience` or
+`entity_id`) and an expected ACS URL; missing expectations are configuration
+errors rather than disabling validation.
+By default, both response and assertion `InResponseTo` values must match the
+exact AuthnRequest ID supplied from the current login session, and that request
+can be consumed only once. Finding the ID in a shared pending-request store is
+not sufficient. Claims include `sub`, `iss`, `aud`, `jti`, `nbf`, `exp`,
+permissions and assertion attributes.
+
+For an explicitly enabled IdP-initiated flow, set `allow_unsolicited = true`
+in the SP's `[jam.saml]` configuration and omit
+`expected_in_response_to`. Do not enable this setting for SP-initiated SSO.
 
 #### Use the async facade
 
@@ -157,6 +193,11 @@ sp = AsyncJam(config="sp.toml")
 token = await idp.issue({"id": "user-123"}, via="saml")
 principal = await sp.authenticate(token, via="saml")
 ```
+
+This async example is IdP-initiated and therefore requires
+`allow_unsolicited = true` in the SP configuration. For SP-initiated SSO,
+pass the login session's request ID as
+`expected_in_response_to`, as in the synchronous example.
 
 #### Use a KeyChain
 
@@ -216,7 +257,8 @@ Args:
 * `public_key`: `str | None` - PEM string or path to the public key / certificate (used for verification).
 * `certificate`: `str | None` - PEM certificate string (included in metadata and signatures).
 * `entity_id`: `str | None` - Entity ID of this party.
-* `acs_url`: `str | None` - Assertion Consumer Service URL (SP role).
+* `acs_url`: `str | None` - Assertion Consumer Service URL expected by an SP
+  or targeted by IdP facade issuance.
 * `sso_url`: `str | None` - Single Sign-On URL (IdP role).
 * `idp_public_key`: `str | None` - IdP public key for signature verification (SP role).
 * `sp_public_key`: `str | None` - SP public key for signature verification (IdP role).
@@ -224,8 +266,15 @@ Args:
 * `default_exp`: `int = 300` - Default assertion lifetime in seconds.
 * `allowed_clock_skew`: `int = 120` - Clock skew tolerance in seconds.
 * `want_assertions_signed`: `bool = True` - Require signed assertions (SP role).
-* `id_store`: `dict | None` - Dict for replay protection. Auto-created if `None`.
-* `replay_ttl`: `int = 300` - Seconds before a consumed ID is eligible for cleanup.
+* `allow_unsolicited`: `bool = False` - Explicitly enable IdP-initiated SSO
+  without AuthnRequest correlation.
+* `id_store`: `dict | None` - Mapping of message IDs to expiry timestamps for
+  replay protection. Auto-created if `None`.
+* `id_store_lock`: lock-like object or `None` - Lock shared by all instances
+  that use the same in-process `id_store`. Required when `id_store` is passed.
+* `replay_ttl`: `int = 300` - Seconds before consumed IDs and pending requests
+  are eligible for cleanup. Accepted response and assertion IDs remain stored
+  through their complete assertion acceptance window when it is longer.
 * `keychain`: `BaseKeyChain | None` - Key lifecycle manager for signing and verification.
 * `config`: `str | dict[str, Any] | None` - Selected SAML config or config file path.
 * `pointer`: `str | None` - Config pointer; defaults to `jam.saml`.
@@ -239,6 +288,7 @@ idp = SAML(
     certificate="path/to/idp_cert.pem",
     entity_id="https://idp.example.com",
     sso_url="https://idp.example.com/sso",
+    acs_url="https://sp.example.com/acs",
 )
 
 sp = SAML(
@@ -307,6 +357,9 @@ Args:
 * `idp_sso_url`: `str` - IdP single sign-on endpoint URL.
 * `acs_url`: `str | None` - SP assertion consumer service URL (defaults to the instance `acs_url`).
 * `binding`: `str = "redirect"` - `"redirect"` or `"post"`.
+* `request_id`: `str | None` - Caller-generated request ID. Save this in the
+  current browser's server-side login session. A random ID is generated when
+  omitted, but is not returned separately.
 * `**kwargs` - `relay_state`, `issuer`, `force_authn`, etc.
 
 Returns:
@@ -316,11 +369,16 @@ Returns:
 Redirect binding:
 
 ```python
+import secrets
+
+request_id = "_" + secrets.token_urlsafe(32)
 url = sp.prepare_authn_request(
     idp_sso_url="https://idp.example.com/sso",
     acs_url="https://sp.example.com/acs",
     binding="redirect",
+    request_id=request_id,
 )
+# Save request_id in the current browser's server-side login session.
 print(url)
 >>> https://idp.example.com/sso?SAMLRequest=...&SigAlg=http%3A%2F%2Fwww.w3.org%2F2001%2F04%2Fxmldsig-more%23rsa-sha256&Signature=...
 ```
@@ -343,15 +401,25 @@ Args:
 
 * `saml_response`: `str` - Raw SAMLResponse data (Base64 for POST, query-string for Redirect).
 * `binding`: `str = "post"` - `"post"` or `"redirect"`.
+* `expected_in_response_to`: `str | None` - AuthnRequest ID loaded from the
+  current browser's login session.
 * `**kwargs`:
   * `audience`: `str` - Expected audience (SP entity ID).
   * `issuer`: `str` - Expected issuer (IdP entity ID).
   * `acs_url`: `str` - Expected Recipient (ACS URL).
   * `verify_signature`: `bool` - Override `want_assertions_signed`.
+  * `allow_unsolicited`: `bool` - Per-call override for IdP-initiated SSO.
 
 Returns:
 
 `SAMLResponse` - Parsed response with the assertion data.
+
+Pass the exact AuthnRequest ID associated with the current browser session.
+The ID must also be present and unconsumed in the SP's `id_store`. When several
+SP instances share an in-process store, they must share the same
+`id_store_lock`; a distributed deployment must provide equivalent atomic
+consume semantics. Responses without a correlated `InResponseTo` are rejected
+unless `allow_unsolicited` is explicitly enabled.
 
 ```python
 from jam.saml.binding import encode_post
@@ -361,6 +429,7 @@ saml_response = sp.parse_response(
     binding="post",
     audience="https://sp.example.com",
     issuer="https://idp.example.com",
+    expected_in_response_to=request_id_from_session,
 )
 
 print(saml_response.status_code)
@@ -1015,15 +1084,24 @@ Expired or not-yet-valid assertions are rejected. The `allowed_clock_skew`
 #### Replay protection
 
 Every incoming message ID is checked against the `id_store` before being
-consumed, which raises `JamSAMLReplayDetected` on duplicate IDs. Pass your own
-dict to share state between instances or processes:
+consumed, which raises `JamSAMLReplayDetected` on duplicate IDs. Pass the same
+dictionary and lock to share in-process state between instances:
 
 ```python
+from threading import RLock
+
+shared_store = {}
+shared_lock = RLock()
 sp = SAML(
     role="sp",
     id_store=shared_store,
+    id_store_lock=shared_lock,
 )
 ```
+
+A plain dictionary and `RLock` do not provide cross-process coordination.
+Distributed deployments must provide a mapping and lock with equivalent
+atomic, shared consume semantics.
 
 #### XXE protection
 
@@ -1038,9 +1116,11 @@ declarations, preventing XXE and entity-expansion attacks.
 | `JamSAMLExpired` | The assertion has expired. |
 | `JamSAMLNotYetValid` | The assertion is not yet valid. |
 | `JamSAMLInvalidAudience` | Audience validation failed. |
+| `JamSAMLInvalidDestination` | Response Destination does not match the expected ACS URL. |
 | `JamSAMLInvalidIssuer` | Issuer validation failed. |
 | `JamSAMLInvalidRecipient` | SubjectConfirmationData Recipient does not match the expected ACS URL. |
 | `JamSAMLReplayDetected` | The message ID has already been consumed (replay attack). |
+| `JamSAMLResponseCorrelationError` | Response or assertion does not match the current pending AuthnRequest. |
 | `JamSAMLSOAPError` | SOAP / artifact resolution failed. |
 | `JamSAMLValidationError` | Generic signature or XML validation failure. |
 | `JamSAMLEmptyPrivateKey` | Signing requires a `private_key`. |
