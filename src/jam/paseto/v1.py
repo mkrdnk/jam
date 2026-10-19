@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# type: ignore
 
 from typing import Any
 
@@ -76,6 +75,10 @@ class PASETOv1(LegacyAEADMixin, KeyLoadMixin, BasePASETO):
                 if isinstance(secret_key, str)
                 else secret_key
             )
+            if not isinstance(key_bytes, bytes):
+                raise JamPASETOInvalidRSAKey(
+                    message="Invalid public key material."
+                )
             priv, pub = self._load_key(
                 key_bytes, (RSAPrivateKey,), (RSAPublicKey,)
             )
@@ -100,6 +103,8 @@ class PASETOv1(LegacyAEADMixin, KeyLoadMixin, BasePASETO):
         implicit_assertion: bytes,
     ) -> bytes:
         """Encode a 'public' token."""
+        if not isinstance(self._secret, RSAPrivateKey):
+            raise JamPASETOInvalidRSAKey(message="RSA private key required.")
         header_b = header.encode("ascii")
         pre_auth = __pae__([header_b, payload, footer])
 
@@ -138,6 +143,8 @@ class PASETOv1(LegacyAEADMixin, KeyLoadMixin, BasePASETO):
                 error_code="paseto.validation.invalid_body",
             )
 
+        if not isinstance(self._public_key, RSAPublicKey):
+            raise JamPASETOInvalidRSAKey(message="RSA public key required.")
         key_size = self._public_key.key_size // 8
         if len(decoded) < key_size:
             raise JamPASETOInvalidTokenFormat(

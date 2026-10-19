@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# type: ignore
 
 import hashlib
 import hmac
@@ -33,6 +32,8 @@ class PASETOv4(KeyLoadMixin, BasePASETO):
 
     def _local_keys(self, nonce: bytes) -> tuple[bytes, bytes, bytes]:
         """Derive v4.local encryption, nonce and authentication keys."""
+        if not isinstance(self._secret, bytes):
+            raise JamPASETOInvalidSymmetricKey
         encryption = hashlib.blake2b(
             b"paseto-encryption-key" + nonce,
             key=self._secret,
@@ -95,7 +96,7 @@ class PASETOv4(KeyLoadMixin, BasePASETO):
 
     def _set_key(
         self,
-        secret_key: str | bytes | Ed25519PrivateKey,
+        secret_key: str | bytes | Ed25519PrivateKey | Ed25519PublicKey | None,
     ) -> None:
         """Process the key.
 
@@ -136,6 +137,10 @@ class PASETOv4(KeyLoadMixin, BasePASETO):
                 if isinstance(secret_key, str)
                 else secret_key
             )
+            if not isinstance(key_bytes, bytes):
+                raise JamPASETOInvalidED25519Key(
+                    message="Invalid public key material."
+                )
             priv, pub = self._load_key(
                 key_bytes, (Ed25519PrivateKey,), (Ed25519PublicKey,)
             )
@@ -194,7 +199,7 @@ class PASETOv4(KeyLoadMixin, BasePASETO):
             [header, payload, footer_decoded, implicit_assertion]
         )
 
-        if not self._public_key:
+        if not isinstance(self._public_key, Ed25519PublicKey):
             raise JamPASETOInvalidED25519Key(
                 message="Public key required for v4.public verification"
             )

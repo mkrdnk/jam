@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# type: ignore
 
 from typing import Any
 
@@ -68,6 +67,10 @@ class PASETOv2(XChaChaMixin, KeyLoadMixin, BasePASETO):
                 if isinstance(secret_key, str)
                 else secret_key
             )
+            if not isinstance(key_bytes, bytes):
+                raise JamPASETOInvalidED25519Key(
+                    message="Invalid public key material."
+                )
             priv, pub = self._load_key(
                 key_bytes, (Ed25519PrivateKey,), (Ed25519PublicKey,)
             )

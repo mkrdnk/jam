@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# type: ignore
 
 import hashlib
 import hmac
@@ -42,6 +41,8 @@ class PASETOv3(KeyLoadMixin, BasePASETO):
         implicit_assertion: bytes,
     ) -> bytes:
         """Encode a standards-compliant v3.local token."""
+        if not isinstance(self._secret, bytes):
+            raise JamPASETOInvalidSymmetricKey
         header_b = header.encode("ascii")
         nonce = secrets.token_bytes(32)
         encryption = HKDF(
@@ -76,6 +77,8 @@ class PASETOv3(KeyLoadMixin, BasePASETO):
         implicit_assertion: bytes,
     ) -> tuple[Any, Any]:
         """Decode a standards-compliant v3.local token."""
+        if not isinstance(self._secret, bytes):
+            raise JamPASETOInvalidSymmetricKey
         header, body_part, footer_part = self._parse_token(token, "local")
         body = base64url_decode(body_part)
         if len(body) < 80:
@@ -112,7 +115,14 @@ class PASETOv3(KeyLoadMixin, BasePASETO):
             footer, serializer
         )
 
-    def _set_key(self, secret_key: str | bytes) -> None:
+    def _set_key(
+        self,
+        secret_key: str
+        | bytes
+        | ec.EllipticCurvePrivateKey
+        | ec.EllipticCurvePublicKey
+        | None,
+    ) -> None:
         """Process the key.
 
         Args:
@@ -166,6 +176,10 @@ class PASETOv3(KeyLoadMixin, BasePASETO):
                 if isinstance(secret_key, str)
                 else secret_key
             )
+            if not isinstance(key_bytes, bytes):
+                raise JamPASETOInvalidSecp384r1Key(
+                    message="Invalid public key material."
+                )
             priv, pub = self._load_key(
                 key_bytes,
                 (ec.EllipticCurvePrivateKey,),
@@ -198,6 +212,8 @@ class PASETOv3(KeyLoadMixin, BasePASETO):
                 message="Private EC P-384 key required for v3.public signing"
             )
         header_b = header.encode("ascii")
+        if not isinstance(self._public_key, ec.EllipticCurvePublicKey):
+            raise JamPASETOInvalidSecp384r1Key
         public_numbers = self._public_key.public_numbers()
         compressed_public = bytes(
             [2 + (public_numbers.y & 1)]
@@ -243,6 +259,8 @@ class PASETOv3(KeyLoadMixin, BasePASETO):
             raise JamPASETOInvalidSecp384r1Key(
                 message="Public key required for v3.public verification"
             )
+        if not isinstance(self._public_key, ec.EllipticCurvePublicKey):
+            raise JamPASETOInvalidSecp384r1Key
         public_numbers = self._public_key.public_numbers()
         compressed_public = bytes(
             [2 + (public_numbers.y & 1)]
