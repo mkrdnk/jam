@@ -402,3 +402,26 @@ new_session_id = session.rework(
     session_id=session_id,
 )
 ```
+
+## Redis lifetime and concurrent writes
+
+`Jam` and `AsyncJam` use `ttl=3600` by default. The facade configuration
+also accepts the legacy `default_ttl` key; an explicit `ttl` wins when both
+are present, including `ttl=None`. The async Redis constructor retains its
+positional `default_ttl` argument and accepts keyword-only `ttl`.
+`None` and `0` disable storage expiration; other values must be positive
+integers. Invalid values raise `JamConfigurationError` with
+`configuration.session.invalid_ttl`.
+
+Creating, updating and rotating a Redis session use atomic Lua scripts.
+Redis ACLs must permit `EVAL` and the hash commands used by the backend;
+field expiration requires Redis 7.4 or newer (`HEXPIRE`). An update cannot
+recreate a session removed before that update executes. Concurrent rotations
+of the same ID have only one successful result. Updates and rotations restart
+the configured TTL. ID collisions raise `JamError` with
+`sessions.id_collision` without overwriting an existing session. Redis write failures raise
+`JamError` with `sessions.storage_error`, preserving the underlying cause.
+
+Existing stored sessions are not migrated: previously unbounded sessions
+keep their lifetime until updated, rotated or deleted. Set `ttl=None`
+explicitly when unlimited storage is intended.

@@ -254,3 +254,7 @@ Jam is licensed under the
 - `Jam.issue(..., via="jwe")` and `await AsyncJam.issue(..., via="jwe")`
   issue signed, encrypted credentials and register the outer token in a
   configured allowlist. JWE authentication enforces `jose.jwt.list`.
+- Redis sessions use `ttl=3600` in both facades. Set `ttl=None` explicitly
+  for unlimited storage. The legacy `default_ttl` facade key remains
+  supported; `ttl` takes precedence. Atomic session writes require `EVAL`
+  access; expiring hash fields require Redis 7.4+.

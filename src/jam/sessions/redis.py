@@ -14,10 +14,17 @@ except ImportError:
         "Redis module is not installed. Please install it with 'pip install jamlib[redis]'."
     )
 
+from redis.exceptions import RedisError
+
 from jam.encoders import BaseEncoder, JsonEncoder
-from jam.exceptions import JamSessionNotFound
+from jam.exceptions import JamError
 from jam.sessions.__base__ import BaseSessionModule
 from jam.sessions._codec import _normalize_session_payload
+from jam.sessions._redis import (
+    SESSION_WRITE,
+    _check_write_result,
+    _validate_ttl,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -64,6 +71,7 @@ class RedisSessions(BaseSessionModule):
             JamSessionEmptyAESKey: If 'is_session_crypt' is True and 'session_aes_secret' is not provided.
             ValueError: If the session type does not match the module type.
         """
+        _validate_ttl(ttl)
         self._resolve_session_type(session_type, sessions_type)
         super().__init__(
             id_factory=id_factory,
@@ -91,6 +99,22 @@ class RedisSessions(BaseSessionModule):
             logger.error("Redis ping failed: %s", e)
             return False
 
+    def _write(
+        self, namespace: str, operation: str, old: str, new: str, data: str
+    ) -> None:
+        """Execute a session mutation and translate storage failures."""
+        ttl = _validate_ttl(self.ttl) or 0
+        try:
+            result = self._redis.eval(
+                SESSION_WRITE, 1, namespace, operation, old, new, data, ttl
+            )
+        except RedisError as exc:
+            raise JamError(
+                message="Redis session write failed.",
+                error_code="sessions.storage_error",
+            ) from exc
+        _check_write_result(result)
+
     def create(self, session_key: str, data: dict) -> str:
         """Create a new session with the given session key and data.
 
@@ -113,20 +137,13 @@ class RedisSessions(BaseSessionModule):
             dumps_data = self._serializer.dumps(data).decode("utf-8")
         del data
 
-        self._redis.hset(
-            name=f"{self.session_path}:{session_key}",
-            key=session_id,
-            value=dumps_data,
+        self._write(
+            f"{self.session_path}:{session_key}",
+            "create",
+            "",
+            session_id,
+            dumps_data,
         )
-        logger.debug("Created session in Redis storage")
-        if self.ttl:
-            self._redis.hexpire(
-                f"{self.session_path}:{session_key}", self.ttl, session_id
-            )
-            logger.debug(
-                "Set session TTL in Redis storage to %d seconds",
-                self.ttl,
-            )
 
         return session_id
 
@@ -210,35 +227,20 @@ class RedisSessions(BaseSessionModule):
         decoded_session_key = self.__decode_session_id_if_needed__(
             session_id
         ).split(":", 1)
-        if self.get(session_id) is None:
-            logger.warning("Attempted to update a non-existent Redis session")
-            raise JamSessionNotFound(details={"session_id": session_id})
-
         try:
             dumps_data = self.__encode_session_data__(data)
         except AttributeError:
             dumps_data = self._serializer.dumps(data).decode("utf-8")
         del data
 
-        self._redis.hset(
-            name=f"{self.session_path}:{decoded_session_key[0]}",
-            key=session_id,
-            value=dumps_data,
+        self._write(
+            f"{self.session_path}:{decoded_session_key[0]}",
+            "update",
+            session_id,
+            session_id,
+            dumps_data,
         )
-        logger.debug("Updated session in Redis storage")
 
-        if self.ttl:
-            self._redis.hexpire(
-                f"{self.session_path}:{decoded_session_key[0]}",
-                self.ttl,
-                session_id,
-            )
-            logger.debug(
-                "Reset session TTL in Redis storage to %d seconds",
-                self.ttl,
-            )
-
-    # TODO: Optimize this method
     def rework(self, session_id: str) -> str:
         """Rework a session and return its new ID.
 
@@ -254,13 +256,16 @@ class RedisSessions(BaseSessionModule):
         decoded_session_key = self.__decode_session_id_if_needed__(
             session_id
         ).split(":", 1)
-        session_data = self.get(session_id)
-        if session_data is None:
-            raise JamSessionNotFound(details={"session_id": session_id})
-
-        new_session_id = self.create(decoded_session_key[0], session_data)
-
-        self.delete(session_id)
+        new_session_id = self.__encode_session_id_if_needed__(
+            f"{decoded_session_key[0]}:{self.id}"
+        )
+        self._write(
+            f"{self.session_path}:{decoded_session_key[0]}",
+            "rework",
+            session_id,
+            new_session_id,
+            "",
+        )
         return new_session_id
 
     def close(self) -> None:

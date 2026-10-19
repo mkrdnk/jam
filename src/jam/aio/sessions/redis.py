@@ -6,11 +6,19 @@ import os
 from uuid import uuid4
 
 from redis.asyncio import Redis  # type: ignore[attr-defined]
+from redis.exceptions import RedisError
 
 from jam.aio.sessions.__base__ import BaseAsyncSessionModule
 from jam.encoders import BaseEncoder, JsonEncoder
-from jam.exceptions import JamSessionNotFound
+from jam.exceptions import JamError
 from jam.sessions._codec import _normalize_session_payload
+from jam.sessions._redis import (
+    SESSION_WRITE,
+    UNSET_TTL,
+    _check_write_result,
+    _UnsetTTL,
+    _validate_ttl,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -32,6 +40,8 @@ class RedisSessions(BaseAsyncSessionModule):
         ),
         id_factory: Callable[[], str] = lambda: str(uuid4()),
         serializer: BaseEncoder | type[BaseEncoder] = JsonEncoder,
+        *,
+        ttl: int | None | _UnsetTTL = UNSET_TTL,
     ) -> None:
         """Initialize the async Redis session management module.
 
@@ -43,7 +53,11 @@ class RedisSessions(BaseAsyncSessionModule):
             session_aes_secret (Optional[bytes]): AES secret for encoding session keys. Required if `is_session_key_crypt` is True.
             id_factory (Callable[[], str], optional): A callable that generates unique IDs. Defaults to a UUID factory.
             serializer (Union[BaseEncoder, type[BaseEncoder]], optional): JSON encoder/decoder. Defaults to JsonEncoder.
+            ttl: Canonical TTL; overrides default_ttl when explicitly supplied.
         """
+        resolved_ttl = default_ttl if ttl is UNSET_TTL else ttl
+        assert not isinstance(resolved_ttl, _UnsetTTL)
+        _validate_ttl(resolved_ttl)
         super().__init__(
             id_factory=id_factory,
             is_session_crypt=is_session_crypt,
@@ -58,7 +72,7 @@ class RedisSessions(BaseAsyncSessionModule):
             self._owns_redis = False
         logger.debug("Async Redis session storage initialized")
 
-        self.ttl = default_ttl
+        self.ttl = resolved_ttl
         self.session_path = redis_sessions_key
 
     async def _ping(self) -> bool:
@@ -68,6 +82,22 @@ class RedisSessions(BaseAsyncSessionModule):
         except Exception as e:
             logger.error(f"Redis ping failed: {e}")
             return False
+
+    async def _write(
+        self, namespace: str, operation: str, old: str, new: str, data: str
+    ) -> None:
+        """Execute a session mutation and translate storage failures."""
+        ttl = _validate_ttl(self.ttl) or 0
+        try:
+            result = await self._redis.eval(
+                SESSION_WRITE, 1, namespace, operation, old, new, data, ttl
+            )
+        except RedisError as exc:
+            raise JamError(
+                message="Redis session write failed.",
+                error_code="sessions.storage_error",
+            ) from exc
+        _check_write_result(result)
 
     async def create(self, session_key: str, data: dict) -> str:
         """Create a new session with the given session key and data.
@@ -91,20 +121,13 @@ class RedisSessions(BaseAsyncSessionModule):
             dumps_data = self._serializer.dumps(data).decode("utf-8")
         del data
 
-        await self._redis.hset(  # type: ignore[not-async]
-            name=f"{self.session_path}:{session_key}",
-            key=session_id,
-            value=dumps_data,
+        await self._write(
+            f"{self.session_path}:{session_key}",
+            "create",
+            "",
+            session_id,
+            dumps_data,
         )
-        logger.debug("Created session in async Redis storage")
-        if self.ttl:
-            await self._redis.hexpire(  # type: ignore[not-async]
-                f"{self.session_path}:{session_key}", self.ttl, session_id
-            )
-            logger.debug(
-                "Set session TTL in async Redis storage to %d seconds",
-                self.ttl,
-            )
 
         return session_id
 
@@ -188,35 +211,19 @@ class RedisSessions(BaseAsyncSessionModule):
         decoded_session_key = self.__decode_session_id_if_needed__(
             session_id
         ).split(":", 1)
-        if await self.get(session_id) is None:
-            logger.warning(
-                "Attempted to update a non-existent async Redis session"
-            )
-            raise JamSessionNotFound(details={"session_id": session_id})
-
         try:
             dumps_data = self.__encode_session_data__(data)
         except AttributeError:
             dumps_data = self._serializer.dumps(data).decode("utf-8")
         del data
 
-        await self._redis.hset(  # type: ignore[not-async]
-            name=f"{self.session_path}:{decoded_session_key[0]}",
-            key=session_id,
-            value=dumps_data,
+        await self._write(
+            f"{self.session_path}:{decoded_session_key[0]}",
+            "update",
+            session_id,
+            session_id,
+            dumps_data,
         )
-        logger.debug("Updated session in async Redis storage")
-
-        if self.ttl:
-            await self._redis.hexpire(
-                f"{self.session_path}:{decoded_session_key[0]}",
-                self.ttl,
-                session_id,
-            )
-            logger.debug(
-                "Reset session TTL in async Redis storage to %d seconds",
-                self.ttl,
-            )
 
     async def rework(self, session_id: str) -> str:
         """Rework a session and return its new ID.
@@ -233,13 +240,16 @@ class RedisSessions(BaseAsyncSessionModule):
         decoded_session_key = self.__decode_session_id_if_needed__(
             session_id
         ).split(":", 1)
-        session_data = await self.get(session_id)
-        if session_data is None:
-            raise JamSessionNotFound(details={"session_id": session_id})
-
-        new_session_id = await self.create(decoded_session_key[0], session_data)
-
-        await self.delete(session_id)
+        new_session_id = self.__encode_session_id_if_needed__(
+            f"{decoded_session_key[0]}:{self.id}"
+        )
+        await self._write(
+            f"{self.session_path}:{decoded_session_key[0]}",
+            "rework",
+            session_id,
+            new_session_id,
+            "",
+        )
         return new_session_id
 
     async def aclose(self) -> None:

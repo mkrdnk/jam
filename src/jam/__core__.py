@@ -549,6 +549,9 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
         if isinstance(session_cfg, dict):
             cfg = session_cfg.copy()
             session_type = cfg.pop("type", None)
+            if session_type == "redis" and "default_ttl" in cfg:
+                cfg.setdefault("ttl", cfg["default_ttl"])
+                cfg.pop("default_ttl")
             session_serializer = cfg.pop("serializer", self._serializer)
             if self._async:
                 from jam.aio.sessions import (

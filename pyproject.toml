@@ -96,7 +96,7 @@ include = ["jam*"]
 [dependency-groups]
 dev = [
     "click>=8.5.0",
-    "fakeredis>=2.38.0",
+    "fakeredis[lua]>=2.38.0",
     "icecream>=2.2.0",
     "pre-commit>=4.6.2",
     "pyrefly>=0.56.0,<0.57",

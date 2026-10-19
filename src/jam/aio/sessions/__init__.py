@@ -62,7 +62,7 @@ def create_instance(
         return RedisSessions(
             redis_uri=kwargs.get("redis_uri", "redis://localhost:6379/0"),
             redis_sessions_key=kwargs.get("redis_sessions_key", "sessions"),
-            default_ttl=kwargs.get("default_ttl"),
+            ttl=kwargs.get("ttl", kwargs.get("default_ttl", 3600)),
             is_session_crypt=is_session_crypt,
             session_aes_secret=session_aes_secret,
             id_factory=id_factory,
