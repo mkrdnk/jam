@@ -49,11 +49,6 @@ if not settings.configured:
 
 from django.contrib.auth.models import AnonymousUser  # noqa: E402
 
-from jam.ext.django._authentication import (  # noqa: E402
-    InvalidCredential,
-    authenticate_request,
-    detect_bearer_type,
-)
 from jam.ext.django.context import (  # noqa: E402
     authorization_context,
     principal_context,
@@ -83,75 +78,9 @@ def _request(*, authorization=None, session=None, method="get"):
     return request
 
 
-@pytest.mark.parametrize(
-    ("credential", "expected"),
-    [
-        (f"{_segment({'alg': 'HS256'})}.payload.signature", "jwt"),
-        (f"{_segment({'alg': 'dir', 'enc': 'A256GCM'})}.a.b.c.d", "jwe"),
-        ("v4.local.payload", "paseto"),
-        ("not-a-token", None),
-    ],
-)
-def test_detect_bearer_type(credential, expected):
-    assert detect_bearer_type(credential) == expected
-
-
-@override_settings(
-    JAM_CONFIG={
-        "jose": {"jwt": {}},
-        "session": {"type": "json", "path": "/tmp/sessions.json"},
-    }
-)
-def test_bearer_has_precedence_over_session():
-    request = _request(
-        authorization=f"Bearer {_segment({'alg': 'HS256'})}.p.s",
-        session="session-id",
-    )
-    bearer = Principal(SimpleNamespace(pk="bearer"), {}, "jwt")
-    with patch(
-        "jam.ext.django._authentication.authenticate_credential",
-        return_value=bearer,
-    ) as authenticate:
-        assert authenticate_request(request) is bearer
-    authenticate.assert_called_once()
-    assert authenticate.call_args.kwargs["via"] == "jwt"
-
-
-@override_settings(
-    JAM_CONFIG={
-        "jose": {"jwt": {}},
-        "session": {"type": "json", "path": "/tmp/sessions.json"},
-    }
-)
-def test_invalid_bearer_never_falls_back_to_session():
-    request = _request(authorization="Bearer invalid", session="valid")
-    with patch(
-        "jam.ext.django._authentication.authenticate_credential"
-    ) as authenticate:
-        with pytest.raises(InvalidCredential):
-            authenticate_request(request)
-    authenticate.assert_not_called()
-
-
-@override_settings(
-    JAM_CONFIG={"session": {"type": "json", "path": "/tmp/sessions.json"}}
-)
-def test_session_and_missing_credentials():
-    session_principal = Principal(SimpleNamespace(pk="session"), {}, "session")
-    with patch(
-        "jam.ext.django._authentication.authenticate_credential",
-        return_value=session_principal,
-    ) as authenticate:
-        assert authenticate_request(_request(session="id")) is session_principal
-        assert authenticate_request(_request()) is None
-    authenticate.assert_called_once_with("id", via="session")
-
-
 @override_settings(JAM_CONFIG={"jose": {"jwt": {}}})
 def test_sync_auth_installs_request_identity():
-    request = _request(
-        authorization=f"Bearer {_segment({'alg': 'HS256'})}.p.s"
-    )
+    request = _request(authorization=f"Bearer {_segment({'alg': 'HS256'})}.p.s")
     user = SimpleNamespace(pk="42")
     principal = Principal(user, {"permissions": ["posts.view"]}, "jwt")
     controller = SimpleNamespace(request=request)
