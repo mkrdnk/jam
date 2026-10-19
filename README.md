@@ -260,3 +260,9 @@ Jam is licensed under the
   access; expiring hash fields require Redis 7.4+.
 - Async JSON sessions serialize operations within one backend instance;
   several instances or processes must not share the same file.
+- Known configuration sections are validated before modules are created.
+  Structural errors use `configuration.invalid_structure` and identify the
+  field without exposing configuration values. Format-specific pointer
+  behavior and extension keys retain their existing semantics.
+- JSON environment substitution treats inserted values literally, including
+  dollar signs, quotes and newlines; inserted values are not expanded again.

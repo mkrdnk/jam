@@ -3,6 +3,7 @@
 from collections.abc import Callable
 import copy
 from importlib import import_module
+import json
 import os
 import re
 import sys
@@ -11,6 +12,7 @@ from typing import Any
 from jam.__defaults__ import defaults
 from jam.encoders import BaseEncoder, JsonEncoder
 from jam.exceptions import JamConfigurationError
+from jam.utils.config_validator import _require_mapping
 
 
 GENERIC_POINTER = "jam"
@@ -96,8 +98,9 @@ def __yaml_config_parser(
     try:
         with open(path) as file:
             config = yaml.load(file, Loader=EnvVarLoader)
-        if not config:
+        if config is None:
             return {}
+        _require_mapping(config, "root")
         return config[pointer] if pointer in config else config
     except FileNotFoundError:
         raise JamConfigurationError(
@@ -220,123 +223,82 @@ def __toml_config_parser(
 def __json_config_parser(
     path: str, encoder: BaseEncoder | type[BaseEncoder] = JsonEncoder
 ) -> dict[str, Any]:
-    """JSON config parser with env substitution.
+    """Parse JSON with one-pass environment substitution.
 
-    Supports:
-    - ${VAR} - environment variable (required)
-    - ${VAR:-default} - environment variable with default value
-    - $VAR - short form (required)
+    Quoted and unquoted placeholders are supported. Environment values are
+    literal strings, including dollar signs, quotes and control characters.
 
     Args:
-        path (str): Path to JSON file
-        encoder (BaseEncoder | type[BaseEncoder]): Encoder to use for parsing
-
-    Raises:
-        JamConfigurationError: If file not found or invalid JSON or required env var not set
+        path: JSON configuration path.
+        encoder: JSON decoder.
 
     Returns:
-        dict[str, Any]: Parsed config with environment variable substitution
+        Parsed configuration with environment values substituted once.
+
+    Raises:
+        JamConfigurationError: The file, JSON or environment is invalid.
     """
     try:
-        with open(path) as f:
-            content = f.read()
-    except FileNotFoundError:
+        with open(path) as file:
+            content = file.read()
+    except FileNotFoundError as exc:
         raise JamConfigurationError(
             message=f"JSON config file not found at: {path}",
             error_code="configuration.file_not_found",
-        )
+        ) from exc
 
-    env_pattern = re.compile(
-        r"\$\{([^}^{]+?)(:-([^}]+))?\}|\$([A-Za-z_][A-Za-z0-9_]*)"
+    pattern = re.compile(
+        r"\$\{([^}^{]+?)(:-([^}]*))?\}|\$([A-Za-z_][A-Za-z0-9_]*)"
     )
-
-    def get_env_value(var_name: str, default_value: str | None) -> str:
-        env_value = os.getenv(var_name)
-        if env_value is None:
-            if default_value is not None:
-                return default_value
-            raise JamConfigurationError(
-                message=f"Environment variable '{var_name}' not set and no default provided",
-                error_code="configuration.env_var_not_set",
-            )
-        return env_value
-
-    def find_string_boundaries(content: str) -> list[tuple[int, int]]:
-        boundaries = []
-        in_string = False
-        escaped = False
-        start = -1
-
-        for i, char in enumerate(content):
-            if escaped:
-                escaped = False
-                continue
-            if char == "\\":
-                escaped = True
-                continue
-            if char == '"':
-                if not in_string:
-                    start = i
-                    in_string = True
-                else:
-                    boundaries.append((start, i))
-                    in_string = False
-                    start = -1
-
-        return boundaries
-
-    string_boundaries = find_string_boundaries(content)
-
-    def is_in_string(pos: int) -> bool:
-        for start, end in string_boundaries:
-            if start < pos < end:
-                return True
-        return False
-
-    def replace_env_in_content(match):
-        var_name = match.group(1) or match.group(4)
-        default_value = match.group(3) if match.group(3) is not None else None
-        start_pos = match.start()
-
-        in_string = is_in_string(start_pos)
-        env_value = get_env_value(var_name, default_value)
-
+    # Quote bare placeholders before decoding; expand only decoded strings.
+    quoted_positions: set[int] = set()
+    in_string = False
+    escaped = False
+    for index, char in enumerate(content):
         if in_string:
-            return env_value.replace("\\", "\\\\").replace('"', '\\"')
-        else:
-            escaped_value = env_value.replace("\\", "\\\\").replace('"', '\\"')
-            return f'"{escaped_value}"'
-
-    content = env_pattern.sub(replace_env_in_content, content)
-
+            quoted_positions.add(index)
+        if escaped:
+            escaped = False
+        elif char == "\\" and in_string:
+            escaped = True
+        elif char == '"':
+            in_string = not in_string
+    content = pattern.sub(
+        lambda match: (
+            match.group(0)
+            if match.start() in quoted_positions
+            else json.dumps(match.group(0))
+        ),
+        content,
+    )
     try:
         config = encoder.loads(content)
-    except Exception as e:
+    except (ValueError, TypeError, UnicodeError) as exc:
         raise JamConfigurationError(
-            message=f"Error parsing JSON file: {e}",
+            message="Error parsing JSON configuration.",
             error_code="configuration.json_parse_error",
-        ) from e
+        ) from exc
 
-    def _env_constructor(value: Any) -> Any:
-        if isinstance(value, str):
-
-            def replace_env_after(match):
-                var_name = match.group(1) or match.group(4)
-                default_value = (
-                    match.group(3) if match.group(3) is not None else None
-                )
-                return get_env_value(var_name, default_value)
-
-            if env_pattern.search(value):
-                return env_pattern.sub(replace_env_after, value)
-        elif isinstance(value, dict):
-            return {k: _env_constructor(v) for k, v in value.items()}
-        elif isinstance(value, list):
-            return [_env_constructor(v) for v in value]
+    def replace(match: re.Match[str]) -> str:
+        name = match.group(1) or match.group(4)
+        value = os.getenv(name, match.group(3))
+        if value is None:
+            raise JamConfigurationError(
+                message=f"Environment variable '{name}' not set.",
+                error_code="configuration.env_var_not_set",
+            )
         return value
 
-    config = _env_constructor(config)
-    return config
+    def expand(value: Any) -> Any:
+        if isinstance(value, str):
+            return pattern.sub(replace, value)
+        if isinstance(value, dict):
+            return {expand(key): expand(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [expand(item) for item in value]
+        return value
+
+    return _require_mapping(expand(config), "root")
 
 
 def __config_cache_clear__() -> None:
@@ -364,25 +326,22 @@ def __config_maker__(
         ext = config.split(".")[-1].lower()
         match ext:
             case "yml" | "yaml":
-                result = __yaml_config_parser(
-                    path=config, pointer=pointer
-                ).copy()
+                result = __yaml_config_parser(path=config, pointer=pointer)
             case "toml":
-                result = __toml_config_parser(
-                    path=config, pointer=pointer
-                ).copy()
+                result = __toml_config_parser(path=config, pointer=pointer)
             case "json":
-                result = __json_config_parser(path=config).copy()
+                result = __json_config_parser(path=config)
             case _:
                 raise JamConfigurationError(
                     message="YML/YAML, TOML or JSON configs only!",
                     error_code="configuration.invalid_config_type",
                 )
 
+        result = _require_mapping(result, pointer or "root").copy()
         if defaults.CONFIG_CACHING:
             CONFIG_CACHE[key] = copy.deepcopy(result)
     else:
-        result = config.copy()
+        result = _require_mapping(config, "root").copy()
 
     return result
 

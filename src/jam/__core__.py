@@ -28,6 +28,7 @@ from jam.paseto.utils import _format_registered_datetime
 from jam.plugins.__base__ import BasePlugin
 from jam.subject import BaseSubject
 from jam.utils.config_maker import __config_maker__, __module_loader__
+from jam.utils.config_validator import __config_validator__
 
 
 if TYPE_CHECKING:
@@ -98,6 +99,7 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
         if config is None:
             config = self.config or {}
         config = __config_maker__(config, pointer)
+        __config_validator__(config)
         serializer = self.__build_main_config(config, serializer)
 
         self.config = config
@@ -405,6 +407,15 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
                 serializer = serializer_cfg
             elif isinstance(serializer_cfg, BaseEncoder):
                 serializer = serializer_cfg
+            else:
+                raise JamConfigurationError(
+                    message="Invalid serializer configuration.",
+                    error_code="configuration.invalid_structure",
+                    details={
+                        "field": "serializer",
+                        "expected": "encoder or dotted path",
+                    },
+                )
 
         return serializer
 
