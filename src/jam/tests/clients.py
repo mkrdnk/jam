@@ -200,7 +200,7 @@ class FakeJWT:
             "iss": iss,
             "sub": sub,
             "aud": aud,
-            "exp": now + exp if exp else None,
+            "exp": now + exp if exp is not None else None,
             "nbf": now + nbf if nbf is not None else None,
         }
         claims.update(payload or {})
@@ -226,7 +226,7 @@ class FakeJWT:
             raise JamJWSVerificationError from error
         if validate_claims:
             now = time.time()
-            if payload.get("exp") is not None and payload["exp"] < now:
+            if payload.get("exp") is not None and payload["exp"] <= now:
                 raise JamJWTExpired
             if payload.get("nbf") is not None and payload["nbf"] > now:
                 raise JamJWTNotYetValid
@@ -240,7 +240,9 @@ class FakeJWT:
         """Create a test JWE."""
         return self.jwe.encrypt(plaintext, header)
 
-    def decrypt(self, token: str) -> dict[str, Any] | bytes:
+    def decrypt(
+        self, token: str, *, check_list: bool = True
+    ) -> dict[str, Any] | bytes:
         """Decrypt a test JWE, decoding JSON objects when possible."""
         plaintext = self.jwe.decrypt(token)
         try:

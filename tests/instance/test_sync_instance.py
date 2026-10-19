@@ -350,10 +350,10 @@ def test_jwe_authentication_validates_nested_claims():
         jam.authenticate(token, via="jwe")
 
 
-def test_issue_rejects_jwe(jam_jwt_instance):
+def test_issue_jwe_requires_encryption(jam_jwt_instance):
     with pytest.raises(
         JamConfigurationError,
-        match="Unknown 'via' type: jwe",
+        match="JWE module is not configured",
     ):
         jam_jwt_instance.issue(
             {"id": "user123"},

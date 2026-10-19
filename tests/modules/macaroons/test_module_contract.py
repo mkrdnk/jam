@@ -113,6 +113,7 @@ def test_core_delegates_config_without_interpreting_it(monkeypatch, facade):
 
 def test_closed_credential_types():
     assert set(get_args(JamIssueType)) == {
+        "jwe",
         "jwt",
         "paseto",
         "session",

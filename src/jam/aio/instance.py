@@ -59,6 +59,10 @@ class AsyncJam(BaseAsyncJam):
                     self._macaroon_list, token
                 )
                 return token
+            case "jwe":
+                token = self._issue_jwe(payload, exp, iss, aud, nbf, jti)
+                await self._register_allowlisted_token(self._jwt_list, token)
+                return token
             case "jwt":
                 return await self._issue_jwt(payload, exp, iss, aud, nbf, jti)
             case "paseto":
@@ -95,7 +99,7 @@ class AsyncJam(BaseAsyncJam):
             case _:
                 raise JamConfigurationError(
                     message=f"Unknown 'via' type: {via}. "
-                    "Available: jwt, paseto, session, macaroon, saml",
+                    "Available: jwt, jwe, paseto, session, macaroon, saml",
                     error_code="configuration.issue_unknown_via",
                 )
 
@@ -120,7 +124,9 @@ class AsyncJam(BaseAsyncJam):
                 await self._check_token_list(self._jwt_list, token)
                 payload = self.jwt.decode(token, check_list=False)["payload"]
             case "jwe":
-                payload = self._authenticate_jwe(token)
+                self._require_signed_jwe()
+                await self._check_token_list(self._jwt_list, token)
+                payload = self._authenticate_jwe(token, check_list=False)
             case "paseto":
                 await self._check_token_list(self._paseto_list, token)
                 payload, _footer = self.paseto.decode(token)

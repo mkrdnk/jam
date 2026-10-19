@@ -66,7 +66,7 @@ class BaseJam(_JamCore[BaseSessionModule, BaseOAuth2Client], ABC):
 
         Args:
             subject (BaseSubject | dict[str, Any]): Subject instance.
-            via (JamIssueType): Token type: "jwt", "paseto", "session",
+            via (JamIssueType): Token type: "jwt", "jwe", "paseto", "session",
                 "macaroon", or "saml".
             exp (int | None): Expiration in seconds.
             iss (str | None): Issuer.

@@ -95,11 +95,14 @@ class BaseJWT(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def decrypt(self, token: str) -> dict[str, Any] | bytes:
+    def decrypt(
+        self, token: str, *, check_list: bool = True
+    ) -> dict[str, Any] | bytes:
         """Decrypt JWE token.
 
         Args:
             token: JWE compact serialization string.
+            check_list: Enforce the configured token list.
 
         Returns:
             bytes: Decrypted plaintext.

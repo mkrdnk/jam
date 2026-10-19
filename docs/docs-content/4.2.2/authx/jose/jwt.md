@@ -299,3 +299,36 @@ jti = jwt.jti
 print(jti)
 >>> "0c2c38d2-5dcb-4294-bb2d-0820f6ff787d"
 ```
+
+## Encrypted credentials and token lists
+
+Both facades issue signed, encrypted credentials with `via="jwe"`:
+
+```python
+token = jam.issue(user, via="jwe", exp=3600, permissions=["profile:read"])
+principal = jam.authenticate(token, via="jwe")
+
+# AsyncJam registers and checks async token lists through await.
+token = await async_jam.issue(user, via="jwe", exp=3600)
+principal = await async_jam.authenticate(token, via="jwe")
+```
+
+Configure both signing and encryption under `jose.jwt`. Facade JWE
+credentials require a nested signature. Registered claims use the same
+relative-time API as JWT issuance; `exp=0` expires immediately.
+
+The `jose.jwt.list` configuration applies to the complete outer JWE token.
+Only that token is registered in an allowlist, not the inner JWS. Issuance
+fails if allowlist registration fails. Authentication rejects denylisted
+tokens and tokens missing from an allowlist before decrypting them.
+
+For standalone synchronous modules, `JWT.encrypt()` registers the resulting
+JWE in its allowlist, and `JWT.decrypt(token, *, check_list=True)` checks the
+configured list. `check_list=False` explicitly skips only that list check;
+cryptographic verification still runs. Low-level decryption retains its
+existing claims-validation behavior; use facade authentication for complete
+credential validation. Low-level modules exposed by `AsyncJam` remain
+synchronous: use the facade to access async token lists.
+
+This closes the previous JWE list bypass. Existing JWE credentials must be
+present in a configured allowlist to authenticate after upgrading.

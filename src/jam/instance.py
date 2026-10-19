@@ -59,7 +59,7 @@ class Jam(BaseJam):
 
         Args:
             subject (BaseSubject): Subject instance or dict with an "id".
-            via (JamIssueType): Token type: "jwt", "paseto", "session",
+            via (JamIssueType): Token type: "jwt", "jwe", "paseto", "session",
                 "macaroon", or "saml".
             exp (int | None): Expiration in seconds.
             iss (str | None): Issuer.
@@ -95,6 +95,9 @@ class Jam(BaseJam):
                     self._macaroon_list, credential
                 )
                 return credential
+            case "jwe":
+                token = self._issue_jwe(payload, exp, iss, aud, nbf, jti)
+                return token
             case "jwt":
                 credential = self.jwt.encode(
                     payload=payload,
@@ -141,7 +144,7 @@ class Jam(BaseJam):
                 )
                 raise JamConfigurationError(
                     message=f"Unknown 'via' type: {via}. "
-                    "Available: jwt, paseto, session, macaroon, saml",
+                    "Available: jwt, jwe, paseto, session, macaroon, saml",
                     error_code="configuration.issue_unknown_via",
                 )
 

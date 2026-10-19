@@ -90,6 +90,32 @@ def _validate_registered_claims(payload: dict[str, Any]) -> None:
             raise JamJWTNotYetValid(details={"nbf": nbf, "now": now})
 
 
+def _make_jwt_payload(
+    iss: str | None,
+    sub: str | None,
+    aud: str | None,
+    exp: int | None,
+    nbf: int | None,
+    jti: str | None,
+    data: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Build registered JWT claims with relative expiration times."""
+    now = int(time.time())
+    payload = {
+        "jti": jti,
+        "iat": now,
+        "iss": iss,
+        "sub": sub,
+        "aud": aud,
+        "exp": now + exp if exp is not None else None,
+        "nbf": now + nbf if nbf is not None else None,
+    }
+    if data:
+        payload.update(data)
+    payload = {k: v for k, v in payload.items() if v is not None}
+    return payload
+
+
 if TYPE_CHECKING:
     from jam.jose.jwk import JWK
     from jam.keychain import BaseKeyChain
@@ -450,31 +476,6 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
             self._algorithm = create_algorithm(alg, key, self._password)
         return self._algorithm
 
-    def _make_payload(
-        self,
-        iss: str | None,
-        sub: str | None,
-        aud: str | None,
-        exp: int | None,
-        nbf: int | None,
-        jti: str | None,
-        data: dict[str, Any] | None,
-    ) -> dict[str, Any]:
-        now = int(time.time())
-        payload = {
-            "jti": jti,
-            "iat": now,
-            "iss": iss,
-            "sub": sub,
-            "aud": aud,
-            "exp": now + exp if exp else None,
-            "nbf": now + nbf if nbf is not None else None,
-        }
-        if data:
-            payload.update(data)
-        payload = {k: v for k, v in payload.items() if v is not None}
-        return payload
-
     @property
     def jti(self) -> str:
         """The JWT ID."""
@@ -521,7 +522,7 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         _base_header = {"alg": self._alg, "typ": "JWT"}
         if header:
             _base_header.update(header)
-        _payload = self._make_payload(iss, sub, aud, exp, nbf, jti, payload)
+        _payload = _make_jwt_payload(iss, sub, aud, exp, nbf, jti, payload)
         if self.keychain is not None:
             key_id, material = self.keychain._material_for_issue()
             _base_header["kid"] = key_id
@@ -657,6 +658,9 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         1. Create JWS compact serialization (sign)
         2. Use JWS result as plaintext for JWE (encrypt)
 
+        The outer token is registered in a configured allowlist. Registration
+        failures propagate instead of returning an unusable credential.
+
         Args:
             plaintext (bytes | str | dict[str, Any]): Data to encrypt. If dict, will be JSON encoded.
             header (dict[str, Any] | None): Additional JWE header.
@@ -688,6 +692,8 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
             token = self.jwe.encrypt(jws_payload, header)
         else:
             token = self.jwe.encrypt(payload_bytes, header)
+        if self.list is not None and self.list.__list_type__ == "white":
+            self.list.add(token)
         logger.debug(
             "Encrypted JWT with alg=%s, enc=%s, and payload_size=%d",
             self._alg,
@@ -696,7 +702,9 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
         )
         return token
 
-    def decrypt(self, token: str) -> dict[str, Any] | bytes:
+    def decrypt(
+        self, token: str, *, check_list: bool = True
+    ) -> dict[str, Any] | bytes:
         """Decrypt JWE or JWS+JWE token.
 
         If token is JWS+JWE (sign then encrypt):
@@ -705,6 +713,7 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
 
         Args:
             token: Encrypted JWT token.
+            check_list: Enforce the configured list on the outer JWE token.
 
         Returns:
             dict[str, Any]: Decrypted payload.
@@ -717,6 +726,18 @@ class JWT(BaseJWT, metaclass=ConfigMeta):
                 message="JWE not configured. Provide 'enc' parameter.",
                 error_code="configuration.jwt.jwe_not_configured",
             )
+
+        if check_list and self.list is not None:
+            if self.list.__list_type__ not in ("white", "black"):
+                raise JamConfigurationError(
+                    message="Invalid JWT list type",
+                    error_code="configuration.jwt.unknown_list_type",
+                )
+            listed = self.list.check(token)
+            if self.list.__list_type__ == "white" and not listed:
+                raise JamTokenNotInAllowList
+            if self.list.__list_type__ == "black" and listed:
+                raise JamTokenInDenyList
 
         logger.debug(
             "Decrypting JWT with alg=%s, enc=%s, and nested_jws=%s",

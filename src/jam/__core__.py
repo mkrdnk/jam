@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-JamIssueType = Literal["jwt", "paseto", "session", "macaroon", "saml"]
+JamIssueType = Literal["jwe", "jwt", "paseto", "session", "macaroon", "saml"]
 JamAuthType = Literal["jwt", "jwe", "paseto", "session", "macaroon", "saml"]
 
 _SessionT = TypeVar("_SessionT")
@@ -300,24 +300,8 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
                     return False
         return self._policy.check(principal, permission, context)
 
-    def _authenticate_jwe(self, token: str) -> dict[str, Any]:
-        """Decrypt an encrypted, signed JWT for authentication.
-
-        JWE alone proves that a sender could encrypt to the recipient. With
-        asymmetric key management, that capability is intentionally public,
-        so an unsigned JWE cannot establish the identity of its issuer.
-
-        Args:
-            token: JWE compact serialization containing a nested JWS.
-
-        Returns:
-            dict[str, Any]: Verified claims from the nested JWS.
-
-        Raises:
-            JamConfigurationError: If JWE or nested JWS is not configured.
-            JamJWSVerificationError: If the authenticated payload is not an
-                object.
-        """
+    def _require_signed_jwe(self) -> JWT:
+        """Require encryption and nested signature for facade credentials."""
         jwt = self.jwt
         if jwt.jwe is None:
             raise JamConfigurationError(
@@ -333,7 +317,56 @@ class _JamCore(Generic[_SessionT, _OAuth2ClientT]):
                 error_code="configuration.jwe.authentication_requires_jws",
             )
 
-        decrypted = jwt.decrypt(token)
+        return jwt
+
+    def _issue_jwe(
+        self,
+        payload: dict[str, Any],
+        exp: int | None,
+        iss: str | None,
+        aud: str | None,
+        nbf: int | None,
+        jti: str | None,
+    ) -> str:
+        """Build JWT claims and encrypt a signed credential."""
+        from jam.jose.jwt import _make_jwt_payload
+
+        jwt = self._require_signed_jwe()
+        claims = _make_jwt_payload(
+            iss,
+            None,
+            aud,
+            exp,
+            nbf,
+            jwt.jti if jti is None else jti,
+            payload,
+        )
+        return jwt.encrypt(claims)
+
+    def _authenticate_jwe(
+        self, token: str, *, check_list: bool = True
+    ) -> dict[str, Any]:
+        """Decrypt an encrypted, signed JWT for authentication.
+
+        JWE alone proves that a sender could encrypt to the recipient. With
+        asymmetric key management, that capability is intentionally public,
+        so an unsigned JWE cannot establish the identity of its issuer.
+
+        Args:
+            token: JWE compact serialization containing a nested JWS.
+            check_list: Enforce the synchronous token list.
+
+        Returns:
+            dict[str, Any]: Verified claims from the nested JWS.
+
+        Raises:
+            JamConfigurationError: If JWE or nested JWS is not configured.
+            JamJWSVerificationError: If the authenticated payload is not an
+                object.
+        """
+        jwt = self._require_signed_jwe()
+
+        decrypted = jwt.decrypt(token, check_list=check_list)
         if not isinstance(decrypted, dict):
             raise JamJWSVerificationError(
                 message="JWE payload is not a serialized object.",

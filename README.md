@@ -248,3 +248,9 @@ uv run pytest -x
 
 Jam is licensed under the
 [Apache License 2.0](https://github.com/mkrdnk/jam/blob/master/LICENSE.md).
+
+### Reliability contracts
+
+- `Jam.issue(..., via="jwe")` and `await AsyncJam.issue(..., via="jwe")`
+  issue signed, encrypted credentials and register the outer token in a
+  configured allowlist. JWE authentication enforces `jose.jwt.list`.

@@ -69,7 +69,7 @@ async def test_jwt_issue_and_authenticate():
 
 
 @pytest.mark.asyncio
-async def test_issue_rejects_jwe():
+async def test_issue_jwe_requires_encryption():
     jam = AsyncJam(
         config={
             "jose": {
@@ -83,7 +83,7 @@ async def test_issue_rejects_jwe():
 
     with pytest.raises(
         JamConfigurationError,
-        match="Unknown 'via' type: jwe",
+        match="JWE module is not configured",
     ):
         await jam.issue(
             {"id": "user123"},
