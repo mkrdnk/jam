@@ -1,6 +1,6 @@
 [project]
 name = "jamlib"
-version = "4.2.2a3"
+version = "4.2.2a4"
 description = "A modular authentication and authorization framework for Python."
 authors = [
     {name = "Makridenko Adrian",email = "adrianmakridenko@duck.com"},
@@ -55,7 +55,7 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://jam.makridenko.ru"
+Homepage = "https://jam.makridenko.com"
 Repository = "https://github.com/mkrdnk/jam"
 Issues = "https://github.com/mkrdnk/jam/issues"
 Changelog = "https://github.com/mkrdnk/jam/blob/master/CHANGELOG.md"
