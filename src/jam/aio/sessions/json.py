@@ -1,31 +1,26 @@
-# -*- coding: utf-8 -*-
+"""Serialized, thread-adapted JSON session storage."""
 
 import asyncio
 from collections.abc import Callable
-from dataclasses import dataclass, field
-from datetime import datetime
+from threading import Lock
+from typing import Any, TypeVar
 from uuid import uuid4
-
-
-try:
-    import tinydb
-except ImportError:
-    raise ImportError(
-        "JSON module is not installed. Please install it with 'pip install jamlib[json]'."
-    )
-
-import logging
 
 from jam.aio.sessions.__base__ import BaseAsyncSessionModule
 from jam.encoders import BaseEncoder, JsonEncoder
-from jam.exceptions import JamSessionNotFound
+from jam.exceptions import JamError
+from jam.sessions.json import JSONSessions as SyncJSONSessions
 
 
-logger = logging.getLogger(__name__)
+_ResultT = TypeVar("_ResultT")
 
 
 class JSONSessions(BaseAsyncSessionModule):
-    """Async session management module for JSON storage."""
+    """Async JSON sessions with exclusive access within one instance.
+
+    Sharing the same file between instances or processes is unsupported.
+    Cancellation does not interrupt a worker that has already started.
+    """
 
     def __init__(
         self,
@@ -35,181 +30,82 @@ class JSONSessions(BaseAsyncSessionModule):
         id_factory: Callable[[], str] = lambda: str(uuid4()),
         serializer: BaseEncoder | type[BaseEncoder] = JsonEncoder,
     ) -> None:
-        """Initialize the async JSON session management module.
+        """Initialize storage and its worker-side lock.
 
         Args:
-            json_path (str): Path to the JSON file where sessions will be stored.
-            is_session_crypt (bool): If True, session keys will be encoded.
-            session_aes_secret (Optional[bytes]): AES secret for encoding session keys. Required if `is_session_crypt` is True.
-            id_factory (Callable[[], str], optional): A callable that generates unique IDs. Defaults to a UUID factory.
-            serializer (Union[BaseEncoder, type[BaseEncoder]], optional): JSON encoder/decoder. Defaults to JsonEncoder.
+            json_path: Storage file, exclusively owned by this instance.
+            is_session_crypt: Whether to encrypt identifiers and payloads.
+            session_aes_secret: Fernet encryption key.
+            id_factory: Factory for fresh session identifiers.
+            serializer: Payload serializer.
         """
         super().__init__(
+            id_factory=id_factory,
+            is_session_crypt=is_session_crypt,
+            session_aes_secret=session_aes_secret,
+            serializer=serializer,
+        )
+        self._session = SyncJSONSessions(
+            json_path=json_path,
             is_session_crypt=is_session_crypt,
             session_aes_secret=session_aes_secret,
             id_factory=id_factory,
             serializer=serializer,
         )
-        self._db = tinydb.TinyDB(json_path)
-        self._qs = tinydb.Query()
-        logger.debug("JSON database initialized at %s", json_path)
+        self._lock = Lock()
+        self._closed = False
 
-    @dataclass
-    class _SessionDoc:
-        key: str
-        session_id: str
-        data: str
-        created_at: float = field(default_factory=datetime.now().timestamp)
+    def _locked(
+        self, operation: Callable[..., _ResultT], *args: Any
+    ) -> _ResultT:
+        """Run a whole storage operation while holding the worker lock."""
+        with self._lock:
+            if self._closed:
+                raise JamError(
+                    message="JSON session storage is closed.",
+                    error_code="sessions.closed",
+                )
+            return operation(*args)
 
-    async def create(self, session_key: str, data: dict) -> str:
-        """Create a new session.
-
-        Args:
-            session_key (str): The session key.
-            data (dict): The data to be stored in the session.
-
-        Returns:
-            str: The ID of the created session.
-        """
-        session_id = self.__encode_session_id_if_needed__(self.id)
-
-        try:
-            dumps_data = self.__encode_session_data__(data)
-        except AttributeError:
-            dumps_data = self._serializer.dumps(data).decode("utf-8")
-        del data
-
-        doc = self._SessionDoc(
-            key=session_key,
-            session_id=session_id,
-            data=dumps_data,
+    async def create(self, session_key: str, data: dict[str, Any]) -> str:
+        """Create a session without blocking the event loop."""
+        return await asyncio.to_thread(
+            self._locked, self._session.create, session_key, data
         )
 
-        await asyncio.to_thread(self._db.insert, doc.__dict__)
-        logger.debug("Created session in async JSON storage")
-        return session_id
-
-    async def get(self, session_id) -> dict | None:
-        """Retrieve session data by session ID.
-
-        Args:
-            session_id (str): The ID of the session to retrieve.
-
-        Returns:
-            dict | None: The session data if found, otherwise None.
-        """
-        logger.debug("Reading session from async JSON storage")
-        # session_id = self.__decode_session_id_if_needed__(session_id)
-        result = await asyncio.to_thread(
-            self._db.search, self._qs.session_id == session_id
+    async def get(self, session_id: str) -> dict[str, Any] | None:
+        """Read a session, or return None when it does not exist."""
+        return await asyncio.to_thread(
+            self._locked, self._session.get, session_id
         )
-        if result:
-            try:
-                loads_data = self.__decode_session_data__(result[0]["data"])
-            except AttributeError:
-                loads_data = self._serializer.loads(result[0]["data"])
-            logger.debug(
-                "Found session in async JSON storage with data_key_count=%d",
-                len(loads_data) if isinstance(loads_data, dict) else 0,
-            )
-            del result
-            return loads_data
-        logger.debug("Session not found in async JSON storage")
-        return None
 
     async def delete(self, session_id: str) -> None:
-        """Delete a session by its ID.
+        """Delete a session under the same lock as updates and rotation."""
+        await asyncio.to_thread(self._locked, self._session.delete, session_id)
 
-        Args:
-            session_id (str): The ID of the session to delete.
-
-        Returns:
-            None
-        """
-        logger.debug("Deleting session from async JSON storage")
-        removed_count = await asyncio.to_thread(
-            self._db.remove, self._qs.session_id == session_id
-        )
-        logger.debug(
-            "Deleted session from async JSON storage, removed_document_count=%d",
-            len(removed_count),
-        )
-
-    async def update(self, session_id: str, data: dict) -> None:
-        """Update session data by its ID.
-
-        Args:
-            session_id (str): The ID of the session to update.
-            data (dict): The new data to store in the session.
-
-        Raises:
-            JamSessionNotFound: If session not found
-
-        Returns:
-            None
-        """
-        logger.debug(
-            "Updating session in async JSON storage with data_key_count=%d",
-            len(data),
-        )
-        try:
-            dumps_data = self.__encode_session_data__(data)
-        except AttributeError:
-            dumps_data = self._serializer.dumps(data).decode("utf-8")
-        del data
-
-        if not self._db.search(self._qs.session_id == session_id):
-            raise JamSessionNotFound(details={"session_id": session_id})
-
-        updated_count = await asyncio.to_thread(
-            self._db.update,
-            {"data": dumps_data},
-            self._qs.session_id == session_id,
-        )
-        logger.debug(
-            "Updated session in async JSON storage, modified_document_count=%d",
-            len(updated_count),
+    async def update(self, session_id: str, data: dict[str, Any]) -> None:
+        """Update an existing session as one worker operation."""
+        await asyncio.to_thread(
+            self._locked, self._session.update, session_id, data
         )
 
     async def clear(self, session_key: str) -> None:
-        """Clear all sessions for a given session key.
-
-        Args:
-            session_key (str): The session key to clear.
-
-        Returns:
-            None
-        """
-        await asyncio.to_thread(self._db.remove, self._qs.key == session_key)
-        logger.debug("Cleared sessions from async JSON storage")
+        """Delete all sessions in the specified namespace."""
+        await asyncio.to_thread(self._locked, self._session.clear, session_key)
 
     async def rework(self, session_id: str) -> str:
-        """Rework (regenerate) a session ID.
-
-        Args:
-            session_id (str): The current session ID to be reworked.
-
-        Raises:
-            JamSessionNotFound: If session not found
-
-        Returns:
-            str: The new session ID.
-        """
-        result = await asyncio.to_thread(
-            self._db.search, self._qs.session_id == session_id
+        """Rotate an existing session identifier under the storage lock."""
+        return await asyncio.to_thread(
+            self._locked, self._session.rework, session_id
         )
-        if not result:
-            raise JamSessionNotFound(details={"session_id": session_id})
 
-        new_session_id = self.__encode_session_id_if_needed__(self.id)
-        await asyncio.to_thread(
-            self._db.update,
-            {"session_id": new_session_id},
-            self._qs.session_id == session_id,
-        )
-        logger.debug("Regenerated session ID in async JSON storage")
-        return new_session_id
+    def _close(self) -> None:
+        """Wait for any running operation and close storage once."""
+        with self._lock:
+            if not self._closed:
+                self._session.close()
+                self._closed = True
 
     async def aclose(self) -> None:
-        """Close the TinyDB file without blocking the event loop."""
-        await asyncio.to_thread(self._db.close)
+        """Close storage without blocking the event loop."""
+        await asyncio.to_thread(self._close)

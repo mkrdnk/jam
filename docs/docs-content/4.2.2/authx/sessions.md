@@ -425,3 +425,15 @@ the configured TTL. ID collisions raise `JamError` with
 Existing stored sessions are not migrated: previously unbounded sessions
 keep their lifetime until updated, rotated or deleted. Set `ttl=None`
 explicitly when unlimited storage is intended.
+
+## Async JSON concurrency
+
+One async JSON backend serializes all storage operations in worker threads.
+It supports concurrent requests without blocking the event loop. Sharing a
+file between backend instances or processes is unsupported; use Redis for
+shared storage.
+
+Cancelling a caller does not stop a worker already executing a storage
+operation. The worker retains its lock until it finishes. `aclose()` waits
+for active storage work and closes the file once; later operations raise
+`JamError` with `sessions.closed`.

@@ -258,3 +258,5 @@ Jam is licensed under the
   for unlimited storage. The legacy `default_ttl` facade key remains
   supported; `ttl` takes precedence. Atomic session writes require `EVAL`
   access; expiring hash fields require Redis 7.4+.
+- Async JSON sessions serialize operations within one backend instance;
+  several instances or processes must not share the same file.
